@@ -1,0 +1,44 @@
+[project]
+name = "node-dag"
+version = "0.1.0"
+description = "Run a DAG of typed nodes as a Temporal workflow."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "pydantic",
+    "temporalio",
+    "click",
+    "pydantic-ai-slim>=2.52.0",
+    "fastapi>=0.142.2",
+    "uvicorn>=0.54.0",
+]
+
+[dependency-groups]
+dev = ["pytest", "pytest-asyncio", "ruff", "ty"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src", "."]
+include = ["node_dag*", "temporal*"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+"temporal" = "temporal"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.ruff.lint.isort]
+known-first-party = ["node_dag", "temporal"]
+
+[tool.ruff.lint]
+extend-select = ["I", "ANN", "D101", "D102", "D103"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN", "D103"]
+
+[tool.ty.environment]
+python = "./.venv"
+python-version = "3.12"
