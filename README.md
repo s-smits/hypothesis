@@ -14,9 +14,14 @@ workflow, and a verifier agent judges whether the outcome meets the goal.
 - **Scalable.** Runs are Temporal workflows. Steps that are ready together run in
   parallel, and you add workers to run more.
 
-Every hypothesis, with its DAG, outcome and verdict:
+Every goal, and how many of its hypotheses met it:
 
-![The hypotheses page](docs/hypotheses.png)
+![The goals list](docs/goals.png)
+
+Click a goal to list its hypotheses, then a hypothesis to see its DAG, outcome and
+verdict:
+
+![One hypothesis](docs/hypotheses.png)
 
 Each run, with the status of every step:
 
@@ -99,8 +104,10 @@ Each step shows its status: pending, running, done, skipped or failed. The page 
 the workflow's `progress` query every 2 seconds, so a worker must be running to answer
 it. `--step-delay` makes each step sleep first, so you can watch a run progress.
 
-http://127.0.0.1:8000/hypotheses lists every saved Hypothesis: its goal, inputs,
-hypothesis, outcome and verdict, with its DAG and a link to its run. It reads the files
+http://127.0.0.1:8000/hypotheses lists every goal with a count of its hypotheses by
+status. Click a goal to list its hypotheses, each with its status, a summary and its
+inputs. Click a hypothesis to see all of it: inputs, hypothesis, outcome, verdict, its
+DAG step by step, and a link to its run. It reads the files
 under `results/`, so it needs no worker.
 
 ```bash
@@ -130,3 +137,10 @@ uv run python -m temporal.run_worker &
 uv run --with 'pydantic-ai-slim[bedrock]' python -m temporal.run_hypothesis examples/double.json \
   --model bedrock:eu.anthropic.claude-haiku-4-5-20251001-v1:0
 ```
+
+
+## Nodes/tools
+
+We have $150 in Modal credits. You can use these inside a node to run on larger machines or on GPUs.
+
+We also have $20 of HuggingFace Jobs, which is pretty similar.

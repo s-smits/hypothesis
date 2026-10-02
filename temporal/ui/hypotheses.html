@@ -27,7 +27,6 @@
   header #updated { color: var(--muted); font-size: 12px; margin-left: auto; }
   main { max-width: 980px; margin: 0 auto; padding: 20px 16px; display: flex; flex-direction: column; gap: 14px; }
   .counts { display: flex; gap: 14px; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
-  #list { display: flex; flex-direction: column; gap: 12px; }
   .empty { color: var(--muted); padding: 20px 0; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
   .top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
@@ -48,14 +47,27 @@
   .verdict { border-left: 3px solid var(--line); padding: 6px 10px; background: var(--bg); border-radius: 0 6px 6px 0; }
   .verdict.yes { border-color: var(--done); }
   .verdict.no { border-color: var(--amber); }
-  details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
-  details[open] summary { margin-bottom: 8px; }
   .table { overflow-x: auto; }
   table { border-collapse: collapse; width: 100%; }
   th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { color: var(--muted); font-weight: 500; font-size: 12px; }
   td code { font-size: 12px; }
   a { color: var(--running); }
+  .crumbs { font-size: 13px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; }
+  .crumbs a, .crumbs b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60ch; }
+  .crumbs a { color: var(--muted); }
+  .crumbs b { color: var(--text); font-weight: 500; }
+  h2 { font-size: 18px; margin: 0; }
+  .rows { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; padding: 12px 16px; border-bottom: 1px solid var(--line); cursor: pointer; color: inherit; text-decoration: none; }
+  .row:last-child { border-bottom: 0; }
+  .row:hover { background: var(--accent-bg); }
+  .row .title { font-weight: 600; min-width: 0; }
+  .row .summary { color: var(--text); min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .row .side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .row .tally { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .row .line { display: flex; gap: 8px; align-items: baseline; min-width: 0; }
+  @media (max-width: 600px) { .row { grid-template-columns: minmax(0, 1fr); } .row .side { align-items: flex-start; flex-direction: row; flex-wrap: wrap; } }
 </style>
 </head>
 <body>
@@ -64,20 +76,82 @@
   <nav><a href="/">Runs</a><a href="/hypotheses" class="here">Hypotheses</a></nav>
   <span id="updated"></span>
 </header>
-<main>
-  <div id="counts" class="counts"></div>
-  <div id="list"><div class="empty">Loading…</div></div>
-</main>
+<main id="view"><div class="empty">Loading…</div></main>
 <script>
 const POLL_MS = 3000;
-const STATUSES = ["building", "running", "verifying", "achieved", "not achieved", "failed"];
-const open = new Set();  // Hypothesis ids whose DAG section is expanded.
-let last = "";           // The last response, to redraw only on change.
+const STATUSES = ["achieved", "not achieved", "failed", "verifying", "running", "building"];
+let rows = null;    // The last /api/hypotheses response.
+let last = "";      // What was last drawn, to redraw only on change.
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const cls = (status) => `s-${status.replace(" ", "-")}`;
+const badge = (status) => `<span class="badge ${cls(status)}">${status}</span>`;
+const when = (t) => new Date(t).toLocaleString();
 const showValue = (v) => v == null ? "" : v.kind === "foo_bar" ? `count = ${v.count}` : v.kind === "baz" ? `label = "${v.label}"` : JSON.stringify(v);
+const chips = (values) => Object.entries(values).map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(showValue(v))}</span>`).join("");
+
+// Where we are: all goals, one goal, or one hypothesis. Kept in the URL.
+const route = () => Object.fromEntries(new URLSearchParams(location.search));
+const href = (params) => `/hypotheses${Object.keys(params).length ? "?" + new URLSearchParams(params) : ""}`;
+
+// Hypotheses grouped by goal, the most recently updated goal first.
+function goals() {
+  const by = new Map();
+  for (const r of rows) {
+    if (!by.has(r.hypothesis.goal)) by.set(r.hypothesis.goal, []);
+    by.get(r.hypothesis.goal).push(r);
+  }
+  return [...by].map(([goal, rs]) => ({ goal, rows: rs, updated: rs[0].updated }));
+}
+
+function tally(rs) {
+  return STATUSES.map((s) => [s, rs.filter((r) => r.status === s).length]).filter(([, n]) => n)
+    .map(([s, n]) => `<span>${badge(s)} ${n}</span>`).join("");
+}
+
+function goalsView() {
+  const gs = goals();
+  if (!gs.length) return `<div class="empty">No hypotheses yet. Run one with<br>
+    <code>uv run python -m temporal.run_hypothesis examples/score.json --model …</code></div>`;
+  return `
+    <div class="counts"><span><b>${gs.length}</b> goals, <b>${rows.length}</b> hypotheses</span></div>
+    <div class="rows">${gs.map((g) => `
+      <a class="row" href="${href({ goal: g.goal })}">
+        <div class="title">${esc(g.goal)}</div>
+        <div class="side"><div class="tally">${tally(g.rows)}</div></div>
+        <div class="meta">${g.rows.length} ${g.rows.length === 1 ? "hypothesis" : "hypotheses"}</div>
+        <div class="meta">updated ${when(g.updated)}</div>
+      </a>`).join("")}
+    </div>`;
+}
+
+function crumbs(goal, id) {
+  const parts = [`<a href="${href({})}">All goals</a>`];
+  if (goal != null) parts.push(id ? `<a href="${href({ goal })}">${esc(goal)}</a>` : `<b>${esc(goal)}</b>`);
+  if (id) parts.push(`<b>${esc(id)}</b>`);
+  return `<nav class="crumbs">${parts.join(" <span>›</span> ")}</nav>`;
+}
+
+function goalView(goal) {
+  const rs = rows.filter((r) => r.hypothesis.goal === goal);
+  if (!rs.length) return `${crumbs(goal)}<div class="empty">No hypotheses for this goal.</div>`;
+  return `
+    ${crumbs(goal)}
+    <h2>${esc(goal)}</h2>
+    <div class="counts"><span><b>${rs.length}</b> ${rs.length === 1 ? "hypothesis" : "hypotheses"}</span>${tally(rs)}</div>
+    <div class="rows">${rs.map((r) => {
+      const h = r.hypothesis;
+      return `
+      <a class="row" href="${href({ id: h.id })}">
+        <div class="line">${badge(r.status)}<span class="summary">${h.hypothesis ? esc(h.hypothesis) : `<span class="meta">The builder agent is writing it…</span>`}</span></div>
+        <div class="side"><span class="meta">${when(r.updated)}</span></div>
+        <div class="chips">${chips(h.inputs)}</div>
+        <div class="side">${h.verdict ? `<span class="meta">${h.verdict.achieved ? "goal achieved" : "goal not achieved"}</span>` : ""}</div>
+      </a>`;
+    }).join("")}
+    </div>`;
+}
 
 // One row per step: its node, sources, status and value.
 function steps(row) {
@@ -96,71 +170,73 @@ function steps(row) {
   });
 }
 
-function card(row) {
+function detailView(id) {
+  const row = rows.find((r) => r.hypothesis.id === id);
+  if (!row) return `${crumbs(null, id)}<div class="empty">No hypothesis ${esc(id)}.</div>`;
   const h = row.hypothesis;
-  const inputs = Object.entries(h.inputs).map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(showValue(v))}</span>`).join("");
-  // The values the steps produced, without the inputs it was given.
-  const produced = h.outcome ? Object.entries(h.outcome.values).filter(([k]) => !(k in h.inputs)) : [];
-  const outcome = h.outcome ? `
-    <div><div class="label">Outcome</div><div class="chips">${produced.length
-      ? produced.map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(showValue(v))}</span>`).join("")
-      : `<span class="meta">No step produced a value.</span>`}</div></div>` : "";
-  const verdict = h.verdict ? `
-    <div class="verdict ${h.verdict.achieved ? "yes" : "no"}">
-      <div class="label">Verdict: ${h.verdict.achieved ? "goal achieved" : "goal not achieved"}</div>
-      <div>${esc(h.verdict.reason)}</div>
-    </div>` : "";
-  const dag = h.dag ? `
-    <details data-id="${esc(h.id)}" ${open.has(h.id) ? "open" : ""}>
-      <summary>DAG: ${Object.keys(h.dag.steps).length} steps${h.outcome?.skipped.length ? `, ${h.outcome.skipped.length} skipped` : ""}</summary>
-      <div class="table"><table>
-        <thead><tr><th>Step</th><th>Status</th><th>Node</th><th>Inputs</th><th>Value</th></tr></thead>
-        <tbody>${steps(row).map((s) => `
-          <tr>
-            <td><code>${esc(s.key)}</code></td>
-            <td><span class="badge ${cls(s.status)}">${s.status}</span></td>
-            <td><code>${esc(s.node)}</code></td>
-            <td>${Object.entries(s.sources).map(([port, src]) => `<code>${esc(port)} ← ${esc(src)}</code>`).join("<br>")}</td>
-            <td><code>${esc(s.value)}</code></td>
-          </tr>`).join("")}</tbody>
-      </table></div>
-      ${h.workflow_id ? `<p style="margin:8px 0 0"><a href="/?run=${encodeURIComponent(h.workflow_id)}">Open the run's graph →</a></p>` : ""}
-    </details>` : "";
+  const produced = h.outcome ? Object.fromEntries(Object.entries(h.outcome.values).filter(([k]) => !(k in h.inputs))) : null;
   return `
+    ${crumbs(h.goal, id)}
     <article class="card">
       <div class="top">
-        <span class="badge ${cls(row.status)}">${row.status}</span>
+        ${badge(row.status)}
         <span class="goal">${esc(h.goal)}</span>
-        <span class="meta">updated ${new Date(row.updated).toLocaleString()}</span>
+        <span class="meta">updated ${when(row.updated)}</span>
       </div>
       <div class="id">${esc(h.id)}</div>
-      ${inputs ? `<div><div class="label">Inputs</div><div class="chips">${inputs}</div></div>` : ""}
+      <div><div class="label">Inputs</div><div class="chips">${chips(h.inputs)}</div></div>
       <div><div class="label">Hypothesis</div><div class="plan">${h.hypothesis ? esc(h.hypothesis) : `<span class="meta">The builder agent is writing it…</span>`}</div></div>
-      ${outcome}
-      ${verdict}
-      ${dag}
+      ${produced ? `<div><div class="label">Outcome</div><div class="chips">${Object.keys(produced).length ? chips(produced) : `<span class="meta">No step produced a value.</span>`}</div></div>` : ""}
+      ${h.verdict ? `
+      <div class="verdict ${h.verdict.achieved ? "yes" : "no"}">
+        <div class="label">Verdict: ${h.verdict.achieved ? "goal achieved" : "goal not achieved"}</div>
+        <div>${esc(h.verdict.reason)}</div>
+      </div>` : ""}
+      ${h.dag ? `
+      <div>
+        <div class="label">DAG: ${Object.keys(h.dag.steps).length} steps${h.outcome?.skipped.length ? `, ${h.outcome.skipped.length} skipped` : ""}</div>
+        <div class="table"><table>
+          <thead><tr><th>Step</th><th>Status</th><th>Node</th><th>Inputs</th><th>Value</th></tr></thead>
+          <tbody>${steps(row).map((s) => `
+            <tr>
+              <td><code>${esc(s.key)}</code></td>
+              <td>${badge(s.status)}</td>
+              <td><code>${esc(s.node)}</code></td>
+              <td>${Object.entries(s.sources).map(([port, src]) => `<code>${esc(port)} ← ${esc(src)}</code>`).join("<br>")}</td>
+              <td><code>${esc(s.value)}</code></td>
+            </tr>`).join("")}</tbody>
+        </table></div>
+        ${h.workflow_id ? `<p style="margin:8px 0 0"><a href="/?run=${encodeURIComponent(h.workflow_id)}">Open the run's graph →</a></p>` : ""}
+      </div>` : ""}
     </article>`;
 }
 
-function render(rows) {
-  $("#counts").innerHTML = rows.length
-    ? [`<span><b>${rows.length}</b> hypotheses</span>`, ...STATUSES.map((s) => [s, rows.filter((r) => r.status === s).length]).filter(([, n]) => n)
-        .map(([s, n]) => `<span><span class="badge ${cls(s)}">${s}</span> ${n}</span>`)].join("")
-    : "";
-  $("#list").innerHTML = rows.length ? rows.map(card).join("") : `
-    <div class="empty">No hypotheses yet. Run one with<br>
-    <code>uv run python -m temporal.run_hypothesis examples/double.json --model …</code></div>`;
-  document.querySelectorAll("details[data-id]").forEach((d) => {
-    d.ontoggle = () => d.open ? open.add(d.dataset.id) : open.delete(d.dataset.id);
-  });
+function render() {
+  if (!rows) return;
+  const r = route();
+  const key = JSON.stringify([r, rows]);
+  if (key === last) return;
+  last = key;
+  $("#view").innerHTML = r.id ? detailView(r.id) : r.goal != null ? goalView(r.goal) : goalsView();
 }
+
+// Follow links inside the page without a reload, so the back button still works.
+$("#view").addEventListener("click", (e) => {
+  const a = e.target.closest("a[href^='/hypotheses']");
+  if (!a || e.metaKey || e.ctrlKey || e.shiftKey) return;
+  e.preventDefault();
+  history.pushState(null, "", a.getAttribute("href"));
+  scrollTo(0, 0);
+  render();
+});
+addEventListener("popstate", render);
 
 async function tick() {
   try {
     const r = await fetch("/api/hypotheses");
     if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
-    const text = await r.text();
-    if (text !== last) { last = text; render(JSON.parse(text)); }
+    rows = await r.json();
+    render();
     $("#updated").textContent = `updated ${new Date().toLocaleTimeString()}`;
   } catch (e) {
     $("#updated").textContent = `update failed: ${e.message}`;
