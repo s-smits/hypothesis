@@ -43,15 +43,19 @@ src/node_dag/
   nodes/filters/<name>/        config.py + function.py; run returns a bool for each entity
   factory.py                   NodeConfig union + config -> node class mapping
   dag.py                       Dag / Step; rejects cycles, unknown sources, type and score column mismatches
-  agent.py                     Hypothesis; the builder and verifier agents
+  plan.py                      Plan, ToolRequest, Assertion, accepted(): the acceptance rule
+  agent.py                     Hypothesis; the builder, verifier, critique and criteria agents
 temporal/
   dag/workflow.py              DagWorkflow: runs each step on its whole table once it exists
   dag/activities.py            run_tool, run_score, run_filter (call the factory), save_workflow
+  hypothesis/                  HypothesisLoop and its model-call activities
   ui/                          web pages for the runs and the hypotheses
   run_worker.py                the Temporal worker
   run_workflow.py              run a DagInput JSON file
-  run_hypothesis.py            build, run and verify a Hypothesis JSON file
+  run_hypothesis.py            run a Hypothesis JSON file through the loop
   run_ui.py                    serve the web pages
+  scaffold_node.py             write a requested node's package, all but run()
+  pulse.py                     what changed in the open runs since the last look
 ```
 
 ## Nodes
@@ -118,8 +122,9 @@ Results go under `$NODE_DAG_RESULTS` (default `results/`):
 - `workflows/<workflow id>.json`: each run's DAG, step statuses and tables (entities and
   score columns), written when the run finishes or fails.
 - `registry/<node id>.json`: each node a builder agent made, with its description.
-- `hypotheses/<hypothesis id>.json`: each Hypothesis, saved after each stage of
-  `run_hypothesis`. Its run's workflow ID is the hypothesis ID.
+- `hypotheses/<hypothesis id>.json`: each Hypothesis, saved after each stage of the loop.
+  The workflow ID is the hypothesis ID.
+- `requests/<node name>.json`: each node a plan asked for that does not exist yet.
 
 ```bash
 uv sync
@@ -149,19 +154,21 @@ a click on nothing.
 
 http://127.0.0.1:8000/hypotheses lists every goal with a count of its hypotheses by
 status. Click a goal to list its hypotheses, each with its status, a summary and its
-inputs. Click a hypothesis to see all of it: inputs, hypothesis, outcome, verdict, its
-DAG step by step, and a link to its run. It reads the files
+inputs. Click a hypothesis to see all of it: inputs, criteria and whether each held, every
+round, outcome, verdict, its DAG step by step, and a link to its run. A blocked one has
+Resume and Abandon buttons. It reads the files
 under `results/`, so it needs no worker.
 
 http://127.0.0.1:8000/new starts a hypothesis: enter a goal, optionally your own
-hypothesis for how to meet it, and the inputs. The server then runs the builder agent,
-the DAG and the verifier in the background, and the page jumps to the hypothesis so you
-can watch it. This needs `--model` (and optionally `--verify-model`) on `run_ui`, and a
+hypothesis for how to meet it, criteria (one per line) and the inputs. The server then
+starts the loop in the background, and the page jumps to the hypothesis so you can watch
+its rounds. This needs `--model` (and optionally `--verify-model`) on `run_ui`, and a
 worker running.
 
 http://127.0.0.1:8000/nodes lists every node in the registry, as the builder agent sees
 it: its description, input port, outputs, the full name of each score column a scorer
-adds, the column a filter reads, and its config. It has a search box, and reads the
+adds, the column a filter reads, and its config. Below them, the nodes that plans have requested
+and the runs waiting on each. It has a search box, and reads the
 files under `results/registry/`, so it needs no worker and updates as agents register
 nodes.
 
@@ -186,30 +193,55 @@ forms, reads console errors and takes screenshots. Screenshots go to
 `results/playwright/`. Each session starts with a fresh browser profile (`--isolated`).
 It needs Node (`npx`) and Chrome.
 
-## Agents
+## The loop
 
-A `Hypothesis` holds a `goal` and the `inputs` to run it on: a list of entities for each
-input name, as in `examples/optimise.json`. `temporal.run_hypothesis`
-fills in the rest of the Hypothesis:
+A `Hypothesis` holds a `goal`, the `inputs` to run it on (a list of entities per input
+name, as in `examples/optimise.json`) and optional `criteria`: claims the result must
+satisfy. `HypothesisLoop` (`temporal/hypothesis/`) runs it as a durable Temporal
+workflow. Only the model calls are non-deterministic, and each is an activity:
 
-1. `hypothesis` and `dag`: the builder agent makes the nodes it needs one at a time, then
-   wires them. It lists the kinds of node (`list_nodes`) and the nodes already in the
-   registry (`list_registry`), reads the schemas it needs (`describe_node`), and calls
-   `create_node` with a config and a short description for each node. A node's reply
-   shows its id (`<node name>__<config hash>`), its input port and kind, its outputs
-   and, for a scorer, the full name of each score column it adds
-   (`<node name>__<config hash>__<score name>`). A filter can only be made on a column
-   that a registered scorer adds, so the builder makes the scorer first. Then it submits
-   a `Dag` with its hypothesis: how that DAG meets the goal. Each step names a registered
-   node by id, so only nodes made with `create_node` can be used. A validation error
-   goes back to the model to fix. Each config's schema carries its ports, outputs and
-   categories under `x-node`, because a JSON schema leaves ClassVars out.
+1. **Criteria.** If you gave none, an agent derives them from the goal. They are frozen.
+2. **Plan.** The builder agent makes the nodes it needs (`create_node`), reuses
+   registered ones, and submits a `Plan`: the wiring, plus one assertion per criterion
+   saying which filter branch must hold every entity and which none. Guards reject a
+   bad plan (wrong inputs, an uncovered criterion, a repeat of an earlier plan) before
+   anything runs, and the agent fixes it.
+3. **Run.** The plan becomes a `Dag` and runs as the `DagWorkflow` child.
+4. **Verify.** A second agent reads the outcome and can only veto.
+5. **Critique.** If the round failed, a third agent says why. The next plan must address it.
 
-   The registry is `$NODE_DAG_RESULTS/registry/<node id>.json`, one file per node. It
-   lasts across hypotheses, so a builder can reuse a node that an earlier one made.
-2. `outcome`: the `DagOutput` of running that DAG on Temporal.
-3. `verdict`: a second agent answers "Did this workflow complete its goal?". It works
-   out the expected result itself and compares it with the outcome.
+Each model call writes its full message history, failed calls included, to
+`results/trajectories/<hypothesis id>-r<round>-<stage>.json` (`criteria` is round 0). That is
+where to look for which nodes the builder read and which guard it bounced off.
+
+Rounds stop at `max_rounds` (default 3; `--max-rounds` on `run_hypothesis`) or 500,000 tokens. The stop reason is
+`stopped_because`, and every round is kept in `attempts`.
+
+**Acceptance is code, not a model.** `accepted()` in `plan.py` passes a round only if
+every criterion has an assertion, every assertion holds on the outcome, and the verifier
+agrees. A model cannot grant that, only veto it.
+
+**Blocked on a tool.** A plan may request at most three nodes that do not exist yet, with
+a contract (purpose, ports, example) and why none can be composed from the registry. It
+type-checks against stand-ins, saves the request under `results/requests/`, and the run
+shows `blocked`. `uv run python -m temporal.scaffold_node <name>` writes the node's
+`config.py` and `function.py` from the request, with the same ports, fields and config hash
+the plan was checked against, and prints the `factory.py` edits. Write `run()`, make the
+edits, restart the worker, and click Resume on the nodes page (or POST
+`/api/hypotheses/<id>/tool_added`); the same plan is resolved again without a new model
+call. `abandon` ends it. `examples/recode_acg_mock.json` is a synthetic gene with two ORFs in
+different frames, which no registered node can recode in both, so it blocks in round 1.
+
+**Watching runs.** `uv run python -m temporal.pulse` prints a status line per open run, and on
+every later look what moved since the last: criteria fixed, a round opened, a plan accepted,
+blocked, the verdict. It warns about a model call sent back three or more times (and says what
+for), a plan that wires the same DAG as an earlier round, rounds that come no closer, a working
+run with no worker, and a budget nearly spent. For a blocked run it says what each requested node
+still needs. It only reads files and the process table; `--every 30` keeps looking, and `--json`
+prints the look for another program; `--no-host` skips the process table for a worker started inside another process. Readings are kept in `results/pulse.json`. `AGENTS.md` says what each alert means and what to do.
+
+**Cache warning.** Node results are cached by config and inputs. If you change what a
+node does, bump its `version` (`scaffold_node <name> --bump`), or old results are served.
 
 ```bash
 # Start the server
@@ -217,7 +249,7 @@ temporal server start-dev
 # Start the worker
 uv run python -m temporal.run_worker
 # Start the UI
-uv run python -m temporal.run_ui --model anthropic:claude-haiku-4-5
+uv run python -m temporal.run_ui --model anthropic:claude-sonnet-5-5 --verify-model anthropic:claude-haiku-4-5
 ```
 
 ## Nodes/tools

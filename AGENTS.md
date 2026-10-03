@@ -84,20 +84,72 @@ against the chosen provider. `temporal/run_hypothesis.py` loads the repository's
 | DAG validation | `src/node_dag/dag.py` | `tests/test_dag.py` |
 | Execution, cache and progress | `temporal/dag/activities.py`, `workflow.py`, `src/node_dag/storage.py` | `tests/test_cache.py`, `test_dag.py` |
 | Builder, verifier and persistence | `src/node_dag/agent.py`, `temporal/run_hypothesis.py` | `tests/test_agent.py` |
+| Hypothesis loop, plan checks, node scaffolding | `temporal/hypothesis/`, `src/node_dag/plan.py`, `temporal/scaffold_node.py` | `tests/test_loop.py`, `test_plan.py`, `test_guards.py`, `test_scaffold.py` |
+| Watching runs | `temporal/pulse.py` | `tests/test_pulse.py` |
 | UI and API | `temporal/ui/app.py`, adjacent HTML, `temporal/run_ui.py` | `tests/test_ui.py`, UI cases in `test_agent.py` |
 | Translation initiation prediction | `nodes/tools/ostir_expression/` under `src/node_dag/` | `tests/test_ostir.py` |
 
-The current path is `Hypothesis → build_agent → validated Dag → DagWorkflow →
-DagOutput → verify_agent`. The builder's `create_node` registers a **configuration
-of existing Python code**. It does not author an implementation. The registry
-persists those configurations across hypotheses; this alone is not an iterative
-search loop or research memory.
+One round is `Hypothesis → build_agent → validated Dag → DagWorkflow → DagOutput →
+verify_agent`. The builder's `create_node` registers a **configuration of existing
+Python code**. It does not author an implementation. The registry persists those
+configurations across hypotheses; this alone is not an iterative search loop or
+research memory.
 
-The intended hypothesis loop may add critique/retry and durable tool requests for
-human resolution. It is distinct from the outer recoding research loop that
-selects reusable algorithms. `HypothesisWorkflow`, `tool_added` signalling and a
-critique agent are proposed, not implemented. Do not treat the diagrams' names as
-existing APIs, or turn an unavailable-tool request into an executable DAG node.
+`HypothesisLoop` (`temporal/hypothesis/`) repeats rounds: it fixes the criteria,
+critiques a missed round, and blocks on a requested node until `tool_added` is
+signalled. It is distinct from the outer recoding research loop that selects
+reusable algorithms. `docs/intended-structure.md` is a design sketch of `main`
+before the loop existed; do not treat its names as APIs, or turn an
+unavailable-tool request into an executable DAG node.
+
+## Watching a run
+
+While a hypothesis run is open, make the last action of each reply a look:
+
+```sh
+uv run python -m temporal.pulse
+```
+
+It reads the saved hypotheses, trajectories and requests under `$NODE_DAG_RESULTS` and the
+process table. It never calls a model, a worker or the API, so it is safe to run at any time.
+It keeps what it saw in `<results>/pulse.json`, so each look says only what moved since the
+last one. The first look has nothing to differ from and prints status lines only. Do not
+loop it inside a reply; the next reply's look is the next reading. `--every 30` keeps
+looking for a person at a terminal, `--json` is for another program, and an id, label or part
+of the goal selects one run. Use `--no-host` when the worker runs inside another process, as
+it does in a test or script, or it will report the worker down.
+
+Each line starts with a mark:
+
+- `◆` something happened: criteria fixed, a round opened, a plan accepted, blocked, a
+  verdict, the run ended. Report it; no action needed.
+- `⚠` something to act on or decide (below).
+- `·` a detail, such as a model call that went through, or an alert that cleared.
+
+An event ends with `→ path` under the results directory; read that file before guessing.
+An alert is said once when it starts and once when it clears, so silence on a later look
+does not mean it is fixed. The status line keeps showing the state.
+
+| Alert | What it means | What to do |
+| --- | --- | --- |
+| `the worker is not running` | A working run has no worker to move it. | Start `uv run python -m temporal.run_worker` (and `temporal server start-dev` if the server is `DOWN` too). `?` means unknown, not down. |
+| `no save for 12m` | Nothing was written for longer than a call takes. | Read the run's newest file in `trajectories/`; check the Temporal UI before restarting anything. |
+| a call `sent back for: …` | A model call was rejected three or more times. | Read the reasons. The same one repeating means a guard message or schema is unclear; fix that, not the run. |
+| `wires the same DAG as r1` | The plan repeats an earlier round's wiring. | Check whether only the assertions changed; the repeat guard compares wiring only. |
+| `stall: the 2 rounds since r1 …` | Rounds came no closer than the best one. | Abandon, or revise the goal or criteria. More rounds spend the budget for nothing. |
+| `blocked 30m00s on …` | A person has to write a node. | Follow the `↳ waiting on` line (below). |
+| `400k of 500k tokens used` | The budget is 80% spent; reaching it ends the run. | Let it end, or abandon. |
+
+A blocked run lists each requested node as `missing`, `scaffolded`, `unregistered` or
+`ready`, with the next step for it: `python -m temporal.scaffold_node <name>`, then write
+`run()`, then edit `factory.py`. When every node is `ready`, restart the worker if it started
+before the nodes existed, then Resume (or POST `/api/hypotheses/<id>/tool_added`). The same
+plan resolves again without another model call.
+
+The header names any file it could not read as a Hypothesis, with the reason. Usually the
+file predates a change to a node's config and its `config_hash` no longer matches. That is
+not a fault in a run; leave it, and do not edit the hash to make it load. If the look finds no
+run, the header says which results directory it searched; check `NODE_DAG_RESULTS`.
 
 ## Contracts to preserve
 
