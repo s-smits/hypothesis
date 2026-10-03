@@ -324,9 +324,13 @@ def test_search_nodes_finds_and_ranks_by_intent():
 
     # Category filtering
     gen_results = search_nodes(category="generation")
-    assert sorted(r["name"] for r in gen_results) == [
+    assert [r["name"] for r in gen_results] == [
+        "codon_optimise",
+        "domesticate",
+        "gc_target_recode",
         "mutate_synonymous",
         "recode_targeted",
+        "resample_synonymous",
     ]
 
     # Translation
