@@ -33,6 +33,7 @@ def _run(step: str, monkeypatch) -> str:
         step=step,
     )
     ActivityEnvironment().run(run_tool, inp)
+    assert node.workflow_id is not None
     return node.workflow_id
 
 

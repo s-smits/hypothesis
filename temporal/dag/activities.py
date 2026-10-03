@@ -99,9 +99,10 @@ def _reporting(step: str) -> Iterator[None]:
     """
     try:
         workflow_id = activity.info().workflow_id
-    except (
-        RuntimeError
-    ):  # Not in an activity: a test or a script, with no run to key on.
+    except RuntimeError:
+        workflow_id = None
+    if workflow_id is None:
+        # Not in an activity: a test or a script, with no run to key on.
         yield
         return
     reported: list[Link] = []
