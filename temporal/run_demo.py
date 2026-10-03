@@ -29,7 +29,7 @@ from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
 from node_dag.dag import Dag
-from node_dag.plan import Critique, Plan, ToolRequest, Verdict
+from node_dag.plan import Criterion, Critique, Plan, ToolRequest, Verdict
 from temporal.dag.activities import run_decision, run_tool, save_workflow
 from temporal.dag.workflow import TASK_QUEUE, DagWorkflow
 from temporal.hypothesis.activities import (
@@ -42,6 +42,8 @@ from temporal.hypothesis.activities import (
     verify_outcome,
 )
 from temporal.hypothesis.models import (
+    CriteriaInput,
+    CriteriaOutput,
     CritiqueInput,
     CritiqueOutput,
     PlanInput,
@@ -220,7 +222,28 @@ async def stub_critique(inp: CritiqueInput) -> CritiqueOutput:
     )
 
 
-STUBS = [stub_plan, stub_resolve, stub_verify, stub_critique]
+@activity.defn(name="derive_criteria")
+async def stub_criteria(inp: CriteriaInput) -> CriteriaOutput:
+    """Hand back the criterion the canned plan asserts, when none were typed.
+
+    The real agent reads the goal. This one cannot, so it returns the criterion the
+    stubbed plan happens to assert -- otherwise the run would end ``unverified``,
+    correctly but confusingly, because nothing asserted whatever you did type.
+    """
+    click.echo("  criteria  none given, so using the one the canned plan asserts")
+    return CriteriaOutput(
+        criteria=[
+            Criterion(
+                id="no_tcg_tca",
+                claim="no TCG or TCA codon remains",
+                source="derived",
+            )
+        ],
+        tokens=300,
+    )
+
+
+STUBS = [stub_plan, stub_resolve, stub_verify, stub_critique, stub_criteria]
 REAL = [
     plan_hypothesis,
     resolve_plan,

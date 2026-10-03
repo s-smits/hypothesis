@@ -332,7 +332,7 @@ function detailView(id) {
       <div class="meta">round ${h.round ?? 0}${h.best_score ? `, best score ${h.best_score.toFixed(2)}` : ""}${tokens ? `, ${tokens.toLocaleString()} tokens` : ""}</div>
       <div><div class="label">Inputs</div><div class="chips">${chips(h.inputs)}</div></div>
       <div><div class="label">Hypothesis</div><div class="plan">${h.hypothesis ? esc(h.hypothesis) : `<span class="meta">The builder agent is writing it…</span>`}</div></div>
-      ${h.criteria.length ? coverageView(h) : `<div class="panel warn">This hypothesis has no criteria, so no run against it can be accepted.</div>`}
+      ${h.criteria.length ? coverageView(h) : h.state === "building" ? `<div class="panel"><span class="meta">Working out what would count as meeting this goal. They are frozen once set, so the builder cannot choose what it is marked against.</span></div>` : `<div class="panel warn">This hypothesis has no criteria, so no run against it can be accepted.</div>`}
       ${h.state === "blocked" ? blockedView(h) : ""}
       ${produced ? `<div><div class="label">Outcome</div><div class="chips">${Object.keys(produced).length ? chips(produced) : `<span class="meta">No step produced a value.</span>`}</div></div>` : ""}
       ${plan?.expected ? `

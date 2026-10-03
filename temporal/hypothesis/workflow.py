@@ -300,7 +300,23 @@ class HypothesisWorkflow:
 
     @workflow.run
     async def run(self, inp: HypothesisInput) -> Hypothesis:
-        """Loop until the goal is met, the rounds run out, or a person stops it."""
+        """Loop until the goal is met, the rounds run out, or a person stops it.
+
+        Anything that escapes the loop is recorded before it is re-raised. A workflow
+        that dies without writing its state leaves the page saying "building" forever,
+        which is how a worker missing an activity looked indistinguishable from a model
+        taking its time.
+        """
+        try:
+            return await self._loop(inp)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            await self._stop("failed", f"the run could not continue: {e}")
+            raise
+
+    async def _loop(self, inp: HypothesisInput) -> Hypothesis:
+        """Plan, resolve, run, verify and critique until one of the stops fires."""
         await self._save()
         if not await self._criteria():
             return await self._stop("failed", "no criteria could be derived for the goal")

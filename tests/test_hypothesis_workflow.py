@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from temporalio import activity
+from temporalio.client import WorkflowFailureError
 from temporalio.contrib.pydantic import pydantic_data_converter
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
@@ -41,6 +42,7 @@ from temporal.hypothesis.models import (
     VerifyInput,
 )
 from temporal.hypothesis.workflow import HypothesisWorkflow
+from temporal.store import hypotheses_dir
 
 GENE = Dna(sequence="ATGTCGTCAGCTTAA")
 NO_TCG = Criterion(id="no_tcg", claim="no TCG codon remains")
@@ -501,3 +503,30 @@ async def test_a_node_that_raises_becomes_a_critique_not_a_crash(env):
     )
     assert done.state in {"not achieved", "unverified"}, done.stopped_because
     assert critiques and critiques[0].view.error, "the failure never reached the critic"
+
+
+async def test_a_worker_missing_an_activity_records_a_failure(env):
+    """A crash must leave the page saying what went wrong, not "building" forever.
+
+    This is the shape of a real misconfiguration: the demo worker registered every agent
+    stub except derive_criteria, so a hypothesis submitted with no criteria called an
+    activity that was not there. The run died, nothing wrote its state, and the page sat
+    at "building" indefinitely -- indistinguishable from a model taking its time.
+    """
+    hyp = Hypothesis(
+        goal="remove every TCG codon", criteria=[], inputs={"seq": GENE}
+    )
+    with pytest.raises(WorkflowFailureError):
+        # No derive_criteria here, and the hypothesis has no criteria, so the workflow
+        # must reach for an activity this worker does not have.
+        await _run(
+            env,
+            [_planner([]), _verifier([_agrees()], []), _critic([])],
+            hyp,
+        )
+
+    saved = Hypothesis.model_validate_json(
+        (hypotheses_dir() / f"{hyp.id}.json").read_bytes()
+    )
+    assert saved.state == "failed", saved.state
+    assert saved.stopped_because and "could not continue" in saved.stopped_because
