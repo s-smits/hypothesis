@@ -95,6 +95,14 @@ def test_a_produced_assertion_holds_when_its_step_gave_an_entity():
     assert holds(a, None) == {"scored.produced": False}
 
 
+def test_a_produced_assertion_on_a_filter_holds_when_it_kept_some_and_dropped_others():
+    a = [Assertion(criterion="c", step="none", branch="produced", claim="c")]
+    assert holds(a, _out(2, 0)) == {"none.produced": True}
+    assert holds(a, _out(1, 3)) == {"none.produced": True}
+    assert holds(a, _out(0, 2)) == {"none.produced": False}
+    assert holds(a, None) == {"none.produced": False}
+
+
 def test_a_criterion_says_who_wrote_it_and_older_files_read_as_human():
     assert Criterion(id="no_tcg", claim="no TCG remains").source == "human"
     assert Criterion.model_validate_json('{"id": "x", "claim": "c"}').source == "human"

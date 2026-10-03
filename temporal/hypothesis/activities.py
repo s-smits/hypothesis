@@ -4,6 +4,7 @@ An agent that cannot answer returns an ``error`` for the critique to work with; 
 crashes the run. Each returns its ``tokens``, so the workflow can account for every stage.
 """
 
+import inspect
 import json
 from typing import Any, cast
 
@@ -122,6 +123,14 @@ def _record(tag: str, messages: list[ModelMessage]) -> None:
         activity.logger.warning("Could not write the %s transcript: %s", tag, e)
 
 
+def _what_the_nodes_do(dag: Dag | None) -> dict[str, str]:
+    """What each node in the DAG says it does, from its own documentation before ``Args:``."""
+    names = sorted({s.config.name for s in dag.steps.values()}) if dag else []
+    return {
+        n: inspect.cleandoc(NODES[n].__doc__ or "").split("\n\nArgs:")[0] for n in names
+    }
+
+
 def _view(hyp: Hypothesis) -> dict[str, Any]:
     """The current round as a judge sees it. It has no earlier verdicts."""
     a = hyp.attempts[-1]
@@ -134,6 +143,7 @@ def _view(hyp: Hypothesis) -> dict[str, Any]:
         "expected": a.plan.expected,
         "assertions": a.plan.assertions,
         "held": a.held,
+        "nodes": _what_the_nodes_do(a.dag),
         "dag": a.dag,
         "outcome": a.outcome,
         "error": a.error,

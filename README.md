@@ -234,8 +234,9 @@ workflow. Only the model calls are non-deterministic, and each is an activity:
    Each is an `id`, a `claim` and a `source`: `human` if you wrote or edited it, else `derived`.
 3. **Plan.** The builder agent makes the nodes it needs (`create_node`), reuses
    registered ones, and submits a `Plan`: the wiring, plus one assertion per criterion
-   saying which filter branch must hold every entity and which none (`yes` or `no` on a filter),
-   or, on any other step, that it `produced` at least one entity. Guards reject a
+   saying what its step settles: on a filter, `yes` (every entity passed) or `no` (every
+   entity failed), or `produced` (it kept at least one, and may have dropped the rest, as
+   choosing the best of a pool does); on any other step, `produced` (it gave output). Guards reject a
    bad plan (wrong inputs, an uncovered criterion, a repeat of an earlier plan) before
    anything runs, and the agent fixes it.
    The builder can also search the literature with Amass (`search_literature`,
@@ -255,9 +256,11 @@ Rounds stop at `max_rounds` (default 3; `--max-rounds` on `run_hypothesis`) or 5
 
 **Acceptance is code, not a model.** `accepted()` in `plan.py` passes a round only if
 every criterion has an assertion, every assertion holds on the outcome, and the verifier
-agrees. An assertion on a filter holds only if its branch took at least one entity and the
-other took none, so one plan cannot assert both branches of a filter. A model cannot grant
-acceptance, only veto it. A model that refuses a call stops the run with the refusal as the reason.
+agrees. A `yes` or `no` assertion holds only if that branch took at least one entity and the
+other took none, so one plan cannot assert both branches of a filter. A `produced` assertion
+holds when the step, or a filter's `yes` branch, gave at least one entity; it does not show
+the threshold was right, and the verifier checks that. The verifier and the critic are shown
+what each node in the DAG says it does. A model cannot grant acceptance, only veto it. A model that refuses a call stops the run with the refusal as the reason.
 
 **Blocked on a tool.** A plan may request at most three nodes that do not exist yet, with
 a contract (purpose, ports, example) and why none can be composed from the registry. It

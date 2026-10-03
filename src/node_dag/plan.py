@@ -128,8 +128,10 @@ class PlannedStep(BaseModel):
 class Assertion(BaseModel):
     """A claim the DAG settles by which branch of a filter step it takes.
 
-    ``produced`` is for a goal with nothing to filter, such as scoring or converting: on a
-    tool or score step it holds when the step gave output, and says nothing about the
+    On a filter, ``yes`` holds when every entity passed and ``no`` when every entity failed:
+    a claim about all of them. ``produced`` is the claim that a filter kept at least one and
+    may have dropped others, which is what choosing the best of a pool needs. On a tool or
+    score step, ``produced`` holds when the step gave output. It says nothing about the
     output being right.
     """
 
@@ -312,9 +314,11 @@ HypothesisState = Literal[
 
 
 def holds(assertions: list[Assertion], outcome: DagOutput | None) -> dict[str, bool]:
-    """Whether each assertion's branch took every entity and the other took none.
+    """Whether each assertion holds on the outcome.
 
-    A ``produced`` assertion holds when its step gave at least one entity.
+    ``yes`` or ``no`` holds when that branch took at least one entity and the other none.
+    ``produced`` holds when the step gave at least one entity, and for a filter that is
+    its ``yes`` branch.
     """
     values = outcome.values if outcome else {}
 
@@ -323,7 +327,7 @@ def holds(assertions: list[Assertion], outcome: DagOutput | None) -> dict[str, b
 
     def holds_one(a: Assertion) -> bool:
         if a.branch == "produced":
-            return n(a.step) > 0
+            return n(a.step) > 0 or n(f"{a.step}.yes") > 0
         other = "no" if a.branch == "yes" else "yes"
         return n(f"{a.step}.{a.branch}") > 0 and n(f"{a.step}.{other}") == 0
 

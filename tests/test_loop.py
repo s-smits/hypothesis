@@ -174,6 +174,19 @@ def test_the_users_own_idea_reaches_the_builder():
     assert "own idea" not in plan_prompt(HYP)
 
 
+def test_the_judges_are_told_what_each_node_in_the_dag_does():
+    judged = HYP.model_copy(update={"attempts": [Attempt(round=1, plan=PLAN, dag=DAG)]})
+    nodes = _view(judged)["nodes"]
+    assert set(nodes) == {"codon_count", "at_most"}
+    assert "Args:" not in nodes["codon_count"] and nodes["at_most"]
+    assert (
+        _view(HYP.model_copy(update={"attempts": [Attempt(round=1, plan=PLAN)]}))[
+            "nodes"
+        ]
+        == {}
+    )
+
+
 def test_the_criteria_reach_the_builder_and_the_verifier():
     assert "no TCG remains" in plan_prompt(HYP)
     judged = HYP.model_copy(update={"attempts": [Attempt(round=1, plan=PLAN)]})

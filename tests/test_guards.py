@@ -71,17 +71,22 @@ async def test_a_plan_may_use_a_node_nobody_has_written(results_dir):
     assert errors == [] and out.requests["gc_count"] == req
 
 
+async def test_a_filter_that_keeps_some_can_be_asserted_as_produced(results_dir):
+    keeps_some = _plan(
+        assertions=[
+            {"criterion": "no_tcg", "step": "small", "branch": "produced", "claim": "c"}
+        ]
+    )
+    _, errors = await _run(results_dir, keeps_some)
+    assert errors == []
+
+
 async def test_the_guards_send_a_bad_plan_back(results_dir):
     shadow = ToolRequest(name="at_most", node="filter", **ASK).model_dump()
     bare = _plan(assertions=[])
     on_tool = _plan(
         assertions=[
             {"criterion": "no_tcg", "step": "counted", "branch": "yes", "claim": "c"}
-        ]
-    )
-    on_filter = _plan(
-        assertions=[
-            {"criterion": "no_tcg", "step": "small", "branch": "produced", "claim": "c"}
         ]
     )
     both = _plan(
@@ -93,8 +98,7 @@ async def test_the_guards_send_a_bad_plan_back(results_dir):
     for bad, why in [
         (_plan(requests={"at_most": shadow}), "already exists"),
         (bare, "No assertion covers ['no_tcg']"),
-        (on_tool, "use branch yes or no on a filter step"),
-        (on_filter, "use branch yes or no on a filter step"),
+        (on_tool, "is not a filter: use branch produced"),
         (both, "cannot both hold"),
     ]:
         _, errors = await _run(results_dir, bad, _plan())

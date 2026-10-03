@@ -11,7 +11,9 @@ class MutateSynonymousConfig(BaseToolConfig):
 
     Every amino acid stays the same. The same seed on the same sequence gives the same
     result, and each sequence gets its own random choices. The new sequences replace the
-    old, so they have no scores. Sequences that come out the same merge into one.
+    old, so they have no scores. Sequences that come out the same merge into one. Each new sequence differs from the
+    one it came from, but it can equal another input's sequence, since two inputs a few
+    synonymous swaps apart can reach each other. That is still a variant, not a copy.
 
     Args:
         seed: Seeds the random choice of codons and their replacements.

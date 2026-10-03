@@ -267,11 +267,13 @@ Shapes that usually fit a goal:
    in `config`. Connect its input port to a source whose kind is the kind of that port.
    Register a scorer with create_node before the filter on its column, and copy the column
    name from the reply.
-3. Every criterion needs an assertion: a filter step and the branch, yes or no, that proves
-   it. The assertion holds only if that branch took every entity and the other took none.
-   Never assert both branches of one filter: they cannot both hold. A goal that only asks
-   to measure or convert has nothing to filter: assert branch "produced" on the tool or
-   score step, which holds when that step gave output.
+3. Every criterion needs an assertion on a step. On a filter, say "yes" if every entity must
+   pass it (the assertion holds only if the yes branch took every entity and the no branch
+   none), or "no" for the reverse. To keep only the best of a pool, so some pass and some
+   fail, assert "produced" on the filter: it holds when the filter kept at least one entity.
+   Never assert both yes and no of one filter: they cannot both hold. On any other step,
+   "produced" holds when the step gave output, which is all a goal that only measures or
+   converts needs.
 4. If no existing node can do a step, put its contract in `requests`, keyed by name, and use
    that name in a step. Name the existing nodes you considered in why_not_composable. A
    filter on a requested scorer's column gets that column name from the error you are shown.
@@ -287,14 +289,18 @@ Known kinds: {sorted(TYPES)}."""
 
 VERIFY_INSTRUCTIONS = """\
 You get JSON: a goal, its criteria and inputs, the plan (hypothesis, expected, assertions),
-`held` (whether each assertion's branch took every entity and the other took none, worked
-out by code: false does not mean the branch took nothing), the DAG and the outcome.
+`held` (whether each assertion held, worked out by code: "yes" or "no" needs that branch to
+take every entity and the other none, so false does not mean the branch took nothing;
+"produced" needs the step, or the filter's yes branch, to give at least one entity),
+`nodes` (what each node in the DAG says it does), the DAG and the outcome.
 Work out the expected result from the goal and inputs yourself, and do not trust the plan.
 Set agrees to true only if the outcome holds the expected result for every input. Set
 covers_goal to true only if the assertions genuinely test every criterion. Do not claim
 to have checked by eye what no assertion covers: say in reason what went unchecked. A
-"produced" assertion only shows its step gave output: set covers_goal to false if the
-criterion is about what that output holds. You cannot declare success: false is a veto and
+"produced" assertion only shows its step gave output, or a filter kept something: set
+covers_goal to false if the criterion is about what that output holds, such as the
+filter's threshold being right. Take what a node does from `nodes`, not from a guess:
+do not say a node returns its inputs unchanged unless `nodes` says it can. You cannot declare success: false is a veto and
 true grants nothing.
 Set agrees to false, whatever else the DAG did, when:
 - The goal names a measure, a method or a node that the DAG did not use. A different
@@ -311,7 +317,10 @@ rounds. Say what went wrong in terms of its steps and values, the one root cause
 step keys were right (keep), and what the next plan must do differently. Do not send it
 back to a wiring an earlier round already ran. If no available node can check or do
 something the goal needs, say so with root_cause "missing_tool" and name the tool in fix:
-it becomes a request for a person to write that node."""
+it becomes a request for a person to write that node. Use "missing_tool" for a need that no
+node meets, not for a result you did not expect. Before you say a node misbehaves, read what
+it does in `nodes` and check the claim against the outcome's values. Entities with the same
+sequence are one entity, so a variant can equal an input without being a copy of it."""
 
 CRITERIA_INSTRUCTIONS = """\
 Turn the goal into one to four criteria that decide whether it was met. Each is a claim a
@@ -519,10 +528,10 @@ def build_agent(
                 raise ModelRetry(
                     f"Assertion step {a.step!r} is not a step of the plan."
                 )
-            if isinstance(cfg, BaseFilterConfig) == (a.branch == "produced"):
+            if not isinstance(cfg, BaseFilterConfig) and a.branch != "produced":
                 raise ModelRetry(
-                    f"Assertion step {a.step!r}: use branch yes or no on a filter step, "
-                    "and produced on any other step."
+                    f"Assertion step {a.step!r} is not a filter: use branch produced. "
+                    "Branch yes or no is for a filter step."
                 )
         sides = {(a.step, a.branch) for a in plan.assertions}
         if both := sorted(s for s, b in sides if b == "yes" and (s, "no") in sides):
