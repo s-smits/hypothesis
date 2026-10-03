@@ -314,7 +314,17 @@ async def test_criteria_reach_the_builder_prompt_and_the_verifier(results_dir):
             {"kind": "quantitative", "text": "expression above the input's"},
             {"kind": "qualitative", "text": "the protein is unchanged"},
         ]
-        return _reply(info, {"achieved": True, "reason": "criteria met"})
+        return _reply(
+            info,
+            {
+                "achieved": False,
+                "reason": "protein held but expression did not improve",
+                "criteria": [
+                    {"criterion": 0, "met": False, "reason": "same score"},
+                    {"criterion": 1, "met": True, "reason": "identical protein"},
+                ],
+            },
+        )
 
     hyp = Hypothesis(
         goal="Convert DNA to protein.",
@@ -340,6 +350,15 @@ async def test_criteria_reach_the_builder_prompt_and_the_verifier(results_dir):
                 )
 
     assert done.criteria == hyp.criteria
+    # The critic's per-criterion calls land on the verdict, in order.
+    assert done.verdict is not None
+    assert done.verdict.criteria[0].met is False
+    assert done.verdict.criteria[1].met is True
+    # And they survive the save the hypotheses page reads.
+    (path,) = hypotheses_dir().iterdir()
+    row = _hypothesis_row(path)
+    assert row.hypothesis.verdict is not None
+    assert [j.met for j in row.hypothesis.verdict.criteria] == [False, True]
 
 
 def test_a_hypothesis_without_a_dag_is_building():

@@ -95,7 +95,8 @@ for a goal and its success criteria, and the builder chooses the inputs with
 `fetch_sequences`. `Hypothesis.criteria` holds the qualitative and quantitative
 criteria the outcome is judged against: the user writes them, or `criteria_agent`
 drafts them through `POST /api/criteria` and the user edits the draft; the builder
-sees them in its prompt and the verifier in the serialised hypothesis. A caller that
+sees them in its prompt and the verifier judges each in `Verdict.criteria`, one
+met/not met/unclear call per criterion shown on the hypotheses page. A caller that
 supplies `inputs` keeps them; `add_input` refuses to shadow one. Treat a sequence
 the model wrote out rather than fetched as unverified: `input_sources` records
 what each input was taken from, and is the only provenance a run carries today.

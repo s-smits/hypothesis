@@ -97,6 +97,13 @@ const when = (t) => new Date(t).toLocaleString();
 const showValue = (v) => v == null ? "" : Array.isArray(v) ? `${v.length} × ${v[0]?.kind ?? "empty"}` : v.items ? `${v.items.length} × ${v.items[0]?.kind ?? "empty"}${Object.keys(v.scores).length ? `, scores: ${Object.keys(v.scores).join(", ")}` : ""}` : JSON.stringify(v);
 const chips = (values) => Object.entries(values).map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(showValue(v))}</span>`).join("");
 
+// One criterion with the critic's call on it, when the verifier judged it.
+const criterionLine = (c, judgements = [], i) => {
+  const j = (judgements ?? []).find((x) => x.criterion === i);
+  const mark = j ? `<span class="badge ${j.met === true ? "s-achieved" : j.met === false ? "s-not-achieved" : "s-skipped"}">${j.met === true ? "met" : j.met === false ? "not met" : "unclear"}</span> ` : "";
+  return `<li>${mark}<span class="kind">${c.kind}</span> ${esc(c.text)}${j?.reason ? `<div class="meta">${esc(j.reason)}</div>` : ""}</li>`;
+};
+
 // The inputs, with where each came from, or why there are none yet: the builder
 // chooses them, so a hypothesis has none until it has submitted its DAG.
 const inputChips = (row) => {
@@ -237,7 +244,7 @@ function detailView(id) {
         <span class="meta">updated ${when(row.updated)}</span>
       </div>
       <div class="id">${esc(h.id)}</div>
-      ${h.criteria?.length ? `<div><div class="label">Success criteria</div><ul class="crits">${h.criteria.map((c) => `<li><span class="kind">${c.kind}</span> ${esc(c.text)}</li>`).join("")}</ul></div>` : ""}
+      ${h.criteria?.length ? `<div><div class="label">Success criteria</div><ul class="crits">${h.criteria.map((c, i) => criterionLine(c, h.verdict?.criteria, i)).join("")}</ul></div>` : ""}
       <div><div class="label">Inputs</div><div class="chips">${inputChips(row)}</div></div>
       ${STOPPED.has(row.status) && why(row) ? `
       <div class="verdict error">

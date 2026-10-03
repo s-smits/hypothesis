@@ -16,16 +16,33 @@ from node_dag.types import TYPES, Dna, Entity, Value
 NODES = {c.model_fields["name"].default: c for c in MAPPING}
 
 
+class CriterionJudgement(BaseModel):
+    """The critic's call on one success criterion.
+
+    Args:
+        criterion: Which of the hypothesis's criteria, by index into ``criteria``.
+        met: Whether the outcome meets it, or None when the run gives no way
+            to tell.
+        reason: The evidence for the call.
+    """
+
+    criterion: int = Field(ge=0)
+    met: bool | None
+    reason: str
+
+
 class Verdict(BaseModel):
     """The verifier's answer to "Did this workflow complete its goal?".
 
     Args:
         achieved: True only when the outcome does what the goal asks, for every input.
         reason: The expected result, the actual result, and how they compare.
+        criteria: One judgement per criterion the hypothesis lists, in order.
     """
 
     achieved: bool
     reason: str
+    criteria: list[CriterionJudgement] = []
 
 
 class Criterion(BaseModel):
@@ -366,9 +383,12 @@ Set achieved to false, whatever else the DAG did, when:
   holds the original input sequence(s) without improvement or with a filter threshold
   that trivialized selection (e.g. threshold 0.0 on positive scores).
 - A threshold let everything through, so the filter decided nothing.
-The hypothesis may list success criteria that qualify the goal: judge the outcome
-against each of them as well as the goal itself, and say in the reason which held
-and which did not."""
+The hypothesis may list success criteria that qualify the goal. Judge the outcome
+against each one and put one judgement per criterion in `criteria`, in the same
+order: `criterion` is its index into the list, `met` is true, false or null when
+the run gives no way to tell, and `reason` is the evidence. achieved still answers
+the whole question: when the goal needs a criterion that did not hold, achieved is
+false."""
 
 CRITERIA_INSTRUCTIONS = """\
 You get a goal for a sequence experiment, and sometimes a proposed hypothesis.

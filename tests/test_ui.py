@@ -32,7 +32,13 @@ from temporal.run_hypothesis import (
     run_hypothesis,
     save_hypothesis,
 )
-from temporal.ui.app import NEW, NewCriteria, NewHypothesis, make_app
+from temporal.ui.app import (
+    HYPOTHESES,
+    NEW,
+    NewCriteria,
+    NewHypothesis,
+    make_app,
+)
 
 
 def _endpoint(path: str):
@@ -296,6 +302,13 @@ def test_the_new_page_edits_criteria_and_can_draft_them_with_the_agent():
         assert s in page
     assert "/api/criteria" in page  # The "draft with the agent" button's call.
     assert "criteria: criteria()" in page  # They are sent when the run starts.
+
+
+def test_the_hypotheses_page_marks_each_criterion_with_the_critics_call():
+    page = HYPOTHESES.read_text()
+    assert "criterionLine" in page  # Pairs a criterion with its judgement.
+    for s in ("met", "not met", "unclear", "verdict?.criteria"):
+        assert s in page
 
 
 def test_a_hypothesis_starts_without_inputs_and_the_page_does_not_ask_for_them():
