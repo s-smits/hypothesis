@@ -1,0 +1,28 @@
+{
+  "dag": {
+    "inputs": {
+      "proteins": "amino_acid_sequence"
+    },
+    "steps": {
+      "folded": {
+        "config": {
+          "name": "esmfold2_fold",
+          "num_loops": 1,
+          "num_sampling_steps": 20,
+          "seed": 0
+        },
+        "inputs": {
+          "sequence": "proteins"
+        }
+      }
+    }
+  },
+  "inputs": {
+    "proteins": [
+      {
+        "kind": "amino_acid_sequence",
+        "sequence": "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG"
+      }
+    ]
+  }
+}
