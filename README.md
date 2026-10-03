@@ -377,6 +377,13 @@ contract. Click **Tool added - resume** and the plan it was already holding runs
 being written again: `ATGTCGTCAGCTTAA` becomes `ATGTCTTCTGCTTAA`, the `clean` decision
 takes its yes branch, and the protein is still `MSSA*`.
 
+What the stubs will not do is pretend. Resolving a node is the real activity, because
+whether a node exists is a fact; the fixed plan asks for one that genuinely is not
+there, which is why it blocks. The verifier reports which assertions fired rather
+than forming a view, the critic repeats the failure rather than diagnosing it, and
+the plan says in its own text that it was not written for your goal. The one thing a
+stub cannot do is reason about what you typed.
+
 Pass `--real` to use the real agents instead, which needs `ANTHROPIC_API_KEY` in
 `.env`. Results go to `results-demo/` so they do not mix with real runs.
 

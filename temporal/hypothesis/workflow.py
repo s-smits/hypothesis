@@ -222,8 +222,10 @@ class HypothesisWorkflow:
             )
             if res.registry_version in seen:
                 att.resumes.append(
-                    f"still missing {[r.name for r in res.missing]}: this worker has the "
-                    f"same {len(res.available)} nodes as before, so it was not restarted"
+                    f"still missing {[r.name for r in res.missing]}: this worker's node "
+                    "registry is unchanged since the last check, so it was never "
+                    "restarted. The registry is read at import, so a node written since "
+                    "then is not loaded here yet."
                 )
             for name, actual in res.mismatched.items():
                 want = plan.requests[name].contract()

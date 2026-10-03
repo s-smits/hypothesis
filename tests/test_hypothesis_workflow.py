@@ -350,7 +350,8 @@ async def test_a_resume_without_restarting_the_worker_blocks_again(env):
             done = await handle.result()
 
     note = " ".join(done.attempts[0].resumes)
-    assert "not restarted" in note, done.attempts[0].resumes
+    assert "never restarted" in note, done.attempts[0].resumes
+    assert "read at import" in note, "the note should say why a new node is not loaded"
     assert len(plans) == 1
 
 

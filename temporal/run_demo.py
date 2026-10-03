@@ -28,7 +28,6 @@ from temporalio.contrib.pydantic import pydantic_data_converter
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
-from node_dag.dag import Dag
 from node_dag.plan import Criterion, Critique, Plan, ToolRequest, Verdict
 from temporal.dag.activities import run_decision, run_tool, save_workflow
 from temporal.dag.workflow import TASK_QUEUE, DagWorkflow
@@ -50,8 +49,6 @@ from temporal.hypothesis.models import (
     CritiqueOutput,
     PlanInput,
     PlanOutput,
-    ResolveInput,
-    ResolveOutput,
     VerifyInput,
 )
 from temporal.hypothesis.workflow import HypothesisWorkflow
@@ -186,65 +183,94 @@ def _rewire(plan: Plan, inputs: dict[str, str]) -> Plan:
 
 @activity.defn(name="plan_hypothesis")
 async def stub_plan(inp: PlanInput) -> PlanOutput:
-    """Hand back a canned plan that asks for a node nobody has written."""
-    click.echo(f"  builder   plans for {inp.goal!r} ({len(inp.criteria)} criteria)")
-    return PlanOutput(plan=_rewire(BLOCKED, inp.input_kinds), tokens=1200)
+    """Hand back a fixed plan, and say in the plan itself that it is fixed.
 
-
-@activity.defn(name="resolve_plan")
-def stub_resolve(inp: ResolveInput) -> ResolveOutput:
-    """Report the node missing the first time, and present after a resume.
-
-    Stands in for a human writing the node and restarting the worker, which is what the
-    real ``resolve_plan`` would notice on its next call.
+    The one thing this cannot do is read the goal. Saying so where the plan is
+    displayed beats a note in the terminal nobody scrolls back to, because the
+    hypothesis text is the first thing anyone reads on the page.
     """
-    key = inp.plan.fingerprint()
-    _seen[key] = _seen.get(key, 0) + 1
-    if _seen[key] == 1:
-        click.echo("  resolve   restriction_sites_absent is missing -> blocking for a human")
-        return ResolveOutput(
-            missing=[inp.plan.requests["restriction_sites_absent"]], registry_version="before"
-        )
-    click.echo("  resolve   restriction_sites_absent is here now -> running the DAG")
-    # Same rewiring as the plan stub: the DAG has to declare the input name the
-    # hypothesis actually used, or it cannot be given its inputs.
-    runnable = _rewire(PLAN, inp.plan.inputs)
-    return ResolveOutput(
-        dag=Dag.model_validate(
-            {
-                "inputs": runnable.inputs,
-                "steps": {k: s.draft() for k, s in runnable.steps.items()},
+    click.echo(f"  builder   fixed plan, ignoring goal {inp.goal!r}")
+    plan = _rewire(BLOCKED, inp.input_kinds)
+    return PlanOutput(
+        plan=plan.model_copy(
+            update={
+                "hypothesis": (
+                    "STUBBED BUILDER: this plan is fixed and was not written for your "
+                    "goal. Run with --real to have a model read it. The plan below "
+                    "recodes TCG and TCA and checks none survive.\n\n"
+                    + plan.hypothesis
+                )
             }
         ),
-        registry_version="after",
+        tokens=1200,
     )
 
 
 @activity.defn(name="verify_outcome")
 async def stub_verify(inp: VerifyInput) -> Verdict:
-    """Agree, which on its own never makes a run successful."""
-    click.echo(f"  verifier  assertions held: {inp.view.held}")
-    return Verdict(
-        agrees=True,
-        covers_goal=True,
-        reason=(
-            "The recoded sequence contains no TCG or TCA codon, and dna_to_protein "
-            "gives MSSA*, the same protein as the input."
-        ),
-        score=1.0,
-    )
+    """Report whether the assertions held, which is a fact rather than an opinion.
+
+    A real verifier reads the outcome and forms a view. This one cannot, so instead of
+    inventing one it states what the DAG did: every assertion either fired or it did
+    not, and ``held`` already says which. Acceptance was never the model's to grant
+    anyway, so a stub that only reports the checks is not far off the real contract.
+    """
+    held = inp.view.held
+    ok = bool(held) and all(held.values())
+    failed = sorted(k for k, v in held.items() if not v)
+    click.echo(f"  verifier  assertions held: {held or 'none to check'}")
+    if not held:
+        reason = (
+            "This plan asserted nothing, so there was nothing to check. Stubbed "
+            "verifier: it reports the assertions rather than judging the outcome."
+        )
+    elif ok:
+        reason = (
+            f"Every assertion held: {sorted(held)}. Stubbed verifier: it reports what "
+            "the DAG's decision steps did and forms no opinion of its own."
+        )
+    else:
+        reason = (
+            f"These assertions did not hold: {failed}. Stubbed verifier: it reports "
+            "what the DAG's decision steps did and forms no opinion of its own."
+        )
+    return Verdict(agrees=ok, covers_goal=True, reason=reason, score=1.0 if ok else 0.0)
 
 
 @activity.defn(name="critique_attempt")
-async def stub_critique(inp: CritiqueInput) -> CritiqueOutput:
-    """Only reached when a round is not accepted."""
+async def critique_attempt_stub(inp: CritiqueInput) -> CritiqueOutput:
+    """Repeat the failure rather than invent a diagnosis.
+
+    Diagnosing is the one thing a stub genuinely cannot fake: the canned critique this
+    replaced blamed a surviving codon for an input-name mismatch, and sent the next
+    round after the wrong thing. Restating the evidence is less useful than a real
+    critique and is at least true.
+    """
+    failed = sorted(k for k, v in inp.view.held.items() if not v)
+    error = inp.view.error
+    click.echo(f"  critic    error={error!r} unheld={failed}")
+    if error:
+        diagnosis = f"The round did not finish: {error}"
+        cause, evidence = "node_raised", [error[:200]]
+    elif failed:
+        diagnosis = f"These assertions did not hold: {failed}"
+        cause, evidence = "wrong_config", failed
+    else:
+        diagnosis = "The verifier did not accept the outcome, and no assertion failed."
+        cause, evidence = "goal_misread", ["no failing assertion"]
     return CritiqueOutput(
         critique=Critique(
-            diagnosis="a target codon survived the recoding step",
-            root_cause="wrong_config",
-            evidence=["clean.no"],
-            fix="target every listed codon, not only the first",
-            reason="the clean step took its no branch, so a target codon survived",
+            diagnosis=diagnosis,
+            root_cause=cause,
+            evidence=evidence,
+            fix=(
+                "Stubbed critic: it restates the failure rather than diagnosing it. "
+                "Run with --real for a critique that reads the attempt."
+            ),
+            reason=(
+                "This is what the attempt reported. A stub cannot work out why, so it "
+                "does not pretend to."
+            ),
         )
     )
 
@@ -257,12 +283,15 @@ async def stub_criteria(inp: CriteriaInput) -> CriteriaOutput:
     stubbed plan happens to assert -- otherwise the run would end ``unverified``,
     correctly but confusingly, because nothing asserted whatever you did type.
     """
-    click.echo("  criteria  none given, so using the one the canned plan asserts")
+    click.echo("  criteria  none given, so using the one the fixed plan asserts")
     return CriteriaOutput(
         criteria=[
             Criterion(
                 id="no_tcg_tca",
-                claim="no TCG or TCA codon remains",
+                claim=(
+                    "no TCG or TCA codon remains (stubbed: fixed, not read from "
+                    "your goal)"
+                ),
                 source="derived",
             )
         ],
@@ -270,7 +299,15 @@ async def stub_criteria(inp: CriteriaInput) -> CriteriaOutput:
     )
 
 
-STUBS = [stub_plan, stub_resolve, stub_verify, stub_critique, stub_criteria]
+# resolve_plan is the real one: whether a node exists is a fact, and the fixed plan
+# asks for one that genuinely is not there, so the blocked path still shows itself.
+STUBS = [
+    stub_plan,
+    resolve_plan,
+    stub_verify,
+    critique_attempt_stub,
+    stub_criteria,
+]
 REAL = [
     plan_hypothesis,
     resolve_plan,
