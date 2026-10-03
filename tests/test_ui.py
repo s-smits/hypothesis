@@ -23,7 +23,7 @@ from node_dag.plan import (
     ToolRequest,
     Verdict,
 )
-from node_dag.types import Dna
+from node_dag.types import TYPES, Dna
 from temporal.store import hypotheses_dir, save_hypothesis, save_tool_request
 from temporal.ui.app import (
     HYPOTHESES,
@@ -210,7 +210,9 @@ def test_satisfied_says_whether_this_process_can_build_it() -> None:
 def test_kinds_come_from_the_type_registry() -> None:
     """The form builds its dropdown from this, so it cannot offer a deleted kind."""
     kinds = {k.kind: k.field for k in _kinds()}
-    assert kinds == {"amino_acid_sequence": "sequence", "dna": "sequence", "score": "value"}
+    # Asserted against TYPES, not a frozen list: adding a kind should not break this.
+    assert set(kinds) == set(TYPES)
+    assert kinds["dna"] == "sequence" and kinds["score"] == "value"
 
 
 def test_stats_split_a_tool_gap_from_a_reasoning_gap() -> None:

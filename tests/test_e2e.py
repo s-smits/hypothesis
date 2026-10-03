@@ -19,6 +19,7 @@ from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
 from node_dag.plan import Critique, Plan, ToolRequest, Verdict
+from node_dag.types import TYPES
 from temporal.dag.activities import run_decision, run_tool, save_workflow
 from temporal.dag.workflow import TASK_QUEUE, DagWorkflow
 from temporal.hypothesis.activities import (
@@ -287,7 +288,7 @@ async def test_the_new_form_offers_the_kinds_the_server_actually_has(page):
         kinds = await page.eval_on_selector_all(
             "select[name=kind] option", "els => els.map(e => e.value || e.textContent)"
         )
-        assert set(kinds) == {"dna", "amino_acid_sequence", "score"}, kinds
+        assert set(kinds) == set(TYPES), kinds
 
 
 async def test_every_page_loads_without_a_console_error(page):

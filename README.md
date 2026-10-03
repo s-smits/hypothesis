@@ -78,6 +78,30 @@ schema under `x-node` and so is surfaced by `describe_node`.
 
 A test checks that `inputs` matches `run`'s signature and that `categories` is set.
 
+### What is on the shelf
+
+| Node | | |
+|---|---|---|
+| `recode_codons` | dna -> dna | replace named codons with synonyms; the protein is unchanged |
+| `mutate_synonymous` | dna -> dna | swap random codons for synonyms; **random, so it cannot target a codon** |
+| `dna_complement` | dna -> dna | the base-wise complement |
+| `dna_reverse_complement` | dna -> dna | the reverse complement, the other strand read 5' to 3' |
+| `dna_transcribe` | dna -> rna | T becomes U |
+| `rna_back_transcribe` | rna -> dna | U becomes T |
+| `dna_to_protein` | dna -> amino_acid_sequence | translate |
+| `dna_atom_score` | dna, dna -> score | atom count; raises when the protein differs from the reference |
+| `ostir_expression` | dna -> score | translation initiation rate, via OSTIR and ViennaRNA |
+| `codons_absent` | dna -> yes/no | none of the named codons appear, in frame |
+| `at_least` / `at_most` | score -> yes/no | threshold filters |
+
+`ostir_expression` is the one that measures what "the protein is unchanged" does not.
+Synonymous recoding keeps the protein identical and can still move the predicted
+initiation rate by an order of magnitude, because it changes how the mRNA folds near the
+start codon — which is one of the ways a recoded gene fails while looking correct. It
+makes "the recoding still translates" a criterion a run can actually be held to, instead
+of one that ends `unverified`. It needs no key or network: `ostir` and `viennarna` are
+ordinary dependencies, and the import is deferred until a step runs.
+
 To add a node, write `config.py` and `function.py`, then add the config to
 `NodeConfig` and `MAPPING` in `factory.py`. To add a shared type, add it to
 `Value` and `TYPES` in `types.py`.

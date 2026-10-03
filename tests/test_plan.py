@@ -173,12 +173,12 @@ async def test_a_hypothetical_tool_is_still_typechecked():
 async def test_an_invented_kind_is_rejected():
     bad = {
         **WANTS_TOOL,
-        "requests": [{**WANTS_TOOL["requests"][0], "inputs": {"sequence": "rna"}}],
+        "requests": [{**WANTS_TOOL["requests"][0], "inputs": {"sequence": "peptide"}}],
     }
     retries = await _retries([bad], ["recode_codons", "dna_atom_score"])
     # ToolRequest's own validator catches this before G3 runs: the type rejects an
     # invented kind, and G3 is the backstop for a request that reached the guard.
-    assert any("rna" in r and "kind" in r.lower() for r in retries), retries
+    assert any("peptide" in r and "kind" in r.lower() for r in retries), retries
 
 
 async def test_a_request_that_shadows_an_existing_node_is_rejected():
