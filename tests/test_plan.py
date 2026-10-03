@@ -4,12 +4,15 @@ Every guard in ``submit_plan`` comes back to the model as a retry, so these test
 model that submits something wrong, reads the complaint, and fixes it. No network.
 """
 
+import json
+
 import pytest
 from pydantic_ai.exceptions import UnexpectedModelBehavior
 from pydantic_ai.messages import (
     ModelMessage,
     ModelResponse,
     RetryPromptPart,
+    TextPart,
     ToolCallPart,
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
@@ -92,7 +95,8 @@ WANTS_TOOL = {
 
 
 def _submit(info: AgentInfo, plan: dict) -> ModelResponse:
-    return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, plan)])
+    assert info.output_tools == []
+    return ModelResponse(parts=[TextPart(json.dumps(plan))])
 
 
 def _catalogue(info: AgentInfo, turn: int, nodes: list[str]) -> ModelResponse | None:
