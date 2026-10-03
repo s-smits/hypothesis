@@ -7,6 +7,11 @@ You give it a goal and some inputs. A builder agent writes a hypothesis (how a D
 the available nodes can meet the goal) and the DAG itself. The DAG runs as a Temporal
 workflow, and a verifier agent judges whether the outcome meets the goal.
 
+Contributor guidance lives in [AGENTS.md](AGENTS.md). The proposed recoding
+experiment, possible research directions and implementation priorities are in
+[docs/research-directions.md](docs/research-directions.md). The tentative agent
+and workflow architecture is in [docs/intended-structure.md](docs/intended-structure.md).
+
 - **Reproducible.** A DAG is plain JSON over typed nodes, checked before it runs. The
   same DAG on the same inputs gives the same result.
 - **Cached.** Each node's result is cached by its config and inputs, so a step that
@@ -213,7 +218,7 @@ temporal server start-dev
 uv run python -m temporal.run_worker
 # Start the UI
 uv run python -m temporal.run_ui --model anthropic:claude-haiku-4-5
-
+```
 
 ## Nodes/tools
 
