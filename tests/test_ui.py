@@ -255,3 +255,17 @@ def test_stats_split_a_tool_gap_from_a_reasoning_gap() -> None:
         "missing_tool": 1,
     }
     assert (stats.requests, stats.unsatisfied) == (1, 1)
+
+
+def test_the_default_models_are_set_and_the_verifier_differs():
+    """Nobody should have to type a model name, and the judge must be independent.
+
+    If one model both writes the plan and judges it, a shared blind spot survives --
+    and the critique loop spends every round pushing the builder to satisfy that judge.
+    """
+    from temporal.hypothesis.models import HypothesisConfig
+
+    cfg = HypothesisConfig()
+    assert cfg.build_model and cfg.verify_model and cfg.critique_model
+    assert cfg.verify_model != cfg.build_model, "the verifier must not grade its own work"
+    assert cfg.critique_model == cfg.build_model

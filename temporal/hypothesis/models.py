@@ -62,6 +62,17 @@ class Finding(BaseModel):
 Brief.model_rebuild()
 
 
+#: The builder and the critic do the reasoning, so they get the stronger model.
+DEFAULT_REASONING_MODEL = "anthropic:claude-fable-5-1"
+
+#: The verifier does not. Since Acceptance demoted it to a veto backed by deterministic
+#: assertion checks, what it needs is independence from the builder, not depth: if one
+#: model both writes the plan and judges it, a shared blind spot survives, and the
+#: critique loop pushes the builder to satisfy that judge every round. Cheaper is a
+#: bonus, since this one runs on every round.
+DEFAULT_VERIFY_MODEL = "anthropic:claude-haiku-4-5"
+
+
 class HypothesisConfig(BaseModel):
     """How hard to try, and with which models.
 
@@ -77,9 +88,9 @@ class HypothesisConfig(BaseModel):
         max_tokens: Total tokens this hypothesis may spend before stopping.
     """
 
-    build_model: str
-    verify_model: str
-    critique_model: str
+    build_model: str = DEFAULT_REASONING_MODEL
+    verify_model: str = DEFAULT_VERIFY_MODEL
+    critique_model: str = DEFAULT_REASONING_MODEL
     max_rounds: int = Field(default=3, ge=1, le=10)
     max_requests: int = Field(default=2, ge=0, le=5)
     patience: int = Field(default=2, ge=1)

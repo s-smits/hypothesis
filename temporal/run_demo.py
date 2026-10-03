@@ -42,6 +42,8 @@ from temporal.hypothesis.activities import (
     verify_outcome,
 )
 from temporal.hypothesis.models import (
+    DEFAULT_REASONING_MODEL,
+    DEFAULT_VERIFY_MODEL,
     CriteriaInput,
     CriteriaOutput,
     CritiqueInput,
@@ -277,8 +279,9 @@ async def _main(host: str, port: int, model: str | None, results: Path) -> None:
                 ],
                 activity_executor=pool,
             ):
-                names = model or "demo"
-                app = make_app(env.client, names, names, names)
+                build = model or "demo"
+                verify = DEFAULT_VERIFY_MODEL if model else "demo"
+                app = make_app(env.client, build, verify, build)
                 _banner(host, port, model, results)
                 await uvicorn.Server(
                     uvicorn.Config(app, host=host, port=port, log_level="warning")
@@ -314,6 +317,11 @@ def _banner(host: str, port: int, model: str | None, results: Path) -> None:
 @click.option("--host", default="127.0.0.1", help="Host to serve the UI on.")
 @click.option("--port", default=8000, help="Port to serve the UI on.")
 @click.option(
+    "--real",
+    is_flag=True,
+    help="Use the real agents on the default models. Needs ANTHROPIC_API_KEY.",
+)
+@click.option(
     "--model",
     help="Use the real agents with this pydantic-ai model, e.g. "
     "anthropic:claude-fable-5-1. Needs ANTHROPIC_API_KEY. Default: stubbed agents.",
@@ -324,9 +332,12 @@ def _banner(host: str, port: int, model: str | None, results: Path) -> None:
     type=click.Path(path_type=Path),
     help="Where to keep this demo's results, so it does not mix with your real runs.",
 )
-def main(host: str, port: int, model: str | None, results: Path) -> None:
+def main(
+    host: str, port: int, real: bool, model: str | None, results: Path
+) -> None:
     """Run Temporal, a worker and the UI together, for trying the loop by hand."""
     logging.basicConfig(level=logging.WARNING)
+    model = model or (DEFAULT_REASONING_MODEL if real else None)
     try:
         asyncio.run(_main(host, port, model, results))
     except KeyboardInterrupt:

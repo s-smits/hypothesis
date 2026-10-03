@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from temporalio.client import Client
 from temporalio.contrib.pydantic import pydantic_data_converter
 
+from temporal.hypothesis.models import DEFAULT_REASONING_MODEL, DEFAULT_VERIFY_MODEL
 from temporal.ui.app import make_app
 
 # Load .env from the project root
@@ -40,15 +41,22 @@ async def _main(
 @click.option("--port", default=8000, help="Port to serve the UI on.")
 @click.option(
     "--model",
+    default=DEFAULT_REASONING_MODEL,
+    show_default=True,
     help="pydantic-ai model for the builder. Needed to start hypotheses from the UI.",
 )
 @click.option(
     "--verify-model",
+    default=DEFAULT_VERIFY_MODEL,
+    show_default=True,
     help="pydantic-ai model for the verifier. Use a different model from --model: "
     "the critique loop pushes the builder to satisfy this judge.",
 )
 @click.option(
-    "--critique-model", help="pydantic-ai model for the critic. Default: --model."
+    "--critique-model",
+    default=DEFAULT_REASONING_MODEL,
+    show_default=True,
+    help="pydantic-ai model for the critic.",
 )
 def main(
     address: str,

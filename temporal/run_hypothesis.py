@@ -12,7 +12,11 @@ from temporalio.contrib.pydantic import pydantic_data_converter
 
 from node_dag.plan import Hypothesis
 from temporal.dag.workflow import TASK_QUEUE
-from temporal.hypothesis.models import HypothesisInput
+from temporal.hypothesis.models import (
+    DEFAULT_REASONING_MODEL,
+    DEFAULT_VERIFY_MODEL,
+    HypothesisInput,
+)
 from temporal.hypothesis.workflow import HypothesisWorkflow
 from temporal.store import hypotheses_dir, save_hypothesis
 
@@ -80,9 +84,17 @@ async def _main(
 
 @click.command()
 @click.argument("path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
-@click.option("--model", required=True, help="pydantic-ai model for the builder.")
 @click.option(
-    "--verify-model", help="pydantic-ai model for the verifier. Default: --model."
+    "--model",
+    default=DEFAULT_REASONING_MODEL,
+    show_default=True,
+    help="pydantic-ai model for the builder.",
+)
+@click.option(
+    "--verify-model",
+    default=DEFAULT_VERIFY_MODEL,
+    show_default=True,
+    help="pydantic-ai model for the verifier. Keep it different from --model.",
 )
 @click.option("--critique-model", help="pydantic-ai model for the critic. Default: --model.")
 @click.option("--max-rounds", default=3, help="Plan-run-verify rounds before giving up.")

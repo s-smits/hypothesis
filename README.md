@@ -347,8 +347,8 @@ contract. Click **Tool added - resume** and the plan it was already holding runs
 being written again: `ATGTCGTCAGCTTAA` becomes `ATGTCTTCTGCTTAA`, the `clean` decision
 takes its yes branch, and the protein is still `MSSA*`.
 
-Pass `--model anthropic:claude-fable-5-1` to use the real agents instead, which needs
-`ANTHROPIC_API_KEY`. Results go to `results-demo/` so they do not mix with real runs.
+Pass `--real` to use the real agents instead, which needs `ANTHROPIC_API_KEY` in
+`.env`. Results go to `results-demo/` so they do not mix with real runs.
 
 ## Models
 
@@ -357,13 +357,17 @@ The builder and the critic do the reasoning; the verifier is a cheap, independen
 exists to push the builder towards satisfying that judge, so a blind spot the two share
 would compound every round.
 
+The defaults are `anthropic:claude-fable-5-1` for the builder and the critic and
+`anthropic:claude-haiku-4-5` for the verifier, so there is nothing to pass. Override
+any of them with `--model`, `--critique-model` or `--verify-model`.
+
 Models use the Anthropic API directly. Put `ANTHROPIC_API_KEY` in a `.env` at the repo
 root, which is already gitignored; the worker and the UI both load it from there.
 
 ```bash
 temporal server start-dev &
 uv run python -m temporal.run_worker --step-delay 2 &
-uv run python -m temporal.run_ui --model anthropic:claude-fable-5-1 --critique-model anthropic:claude-fable-5-1 --verify-model anthropic:claude-haiku-4-5 &
+uv run python -m temporal.run_ui &
 ```
 
 Or run one hypothesis from the command line and print the finished record:
