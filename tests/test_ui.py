@@ -9,6 +9,13 @@ import pytest
 from fastapi import HTTPException
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRoute
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelResponse,
+    ToolCallPart,
+    UserPromptPart,
+)
+from pydantic_ai.models.function import AgentInfo, FunctionModel
 from temporalio.client import Client
 from temporalio.service import RPCError, RPCStatusCode
 
@@ -17,13 +24,13 @@ from node_dag.agent import Hypothesis
 from node_dag.dag import Dag, DagProgress
 from node_dag.nodes.filters.at_most.config import AtMostConfig
 from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
-from node_dag.plan import Attempt, Observation, ToolRequest
+from node_dag.plan import Attempt, Criterion, Observation, ToolRequest
 from node_dag.registry import Registry
 from node_dag.types import Dna
 from temporal.dag.activities import SavedRun, SaveWorkflowInput, results_subdir
 from temporal.hypothesis.activities import save_hypothesis
 from temporal.hypothesis.loop import HypothesisInput
-from temporal.ui.app import NewHypothesis, _hypothesis_row, make_app
+from temporal.ui.app import NewCriteria, NewHypothesis, _hypothesis_row, make_app
 
 
 class _Handle:
@@ -326,3 +333,33 @@ async def test_the_runs_page_can_show_a_structure():
     # structure: it is fetched in loadMolstar, not by a script tag in the page.
     assert "<script src=" in index  # nice-dag is loaded up front, Mol* is not.
     assert not re.search(r"<(script|link)[^>]*molstar", index)
+
+
+async def test_the_criteria_endpoint_drafts_a_list_to_edit():
+    """The agent's draft comes back for the user to edit before they start a run."""
+    seen: list[ModelMessage] = []
+
+    def script(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        seen.extend(messages)
+        draft = [
+            {"id": "faster", "claim": "twice the expression"},
+            {"id": "same_protein", "claim": "the protein is unchanged"},
+        ]
+        return ModelResponse(
+            parts=[ToolCallPart(info.output_tools[0].name, {"response": draft})]
+        )
+
+    draft = _endpoint("/api/criteria", "POST", None, FunctionModel(script))
+    got = await draft(NewCriteria(goal="faster lacZ", hypothesis="mutate codons"))
+
+    assert got == [
+        Criterion(id="faster", claim="twice the expression"),
+        Criterion(id="same_protein", claim="the protein is unchanged"),
+    ]
+    prompt = next(p.content for p in seen[0].parts if isinstance(p, UserPromptPart))
+    assert "Goal: faster lacZ" in str(prompt)
+    assert "Proposed hypothesis: mutate codons" in str(prompt)
+
+    with pytest.raises(HTTPException) as e:  # No model, no agent.
+        await _endpoint("/api/criteria", "POST")(NewCriteria(goal="faster lacZ"))
+    assert e.value.status_code == 503

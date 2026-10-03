@@ -57,7 +57,7 @@
       <textarea id="hypothesis" rows="3" placeholder="How you think the goal can be met. The builder agent starts from this."></textarea>
     </div>
     <div>
-      <label for="criteria">Criteria (optional, one per line)</label>
+      <label for="criteria">Criteria (optional, one per line) <button type="button" id="suggest">Draft with the agent</button></label>
       <textarea id="criteria" rows="3" placeholder="What must be true for the goal to be met. Left empty, the agent derives them from the goal."></textarea>
     </div>
     <div>
@@ -156,6 +156,26 @@ const goalText = () => GOALS[$("#goal-pick").value]?.goal ?? $("#goal").value;
 
 $("#goal-pick").addEventListener("change", pickGoal);
 $("#add").addEventListener("click", () => addInput());
+
+// The criteria agent drafts a list for the user to edit before starting.
+$("#suggest").addEventListener("click", async () => {
+  $("#error").textContent = "";
+  $("#suggest").disabled = true;
+  try {
+    const r = await fetch("/api/criteria", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ goal: goalText(), hypothesis: $("#hypothesis").value || null }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(explain(data.detail ?? `${r.status}`));
+    $("#criteria").value = data.map((c) => c.claim).join("\n");
+  } catch (err) {
+    $("#error").textContent = err.message;
+  } finally {
+    $("#suggest").disabled = false;
+  }
+});
 $("#form").addEventListener("submit", async (e) => {
   e.preventDefault();
   $("#error").textContent = "";

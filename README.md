@@ -168,7 +168,8 @@ Resume and Abandon buttons. It reads the files
 under `results/`, so it needs no worker.
 
 http://127.0.0.1:8000/new starts a hypothesis: enter a goal, optionally your own
-hypothesis for how to meet it, criteria (one per line) and the inputs. The server then
+hypothesis for how to meet it, criteria (one per line, or drafted by the criteria agent
+through `POST /api/criteria` for you to edit) and the inputs. The server then
 starts the loop in the background, and the page jumps to the hypothesis so you can watch
 its rounds. This needs `--model` (and optionally `--verify-model`) on `run_ui`, and a
 worker running.

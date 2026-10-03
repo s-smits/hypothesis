@@ -16,7 +16,7 @@ from temporalio.client import (
 from temporalio.service import RPCError, RPCStatusCode
 
 from node_dag import amass
-from node_dag.agent import Hypothesis
+from node_dag.agent import Hypothesis, criteria_agent
 from node_dag.dag import DagProgress
 from node_dag.links import Link
 from node_dag.plan import Criterion, HypothesisState, ToolRequest
@@ -126,12 +126,14 @@ class Goal(BaseModel):
         goal: The goal text.
         hypotheses: How many hypotheses it has.
         inputs: The inputs of its most recently saved hypothesis.
+        criteria: The success criteria of its most recently saved hypothesis.
         updated: When its most recent hypothesis was saved.
     """
 
     goal: str
     hypotheses: int
     inputs: dict[str, list[Value]]
+    criteria: list[Criterion]
     updated: datetime
 
 
@@ -158,7 +160,11 @@ def _goals(rows: list[HypothesisRow]) -> list[Goal]:
             goals[h.goal].hypotheses += 1
         else:
             goals[h.goal] = Goal(
-                goal=h.goal, hypotheses=1, inputs=h.inputs, updated=r.updated
+                goal=h.goal,
+                hypotheses=1,
+                inputs=h.inputs,
+                criteria=h.criteria,
+                updated=r.updated,
             )
     return list(goals.values())
 
@@ -234,6 +240,19 @@ class RequestRow(BaseModel):
 
     request: ToolRequest
     blocked: list[str]
+
+
+class NewCriteria(BaseModel):
+    """A goal to draft success criteria for.
+
+    Args:
+        goal: The goal to describe success for, in plain English.
+        hypothesis: The user's idea of how to meet it, if they wrote one. It can
+            sharpen what success means.
+    """
+
+    goal: str = Field(min_length=1)
+    hypothesis: str | None = None
 
 
 class Citation(BaseModel):
@@ -333,6 +352,17 @@ def make_app(
             for p in results_subdir("requests").glob("*.json")
         ]
         return sorted(rows, key=lambda r: len(r.blocked), reverse=True)
+
+    @app.post("/api/criteria")
+    async def draft_criteria(new: NewCriteria) -> list[Criterion]:
+        """Draft a goal's success criteria with the criteria agent, to edit next."""
+        if build_model is None:
+            raise HTTPException(503, "The server was started without --model.")
+        prompt = f"Goal: {new.goal.strip()}"
+        if new.hypothesis and new.hypothesis.strip():
+            prompt += f"\nProposed hypothesis: {new.hypothesis.strip()}"
+        result = await criteria_agent(build_model).run(prompt)
+        return result.output
 
     @app.get("/", include_in_schema=False)
     async def index() -> FileResponse:
