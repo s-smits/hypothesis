@@ -127,7 +127,12 @@ $("#requests").addEventListener("click", async (e) => {
   const b = e.target.closest("button[data-resume]");
   if (!b) return;
   b.disabled = true;
-  await Promise.all(b.dataset.resume.split(",").map((id) => fetch(`/api/hypotheses/${encodeURIComponent(id)}/tool_added`, { method: "POST" })));
+  try {
+    await Promise.all(b.dataset.resume.split(",").map((id) => fetch(`/api/hypotheses/${encodeURIComponent(id)}/tool_added`, { method: "POST" })));
+  } finally {
+    // The card is not redrawn when nothing on it changed, so a run that blocks again needs the button back.
+    b.disabled = false;
+  }
 });
 
 function draw() {
