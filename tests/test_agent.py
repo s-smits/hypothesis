@@ -323,7 +323,8 @@ def test_search_nodes_finds_and_ranks_by_intent():
 
     # Category filtering
     gen_results = search_nodes(category="generation")
-    assert [r["name"] for r in gen_results] == ["mutate_synonymous"]
+    assert {"mutate_synonymous", "recode_codons"} <= {r["name"] for r in gen_results}
+    assert "ostir_expression" not in {r["name"] for r in gen_results}
 
     # Translation
     trans_results = search_nodes(query="translate to protein")

@@ -7,6 +7,8 @@ from node_dag.nodes.filters.at_least.config import AtLeastConfig
 from node_dag.nodes.filters.at_least.function import AtLeast
 from node_dag.nodes.filters.at_most.config import AtMostConfig
 from node_dag.nodes.filters.at_most.function import AtMost
+from node_dag.nodes.tools.codon_count.config import CodonCountConfig
+from node_dag.nodes.tools.codon_count.function import CodonCount
 from node_dag.nodes.tools.dna_atom_score.config import DnaAtomScoreConfig
 from node_dag.nodes.tools.dna_atom_score.function import DnaAtomScore
 from node_dag.nodes.tools.dna_complement.config import DnaComplementConfig
@@ -23,12 +25,15 @@ from node_dag.nodes.tools.mutate_synonymous.config import MutateSynonymousConfig
 from node_dag.nodes.tools.mutate_synonymous.function import MutateSynonymous
 from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
 from node_dag.nodes.tools.ostir_expression.function import OstirExpression
+from node_dag.nodes.tools.recode_codons.config import RecodeCodonsConfig
+from node_dag.nodes.tools.recode_codons.function import RecodeCodons
 from node_dag.nodes.tools.rna_back_transcribe.config import RnaBackTranscribeConfig
 from node_dag.nodes.tools.rna_back_transcribe.function import RnaBackTranscribe
 
 NodeConfig = Annotated[
     AtLeastConfig
     | AtMostConfig
+    | CodonCountConfig
     | DnaAtomScoreConfig
     | DnaComplementConfig
     | DnaReverseComplementConfig
@@ -36,6 +41,7 @@ NodeConfig = Annotated[
     | DnaTranscribeConfig
     | MutateSynonymousConfig
     | OstirExpressionConfig
+    | RecodeCodonsConfig
     | RnaBackTranscribeConfig,
     Discriminator("name"),
 ]
@@ -43,6 +49,7 @@ NodeConfig = Annotated[
 MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
     AtLeastConfig: AtLeast,
     AtMostConfig: AtMost,
+    CodonCountConfig: CodonCount,
     DnaAtomScoreConfig: DnaAtomScore,
     DnaComplementConfig: DnaComplement,
     DnaReverseComplementConfig: DnaReverseComplement,
@@ -50,6 +57,7 @@ MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
     DnaTranscribeConfig: DnaTranscribe,
     MutateSynonymousConfig: MutateSynonymous,
     OstirExpressionConfig: OstirExpression,
+    RecodeCodonsConfig: RecodeCodons,
     RnaBackTranscribeConfig: RnaBackTranscribe,
 }
 
