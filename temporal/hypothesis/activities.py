@@ -49,6 +49,27 @@ from temporal.hypothesis.models import (
 from temporal.store import save_hypothesis, save_tool_request, trajectories_dir
 
 
+#: A refusal is the provider declining, not a wobble. Another identical request gets
+#: an identical answer, so a loop that retries one only spends money to learn that.
+_REFUSALS = ("content filter", "refusal", "safety")
+
+
+def _refused(message: str) -> bool:
+    """Whether a model failure is one that retrying cannot fix."""
+    low = message.lower()
+    return any(m in low for m in _REFUSALS)
+
+
+def _brief(message: str, limit: int = 300) -> str:
+    """The first line of a model failure, without the provider's response body.
+
+    A refusal arrives with the whole response attached, including base64 thinking
+    signatures. Pasted into a page meant to say what went wrong, it buries it.
+    """
+    head = message.split(", body:", 1)[0].splitlines()[0].strip()
+    return head if len(head) <= limit else head[: limit - 1] + "…"
+
+
 def _record(tag: str, result: Any) -> tuple[str | None, int]:  # noqa: ANN401
     """Write an agent run's message history to disk and report its token use.
 
@@ -95,7 +116,7 @@ async def derive_criteria(inp: CriteriaInput) -> CriteriaOutput:
     try:
         result = await agent.run(prompt)
     except UnexpectedModelBehavior as e:
-        return CriteriaOutput(error=str(e))
+        return CriteriaOutput(error=_brief(str(e)), terminal=_refused(str(e)))
     path, tokens = _record(inp.tag, result)
     return CriteriaOutput(criteria=result.output, trajectory=path, tokens=tokens)
 
@@ -120,8 +141,17 @@ async def plan_hypothesis(inp: PlanInput) -> PlanOutput:
         result = await agent.run(_plan_prompt(inp), deps=deps)
     except UnexpectedModelBehavior as e:
         # Out of output retries: the guards kept rejecting it. That is a critique input,
-        # not a crash -- the loop should get a chance to diagnose and try again.
-        return PlanOutput(error=f"the builder could not produce a valid plan: {e}")
+        # not a crash -- the loop should get a chance to diagnose and try again. Unless
+        # the provider refused, which no amount of trying again will change.
+        refused = _refused(str(e))
+        return PlanOutput(
+            error=(
+                f"the model declined this goal: {_brief(str(e))}"
+                if refused
+                else f"the builder could not produce a valid plan: {_brief(str(e))}"
+            ),
+            terminal=refused,
+        )
     path, tokens = _record(inp.tag, result)
     called = [
         p.tool_name
@@ -264,7 +294,9 @@ async def verify_outcome(inp: VerifyInput) -> Verdict:
     try:
         result = await agent.run(inp.view.model_dump_json(indent=2))
     except UnexpectedModelBehavior as e:
-        return Verdict(agrees=False, covers_goal=False, reason=f"the verifier failed: {e}")
+        return Verdict(
+            agrees=False, covers_goal=False, reason=f"the verifier failed: {_brief(str(e))}"
+        )
     o = result.output
     _record(inp.tag, result)
     return Verdict(
@@ -295,7 +327,7 @@ async def critique_attempt(inp: CritiqueInput) -> CritiqueOutput:
     try:
         result = await agent.run("\n\n".join(parts))
     except UnexpectedModelBehavior as e:
-        return CritiqueOutput(error=str(e))
+        return CritiqueOutput(error=_brief(str(e)), terminal=_refused(str(e)))
     path, tokens = _record(inp.tag, result)
     return CritiqueOutput(critique=result.output, trajectory=path, tokens=tokens)
 

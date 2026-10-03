@@ -394,7 +394,7 @@ The builder and the critic do the reasoning; the verifier is a cheap, independen
 exists to push the builder towards satisfying that judge, so a blind spot the two share
 would compound every round.
 
-The defaults are `anthropic:claude-fable-5-1` for the builder and the critic and
+The defaults are `anthropic:claude-opus-5` for the builder and the critic and
 `anthropic:claude-haiku-4-5` for the verifier, so there is nothing to pass. Override
 any of them with `--model`, `--critique-model` or `--verify-model`.
 
@@ -411,8 +411,8 @@ Or run one hypothesis from the command line and print the finished record:
 
 ```bash
 uv run python -m temporal.run_hypothesis examples/double.json \
-  --model anthropic:claude-fable-5-1 \
-  --critique-model anthropic:claude-fable-5-1 \
+  --model anthropic:claude-opus-5 \
+  --critique-model anthropic:claude-opus-5 \
   --verify-model anthropic:claude-haiku-4-5 \
   --max-rounds 3
 ```

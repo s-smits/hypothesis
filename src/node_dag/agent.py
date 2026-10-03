@@ -15,7 +15,7 @@ import json
 from typing import Any
 
 from pydantic import BaseModel, ValidationError
-from pydantic_ai import Agent, ModelRetry, RunContext, Tool
+from pydantic_ai import Agent, ModelRetry, PromptedOutput, RunContext, Tool
 from pydantic_ai.messages import ToolCallPart
 from pydantic_ai.models import Model
 
@@ -519,7 +519,7 @@ def plan_agent(model: Model | str) -> Agent[PlanDeps, Plan]:
         deps_type=PlanDeps,
         instructions=PLAN_INSTRUCTIONS,
         tools=[Tool(list_nodes), Tool(search_nodes), Tool(describe_node)],
-        output_type=submit_plan,
+        output_type=PromptedOutput(submit_plan),
         retries={"output": 3},
     )
 

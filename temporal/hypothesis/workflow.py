@@ -377,6 +377,10 @@ class HypothesisWorkflow:
                 att.error = planned.error
                 att.finished = workflow.now()
                 self._put(att)
+                if planned.terminal:
+                    return await self._stop(
+                        "not achieved", planned.error or "the builder could not continue"
+                    )
                 critique = Critique(
                     diagnosis=planned.error or "the builder produced no plan",
                     root_cause="goal_misread",

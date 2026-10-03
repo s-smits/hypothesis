@@ -12,7 +12,7 @@ the system when the system was fine. A launcher that calls the real agents canno
 about what the agents did.
 
     uv run python -m temporal.run_local
-    uv run python -m temporal.run_local --model anthropic:claude-opus-5-5
+    uv run python -m temporal.run_local --model anthropic:claude-opus-5
 """
 
 import asyncio

@@ -27,6 +27,8 @@ from node_dag.types import Dna
 from temporal.dag.activities import run_decision, run_tool, save_workflow
 from temporal.dag.workflow import TASK_QUEUE, DagWorkflow
 from temporal.hypothesis.activities import (
+    _brief,
+    _refused,
     resolve_plan,
     save_hypothesis_state,
     save_requests,
@@ -185,6 +187,15 @@ def _planner(calls: list, plan: Plan = REAL_PLAN):
     async def plan_hypothesis(inp: PlanInput) -> PlanOutput:
         calls.append(inp)
         return PlanOutput(plan=plan)
+
+    return plan_hypothesis
+
+
+def _failed_planner(calls: list, *, terminal: bool):
+    @activity.defn(name="plan_hypothesis")
+    async def plan_hypothesis(inp: PlanInput) -> PlanOutput:
+        calls.append(inp)
+        return PlanOutput(error="the provider declined the request", terminal=terminal)
 
     return plan_hypothesis
 
@@ -463,6 +474,43 @@ async def test_the_verifier_never_sees_a_previous_verdict(env):
         dumped = call.view.model_dump_json()
         assert "attempts" not in dumped
         assert "critique" not in dumped
+
+
+def test_provider_failure_messages_are_concise_and_classified():
+    message = (
+        "UnexpectedModelBehavior: safety refusal, body: "
+        '{"signature":"c2lnbmF0dXJl","usage":{"output_tokens":42}}'
+    )
+    assert _brief(message) == "UnexpectedModelBehavior: safety refusal"
+    assert _refused(message)
+    assert not _refused("connection reset by peer")
+
+
+async def test_a_terminal_builder_failure_stops_without_retrying(env):
+    plans = []
+    done = await _run(
+        env,
+        [_failed_planner(plans, terminal=True), _verifier([_agrees()], []), _critic([])],
+        _hyp(),
+        max_rounds=3,
+    )
+    assert done.state == "not achieved"
+    assert done.stopped_because == "the provider declined the request"
+    assert len(plans) == 1
+    assert len(done.attempts) == 1
+
+
+async def test_a_retryable_builder_failure_uses_the_remaining_rounds(env):
+    plans = []
+    done = await _run(
+        env,
+        [_failed_planner(plans, terminal=False), _verifier([_agrees()], []), _critic([])],
+        _hyp(),
+        max_rounds=3,
+    )
+    assert done.state == "not achieved"
+    assert len(plans) == 3
+    assert len(done.attempts) == 3
 
 
 async def test_a_plan_with_no_assertions_ends_unverified(env):

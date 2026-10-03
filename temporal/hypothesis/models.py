@@ -63,7 +63,7 @@ Brief.model_rebuild()
 
 
 #: The builder and the critic do the reasoning, so they get the stronger model.
-DEFAULT_REASONING_MODEL = "anthropic:claude-fable-5-1"
+DEFAULT_REASONING_MODEL = "anthropic:claude-opus-5"
 
 #: The verifier does not. Since Acceptance demoted it to a veto backed by deterministic
 #: assertion checks, what it needs is independence from the builder, not depth: if one
@@ -131,11 +131,14 @@ class AgentOutput(BaseModel):
         trajectory: Where the message history was written, under ``results/trajectories``.
         tokens: Tokens this call used.
         error: Why the call produced nothing usable, if it did.
+        terminal: True when another attempt would fail the same way, so the loop should
+            stop rather than spend its remaining rounds finding that out.
     """
 
     trajectory: str | None = None
     tokens: int = 0
     error: str | None = None
+    terminal: bool = False
 
 
 class CriteriaOutput(AgentOutput):
