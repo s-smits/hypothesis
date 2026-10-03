@@ -250,12 +250,14 @@ class NewHypothesis(BaseModel):
         goal: What the DAG must do, in plain English.
         hypothesis: The user's idea of how to meet the goal. The builder agent takes
             it as a starting point.
-        inputs: The values to run on, keyed by DAG input name.
+        inputs: The values to run on, keyed by DAG input name. Optional, and the
+            page does not ask for them: left out, the builder agent works out what
+            the goal is about and fetches the sequences itself.
     """
 
     goal: str = Field(min_length=1)
     hypothesis: str | None = None
-    inputs: dict[str, list[Value]]
+    inputs: dict[str, list[Value]] = {}
 
 
 class Citation(BaseModel):

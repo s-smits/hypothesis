@@ -103,7 +103,12 @@ async def run_hypothesis(
     try:
         logger.info("Building hypothesis %s: %s", hyp.id, hyp.goal)
         save_hypothesis(hyp)
-        prompt = f"Goal: {hyp.goal}\nInputs: {json.dumps(hyp.describe_inputs())}"
+        prompt = f"Goal: {hyp.goal}\n" + (
+            f"Inputs: {json.dumps(hyp.describe_inputs())}"
+            if hyp.inputs
+            else "Inputs: none given. Choose them from the goal and declare them "
+            "with add_input."
+        )
         if (
             hyp.hypothesis
         ):  # One the user proposed. The builder replaces it with its own.

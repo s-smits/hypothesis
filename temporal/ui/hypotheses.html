@@ -95,6 +95,19 @@ const when = (t) => new Date(t).toLocaleString();
 const showValue = (v) => v == null ? "" : Array.isArray(v) ? `${v.length} × ${v[0]?.kind ?? "empty"}` : v.items ? `${v.items.length} × ${v.items[0]?.kind ?? "empty"}${Object.keys(v.scores).length ? `, scores: ${Object.keys(v.scores).join(", ")}` : ""}` : JSON.stringify(v);
 const chips = (values) => Object.entries(values).map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(showValue(v))}</span>`).join("");
 
+// The inputs, with where each came from, or why there are none yet: the builder
+// chooses them, so a hypothesis has none until it has submitted its DAG.
+const inputChips = (row) => {
+  const h = row.hypothesis;
+  if (Object.keys(h.inputs).length) {
+    return Object.entries(h.inputs).map(([k, v]) => {
+      const from = h.input_sources?.[k];
+      return `<span class="chip" ${from ? `title="${esc(from)}"` : ""}>${esc(k)}: ${esc(showValue(v))}</span>`;
+    }).join("");
+  }
+  return `<span class="meta">${STOPPED.has(row.status) ? "The builder agent did not choose any." : "The builder agent is choosing them…"}</span>`;
+};
+
 // The plan, or why there is none yet.
 const plan = (row) => row.hypothesis.hypothesis ? esc(row.hypothesis.hypothesis)
   : `<span class="meta">${STOPPED.has(row.status) ? "The builder agent did not finish one." : "The builder agent is writing it…"}</span>`;
@@ -173,7 +186,7 @@ function goalView(goal) {
       <a class="row" href="${href({ id: h.id })}">
         <div class="line">${badge(r.status)}<span class="summary">${plan(r)}</span></div>
         <div class="side"><span class="meta">${when(r.updated)}</span></div>
-        <div class="chips">${chips(h.inputs)}</div>
+        <div class="chips">${inputChips(r)}</div>
         <div class="side">${h.verdict ? `<span class="meta">${h.verdict.achieved ? "goal achieved" : "goal not achieved"}</span>` : ""}</div>
       </a>`;
     }).join("")}
@@ -222,7 +235,7 @@ function detailView(id) {
         <span class="meta">updated ${when(row.updated)}</span>
       </div>
       <div class="id">${esc(h.id)}</div>
-      <div><div class="label">Inputs</div><div class="chips">${chips(h.inputs)}</div></div>
+      <div><div class="label">Inputs</div><div class="chips">${inputChips(row)}</div></div>
       ${STOPPED.has(row.status) && why(row) ? `
       <div class="verdict error">
         <div class="label">${row.status === "interrupted" ? "Interrupted" : "Failed"}</div>

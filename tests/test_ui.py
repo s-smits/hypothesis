@@ -26,7 +26,7 @@ from temporal.run_hypothesis import (
     run_hypothesis,
     save_hypothesis,
 )
-from temporal.ui.app import make_app
+from temporal.ui.app import NEW, NewHypothesis, make_app
 
 
 def _endpoint(path: str):
@@ -219,3 +219,14 @@ async def test_the_runs_page_can_show_a_structure():
     # structure: it is fetched in loadMolstar, not by a script tag in the page.
     assert "<script src=" in index  # nice-dag is loaded up front, Mol* is not.
     assert not re.search(r"<(script|link)[^>]*molstar", index)
+
+
+def test_a_hypothesis_starts_without_inputs_and_the_page_does_not_ask_for_them():
+    """The builder agent chooses what to run on, so the form only takes words."""
+    new = NewHypothesis(goal="increase the expression of E. coli lacZ")
+    assert new.inputs == {}
+    assert Hypothesis(goal=new.goal, inputs=new.inputs).inputs == {}
+
+    page = NEW.read_text()
+    assert "add_input" not in page and 'id="inputs"' not in page
+    assert '"inputs"' not in page  # The request body carries no inputs.

@@ -3,9 +3,11 @@
 A domain-specific agent that explores hypotheses by composing reproducible workflows
 from a collection of tools, scorers and filters.
 
-You give it a goal and some inputs. A builder agent writes a hypothesis (how a DAG of
-the available nodes can meet the goal) and the DAG itself. The DAG runs as a Temporal
-workflow, and a verifier agent judges whether the outcome meets the goal.
+You give it a goal. A builder agent works out which sequences the goal is about and
+fetches them from NCBI, then writes a hypothesis (how a DAG of the available nodes can
+meet the goal) and the DAG itself. The DAG runs as a Temporal workflow, and a verifier
+agent judges whether the outcome meets the goal. An API caller may still supply the
+inputs itself, and the builder then uses those unchanged.
 
 Contributor guidance lives in [AGENTS.md](AGENTS.md). The proposed recoding
 experiment, possible research directions and implementation priorities are in
@@ -160,11 +162,19 @@ inputs. Click a hypothesis to see all of it: inputs, hypothesis, outcome, verdic
 DAG step by step, and a link to its run. It reads the files
 under `results/`, so it needs no worker.
 
-http://127.0.0.1:8000/new starts a hypothesis: enter a goal, optionally your own
-hypothesis for how to meet it, and the inputs. The server then runs the builder agent,
-the DAG and the verifier in the background, and the page jumps to the hypothesis so you
-can watch it. This needs `--model` (and optionally `--verify-model`) on `run_ui`, and a
-worker running.
+http://127.0.0.1:8000/new starts a hypothesis: enter a goal and, optionally, your own
+hypothesis for how to meet it. The page does not ask for inputs; the builder agent
+chooses them, so name the gene, organism or accession in the goal. The server then runs
+the builder agent, the DAG and the verifier in the background, and the page jumps to
+the hypothesis so you can watch it. This needs `--model` (and optionally
+`--verify-model`) on `run_ui`, and a worker running.
+
+The builder finds sequences with `search_sequences` and `fetch_sequences`, which query
+NCBI Nucleotide through the E-utilities API and cache every reply under
+`results/entrez/`. Set `NCBI_EMAIL` to identify yourself to NCBI, as it asks callers to
+do, and `NCBI_API_KEY` for a higher rate limit. It declares an input with `add_input`,
+citing a fetched record by handle rather than writing a sequence out, and what it cites
+is kept in the hypothesis's `input_sources`.
 
 http://127.0.0.1:8000/nodes lists every node in the registry, as the builder agent sees
 it: its description, input port, outputs, the full name of each score column a scorer
