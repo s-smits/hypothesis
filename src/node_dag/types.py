@@ -11,8 +11,6 @@ from pydantic import (
     model_serializer,
 )
 
-from node_dag.dna import ATOMS_PER_BASE
-
 
 class Entity(BaseModel):
     """Something a DAG passes around in lists: a sequence with a unique ``id``.
@@ -91,13 +89,9 @@ class Dna(NucleicAcid):
     @field_validator("sequence")
     @classmethod
     def _check(cls, v: str) -> str:
-        if set(v) - set(ATOMS_PER_BASE):
+        if set(v) - set("ACGT"):
             raise ValueError(f"Not A, C, G, T: {v!r}")
         return v
-
-    def atom_count(self) -> int:
-        """Total atoms in the DNA strand."""
-        return sum(ATOMS_PER_BASE[b] for b in self.sequence)
 
 
 class Rna(NucleicAcid):
@@ -129,11 +123,11 @@ class Score(BaseModel):
 
 
 class ProteinStructure(Entity):
-    """A protein sequence and its 3D macromolecular structure (e.g. PDB format).
+    """A protein sequence and its 3D macromolecular structure, as mmCIF.
 
     Args:
         sequence: The amino acids, or ``*`` for stop codons.
-        structure: The macromolecular 3D structure, e.g. as a PDB string.
+        structure: The macromolecular 3D structure, as an mmCIF string.
     """
 
     kind: Literal["protein_structure"] = "protein_structure"

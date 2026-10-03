@@ -7,8 +7,6 @@ from node_dag.nodes.filters.at_least.config import AtLeastConfig
 from node_dag.nodes.filters.at_least.function import AtLeast
 from node_dag.nodes.filters.at_most.config import AtMostConfig
 from node_dag.nodes.filters.at_most.function import AtMost
-from node_dag.nodes.tools.dna_atom_score.config import DnaAtomScoreConfig
-from node_dag.nodes.tools.dna_atom_score.function import DnaAtomScore
 from node_dag.nodes.tools.dna_complement.config import DnaComplementConfig
 from node_dag.nodes.tools.dna_complement.function import DnaComplement
 from node_dag.nodes.tools.dna_reverse_complement.config import (
@@ -19,6 +17,8 @@ from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
 from node_dag.nodes.tools.dna_to_protein.function import DnaToProtein
 from node_dag.nodes.tools.dna_transcribe.config import DnaTranscribeConfig
 from node_dag.nodes.tools.dna_transcribe.function import DnaTranscribe
+from node_dag.nodes.tools.esmfold2_fold.config import Esmfold2FoldConfig
+from node_dag.nodes.tools.esmfold2_fold.function import Esmfold2Fold
 from node_dag.nodes.tools.mutate_synonymous.config import MutateSynonymousConfig
 from node_dag.nodes.tools.mutate_synonymous.function import MutateSynonymous
 from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
@@ -29,11 +29,11 @@ from node_dag.nodes.tools.rna_back_transcribe.function import RnaBackTranscribe
 NodeConfig = Annotated[
     AtLeastConfig
     | AtMostConfig
-    | DnaAtomScoreConfig
     | DnaComplementConfig
     | DnaReverseComplementConfig
     | DnaToProteinConfig
     | DnaTranscribeConfig
+    | Esmfold2FoldConfig
     | MutateSynonymousConfig
     | OstirExpressionConfig
     | RnaBackTranscribeConfig,
@@ -43,11 +43,11 @@ NodeConfig = Annotated[
 MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
     AtLeastConfig: AtLeast,
     AtMostConfig: AtMost,
-    DnaAtomScoreConfig: DnaAtomScore,
     DnaComplementConfig: DnaComplement,
     DnaReverseComplementConfig: DnaReverseComplement,
     DnaToProteinConfig: DnaToProtein,
     DnaTranscribeConfig: DnaTranscribe,
+    Esmfold2FoldConfig: Esmfold2Fold,
     MutateSynonymousConfig: MutateSynonymous,
     OstirExpressionConfig: OstirExpression,
     RnaBackTranscribeConfig: RnaBackTranscribe,

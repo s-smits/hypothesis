@@ -2,9 +2,9 @@ import pytest
 
 from node_dag import factory
 from node_dag.nodes.filters.at_least.config import AtLeastConfig
-from node_dag.nodes.tools.dna_atom_score.config import DnaAtomScoreConfig
 from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
-from node_dag.types import AminoAcidSequence, Dna, Score
+from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
+from node_dag.types import AminoAcidSequence, Dna
 from temporal.dag.activities import RunNodeInput, run_filter, run_score, run_tool
 
 
@@ -47,17 +47,18 @@ def test_a_node_runs_once_per_config_and_inputs(results_dir, monkeypatch):
 
 
 def test_a_scoring_node_caches_per_config(results_dir, monkeypatch):
-    seqs = [Dna(sequence="ATGGCT"), Dna(sequence="ATGGCC")]
+    seqs = [Dna(sequence="ATGGCTCTGAAATAA"), Dna(sequence="ATGGCCCTGAAATAA")]
     inp = RunNodeInput(
-        config=DnaAtomScoreConfig(reference=seqs[0]), inputs={"sequence": seqs}
+        config=OstirExpressionConfig(utr="TTCTAGAAAGGAGGTAAAAAA"),
+        inputs={"sequence": seqs},
     )
     rows = run_score(inp)
-    assert rows[0]["amino_acid_changes"] == Score(value=0)
-    monkeypatch.setitem(factory.MAPPING, DnaAtomScoreConfig, Broken)
+    assert "expression" in rows[0]
+    monkeypatch.setitem(factory.MAPPING, OstirExpressionConfig, Broken)
     assert run_score(inp) == rows
     # Another reference is another score, so it is not read from the cache.
     other = inp.model_copy(
-        update={"config": DnaAtomScoreConfig(reference=Dna(sequence="ATGAAA"))}
+        update={"config": OstirExpressionConfig(utr="TTCTAGACCTCCTTATAAAAA")}
     )
     with pytest.raises(RuntimeError):
         run_score(other)

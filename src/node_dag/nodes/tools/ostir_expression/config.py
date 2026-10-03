@@ -51,7 +51,7 @@ class OstirExpressionConfig(BaseScoreConfig):
         "expression, translation initiation rate, or ribosome binding site (RBS) strength."
     )
     when_not_to_use: ClassVar = (
-        "Do not use for measuring atom counts, or on non-coding sequences."
+        "Do not use on non-coding sequences."
     )
 
     @field_validator("utr", "anti_sd")

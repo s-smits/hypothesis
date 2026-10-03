@@ -5,6 +5,8 @@ from pathlib import Path
 
 import click
 from dotenv import load_dotenv
+from pydantic_ai import Agent
+from pydantic_ai.messages import RetryPromptPart, TextPart, ToolCallPart, ToolReturnPart
 from pydantic_ai.models import Model
 
 # Load .env from the project root
@@ -38,6 +40,51 @@ def save_hypothesis(hyp: Hypothesis) -> Hypothesis:
     return hyp
 
 
+def _clip(value: object, limit: int = 300) -> str:
+    text = value if isinstance(value, str) else json.dumps(value, default=str)
+    return text if len(text) <= limit else f"{text[:limit]}… ({len(text)} chars)"
+
+
+def _log_node(hyp_id: str, node: object) -> None:
+    """Log what the builder just did, so a slow or looping build can be seen."""
+    if Agent.is_model_request_node(node):
+        for part in node.request.parts:
+            if isinstance(part, ToolReturnPart):
+                logger.info(
+                    "[%s] %s returned %s", hyp_id, part.tool_name, _clip(part.content)
+                )
+            elif isinstance(part, RetryPromptPart):
+                logger.warning(
+                    "[%s] retry %s: %s",
+                    hyp_id,
+                    part.tool_name or "output",
+                    _clip(part.content, 1000),
+                )
+        logger.info("[%s] waiting for the model", hyp_id)
+    elif Agent.is_call_tools_node(node):
+        for part in node.model_response.parts:
+            if isinstance(part, ToolCallPart):
+                logger.info(
+                    "[%s] calls %s(%s)", hyp_id, part.tool_name, _clip(part.args)
+                )
+            elif isinstance(part, TextPart) and part.content.strip():
+                logger.info("[%s] says %s", hyp_id, _clip(part.content))
+
+
+def stage(hyp: Hypothesis) -> str:
+    """The stage ``hyp`` is in, from what it has: the one its next save ends."""
+    if hyp.outcome:
+        return "verifying"
+    return "running" if hyp.dag else "building"
+
+
+def _reason(e: BaseException) -> str:
+    """The innermost cause of ``e``, e.g. a node's error inside a workflow failure."""
+    while e.__cause__:
+        e = e.__cause__
+    return f"{type(e).__name__}: {e}"
+
+
 async def run_hypothesis(
     hyp: Hypothesis,
     client: Client,
@@ -47,8 +94,12 @@ async def run_hypothesis(
     """Write a hypothesis and DAG for ``hyp.goal``, run it, then verify the outcome.
 
     Returns a copy of ``hyp`` with the rest of its fields set. Saves it after each
-    stage, so the UI can show how far it has got.
+    stage, so the UI can show how far it has got. If a stage fails, saves why in
+    ``error``; if the task is cancelled, e.g. because the UI is stopping, saves it
+    as ``interrupted``.
     """
+    # A rerun starts afresh, whatever stopped the last run.
+    hyp = hyp.model_copy(update={"error": None, "interrupted": False})
     try:
         logger.info("Building hypothesis %s: %s", hyp.id, hyp.goal)
         save_hypothesis(hyp)
@@ -59,7 +110,11 @@ async def run_hypothesis(
             prompt += f"\nProposed hypothesis: {hyp.hypothesis}"
         logger.info("Calling builder agent for %s", hyp.id)
         agent = build_agent(build_model, Registry(registry_dir()))
-        hyp = (await agent.run(prompt, deps=hyp)).output
+        async with agent.iter(prompt, deps=hyp) as run:
+            async for node in run:
+                _log_node(hyp.id, node)
+        assert run.result is not None
+        hyp = run.result.output
         assert hyp.dag is not None
         logger.info(
             "Builder finished for %s, DAG has %d steps", hyp.id, len(hyp.dag.steps)
@@ -78,14 +133,28 @@ async def run_hypothesis(
 
         logger.info("Calling verifier agent for %s", hyp.id)
         verdict = await verify_agent(verify_model).run(
-            hyp.model_dump_json(exclude={"verdict"})
+            hyp.model_dump_json(exclude={"verdict", "error", "interrupted"})
         )
         logger.info(
             "Verifier finished for %s: achieved=%s", hyp.id, verdict.output.achieved
         )
         return save_hypothesis(hyp.model_copy(update={"verdict": verdict.output}))
+    except asyncio.CancelledError:
+        logger.warning("Hypothesis %s was interrupted", hyp.id)
+        save_hypothesis(
+            hyp.model_copy(
+                update={
+                    "interrupted": True,
+                    "error": f"Interrupted while {stage(hyp)}: it was cancelled.",
+                }
+            )
+        )
+        raise
     except Exception as e:
         logger.exception("Hypothesis %s failed", hyp.id)
+        save_hypothesis(
+            hyp.model_copy(update={"error": f"Failed while {stage(hyp)}: {_reason(e)}"})
+        )
         raise
 
 

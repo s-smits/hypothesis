@@ -75,7 +75,7 @@ There are three kinds of node:
 - **Tool** (`BaseToolConfig`): `output` is the entity type. `run` returns the new
   entities, which replace the old and have no scores.
 - **Scorer** (`BaseScoreConfig`): `output` maps each score name to `Score`, like
-  `{"atom_count": Score}`. `run` returns one `{score name: Score}` dict per entity. The
+  `{"expression": Score}`. `run` returns one `{score name: Score}` dict per entity. The
   entities pass through, with a column added for each score.
 - **Filter** (`BaseFilterConfig`): has a `column`. `run(items, values)` gets the
   entities and that column's values and returns a bool for each. The entities that get
@@ -83,7 +83,7 @@ There are three kinds of node:
 
 Every config has a `config_hash`: a hash of its name, version and fields, set when the
 config is made. A config with a different hash is rejected, so leave it out. Two scorers
-with different fields (say, a different reference) make different columns. Because the
+with different fields (say, a different UTR) make different columns. Because the
 DAG is checked before it runs, a filter on a column that nothing upstream makes is an
 error that lists the columns it could have used.
 
@@ -100,9 +100,9 @@ To add a node, write `config.py` and `function.py`, then add the config to
   "inputs": {"seqs": "dna"},
   "steps": {
     "mutated": {"config": {"name": "mutate_synonymous", "seed": 1, "count": 2}, "inputs": {"sequence": "seqs"}},
-    "scored":  {"config": {"name": "dna_atom_score", "reference": {"kind": "dna", "sequence": "ATGGCTCTGAAATAA"}},
+    "scored":  {"config": {"name": "ostir_expression", "utr": "TTCTAGAAAGGAGGTAAAAAA"},
                 "inputs": {"sequence": "mutated"}},
-    "smaller": {"config": {"name": "at_most", "column": "dna_atom_score__3745d4af__atom_count", "threshold": 494},
+    "expressed": {"config": {"name": "at_least", "column": "ostir_expression__1463740e__expression", "threshold": 100000},
                 "inputs": {"items": "scored"}}
   }
 }
@@ -147,6 +147,13 @@ column it filters on highlighted. Config & inputs shows the node's name, `config
 fields, what feeds each port, and what the step produced. Deselect with the button, Esc or
 a click on nothing.
 
+A row for an entity that carries a structure, such as the `ProteinStructure` an
+`esmfold2_fold` step makes, has a **View** button in both views. It opens that
+structure full screen in [Mol*](https://molstar.org), which you close with the button
+or Esc. Mol* is 5 MB, so the page fetches it the first time you ask for a structure,
+not on load. The structures themselves come down with the run, so a run that folded a
+lot of sequences makes for a big `progress` response.
+
 http://127.0.0.1:8000/hypotheses lists every goal with a count of its hypotheses by
 status. Click a goal to list its hypotheses, each with its status, a summary and its
 inputs. Click a hypothesis to see all of it: inputs, hypothesis, outcome, verdict, its
@@ -174,6 +181,23 @@ uv run python -m temporal.run_worker --step-delay 2 &
 uv run python -m temporal.run_ui --model anthropic:claude-haiku-4-5 &
 uv run python -m temporal.run_workflow examples/simple.json
 ```
+
+### Make commands
+
+The `Makefile` runs the server, worker and UI in the background:
+
+- `make start`: start the Temporal dev server if it isn't running, then the worker and
+  the UI.
+- `make stop`: stop the worker, the UI and the Temporal server. `start-dev` holds its
+  runs in memory, so stopping it loses them.
+- `make restart`: stop everything, then start it again. Run it after you change code.
+- `make logs`: follow the worker and UI logs.
+
+`make start` prints the URLs: the UI at http://127.0.0.1:8000 and the Temporal UI at
+http://localhost:8233. Logs go to `results/logs/` (`temporal.log`, `worker.log`,
+`ui.log`). The UI uses
+`anthropic:claude-haiku-4-5` by default. Pick another model with `MODEL`, as in
+`make restart MODEL=anthropic:claude-sonnet-5-5`.
 
 ### Evaluating the UI with Claude
 
@@ -220,8 +244,40 @@ uv run python -m temporal.run_worker
 uv run python -m temporal.run_ui --model anthropic:claude-haiku-4-5
 ```
 
+Or run `make start` to start all three. See [Make commands](#make-commands).
+
 ## Nodes/tools
 
 We have $150 in Modal credits. You can use these inside a node to run on larger machines or on GPUs.
 
 We also have $20 of HuggingFace Jobs, which is pretty similar.
+
+### GPU nodes on Modal
+
+`esmfold2_fold` takes amino acid sequences and gives a `ProteinStructure` for each: the
+sequence and its predicted structure as an mmCIF string. It folds each sequence as a
+monomer with [ESMFold2-Fast](https://huggingface.co/biohub/ESMFold2-Fast), the
+single-sequence model, on one L40S on Modal.
+
+The GPU work lives in `nodes/tools/esmfold2_fold/modal_app.py`: the image, the volume
+that caches the Hugging Face weights between cold starts, and the `fold` function. The
+node calls it with `app.run()`, so nothing needs deploying, and the whole list is
+folded in one call, so the weights load once per step. Results are cached like any
+other node's, by config and inputs, so a sequence folded once is never folded again.
+
+Cost comes from GPU seconds, so keep the list short the first time, and lower
+`num_loops` and `num_sampling_steps` for a cheaper, rougher structure. `seed` keeps
+the same sequence folding to the same structure, so a run stays reproducible.
+
+A node whose work runs somewhere else calls `node_dag.links.report(label, url)` as it
+starts it. The activity writes what it reports to
+`results/links/<workflow id>/<step>.json`, and the runs page offers it: next to the
+step while it is running, and under **Running elsewhere** in the step's
+**Config & inputs** panel afterwards. So a fold in progress is one click from its
+Modal app page, with the logs, the GPU and what it is costing. A node's config also
+says how long a step of it may take (`timeout_minutes`), since a cold start on a GPU
+takes far longer than any local step.
+
+```bash
+uv run modal setup  # Once, to authenticate.
+```

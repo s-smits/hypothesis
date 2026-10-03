@@ -9,6 +9,7 @@ with workflow.unsafe.imports_passed_through():
     from node_dag.types import Table
     from temporal.dag.activities import (
         RunNodeInput,
+        SavedRun,
         SaveWorkflowInput,
         run_filter,
         run_score,
@@ -21,7 +22,7 @@ TASK_QUEUE = "node-dag"
 
 @workflow.defn
 class DagWorkflow:
-    """Run every step once its input exists, on all the entities that reach it.
+    """Run every step once its inputs exist, on all the entities that reach it.
 
     Steps that are ready together run in parallel.
     """
@@ -44,19 +45,26 @@ class DagWorkflow:
 
         async def run_step(key: str) -> None:
             step, config = dag.steps[key], dag.steps[key].config
-            ((port, src),) = step.inputs.items()
-            table = values[src]
+            tables = {port: values[src] for port, src in step.inputs.items()}
+            # Only a tool has more than one port, and it reads no scores, so a score
+            # or filter can take the one table it has.
+            table = next(iter(tables.values()))
             outs = (
                 [f"{key}.yes", f"{key}.no"]
                 if isinstance(config, BaseFilterConfig)
                 else [key]
             )
-            if not table.items:  # Nothing reached this step, so nothing comes out.
+            # A port with nothing to run on means nothing comes out.
+            if not all(t.items for t in tables.values()):
                 values.update({out: Table() for out in outs})
                 steps[key] = "skipped"
                 return
-            node_inp = RunNodeInput(config=config, inputs={port: table.items})
-            timeout = timedelta(minutes=5)
+            node_inp = RunNodeInput(
+                config=config, inputs={p: t.items for p, t in tables.items()}, step=key
+            )
+            # A node that runs on a GPU somewhere else needs longer than a local one,
+            # so each config says how long its work may take.
+            timeout = timedelta(minutes=config.timeout_minutes)
             steps[key] = "running"
             try:
                 if isinstance(config, BaseScoreConfig):
@@ -100,6 +108,7 @@ class DagWorkflow:
         # slow step it does not depend on.
         order, running = dag.order(), {}
         order.prepare()
+        status, error = "COMPLETED", None
         try:
             while order.is_active():
                 for key in order.get_ready():
@@ -114,12 +123,30 @@ class DagWorkflow:
                     for task in finished:
                         task.result()
                         order.done(running.pop(task))
+        except asyncio.CancelledError:
+            status = "CANCELED"
+            raise
+        except Exception as e:
+            cause: BaseException = e
+            while cause.__cause__:  # The activity error wraps the node's error.
+                cause = cause.__cause__
+            status, error = "FAILED", str(cause)
+            raise
         finally:
             # Save failed runs too, so you can see which step failed.
+            saved = SavedRun(
+                dag=dag,
+                steps=steps,
+                values=values,
+                status=status,
+                start_time=workflow.info().start_time,
+                close_time=workflow.now(),
+                error=error,
+            )
             await workflow.execute_activity(
                 save_workflow,
                 SaveWorkflowInput(
-                    workflow_id=workflow.info().workflow_id, progress=self.progress()
+                    workflow_id=workflow.info().workflow_id, progress=saved
                 ),
                 start_to_close_timeout=timedelta(seconds=30),
             )

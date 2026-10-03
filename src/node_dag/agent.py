@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, TypeAdapter, ValidationError, field_valid
 from pydantic_ai import Agent, ModelRetry, RunContext, Tool
 from pydantic_ai.models import Model
 
+from node_dag import amass
 from node_dag.dag import Dag, DagOutput
 from node_dag.factory import MAPPING, NodeConfig
 from node_dag.nodes.base import BaseFilterConfig, Category
@@ -27,6 +28,51 @@ class Verdict(BaseModel):
     reason: str
 
 
+class DraftObservation(BaseModel):
+    """A finding from an Amass record that bears on the hypothesis.
+
+    Args:
+        amass_id: The record's amassId, from search_literature or get_record.
+        summary: What the record found that bears on this hypothesis, and how it
+            shaped the DAG, in two or three sentences.
+    """
+
+    amass_id: str
+    summary: str
+
+
+class Observation(DraftObservation):
+    """A finding from the literature, with where it came from.
+
+    Args:
+        core: The Amass core the record is in, e.g. ``biomedcore``.
+        title: The record's title.
+        url: Where to read the record, if it has a link.
+        source: The journal, or whatever else published it.
+        date: When it was published.
+    """
+
+    core: str
+    title: str
+    url: str | None = None
+    source: str | None = None
+    date: str | None = None
+
+    @classmethod
+    def from_record(
+        cls, draft: DraftObservation, core: str, record: dict[str, Any]
+    ) -> "Observation":
+        """The draft, with the title, link and source filled in from its record."""
+        return cls(
+            **draft.model_dump(),
+            core=core,
+            title=record.get("title") or record.get("name") or draft.amass_id,
+            url=record.get("url"),
+            source=record.get("journal"),
+            date=record.get("publicationDate"),
+        )
+
+
 class Hypothesis(BaseModel):
     """A goal, a plan to meet it with a DAG, and what happened when the plan ran.
 
@@ -40,20 +86,28 @@ class Hypothesis(BaseModel):
         inputs: The list of entities to run on, keyed by DAG input name. Each list is
             not empty and holds one kind.
         hypothesis: How the builder agent will build and run a DAG to meet ``goal``.
+        observations: What the builder agent found in the literature that bears on
+            ``hypothesis``.
         dag: The DAG the builder agent made.
         workflow_id: The ID of the DagWorkflow run that ran ``dag``.
         outcome: The result of running ``dag`` on ``inputs``.
         verdict: Whether ``outcome`` meets ``goal``.
+        error: Why it stopped before it had a verdict, if it did.
+        interrupted: True if the process running it stopped before it finished, so
+            no one is working on it any more.
     """
 
     id: str = Field(default_factory=lambda: f"hypothesis-{uuid.uuid4()}")
     goal: str
     inputs: dict[str, list[Value]]
     hypothesis: str | None = None
+    observations: list[Observation] = []
     dag: Dag | None = None
     workflow_id: str | None = None
     outcome: DagOutput | None = None
     verdict: Verdict | None = None
+    error: str | None = None
+    interrupted: bool = False
 
     @field_validator("inputs")
     @classmethod
@@ -131,7 +185,7 @@ def search_nodes(
 
         # A port takes its kind and every kind under it, e.g. nucleic_acid takes dna.
         want = TYPES.get(input_type.lower(), Entity) if input_type else None
-        if want and not issubclass(want, node_cls.port()[1]):
+        if want and not node_cls.takes(want):
             continue
 
         if category and category.lower() not in cat_values:
@@ -158,18 +212,20 @@ def search_nodes(
             if score == 0:
                 continue
 
-        results.append({
-            "score": score,
-            "data": {
-                "name": name,
-                "categories": contract["categories"],
-                "input": contract["inputs"],
-                "outputs": contract["outputs"],
-                "intents": contract.get("intents", []),
-                "when_to_use": contract.get("when_to_use", ""),
-                "when_not_to_use": contract.get("when_not_to_use", ""),
-            },
-        })
+        results.append(
+            {
+                "score": score,
+                "data": {
+                    "name": name,
+                    "categories": contract["categories"],
+                    "input": contract["inputs"],
+                    "outputs": contract["outputs"],
+                    "intents": contract.get("intents", []),
+                    "when_to_use": contract.get("when_to_use", ""),
+                    "when_not_to_use": contract.get("when_not_to_use", ""),
+                },
+            }
+        )
 
     results.sort(key=lambda r: r["score"], reverse=True)
     return [r["data"] for r in results]
@@ -186,6 +242,27 @@ def describe_node(name: str) -> dict[str, Any]:
     return NODES[name].model_json_schema()
 
 
+# What search_literature shows of each hit. The cache in results/amass keeps it all.
+_HIT_FIELDS = (
+    "amassId",
+    "title",
+    "abstract",
+    "journal",
+    "publicationDate",
+    "citationCount",
+    "doi",
+    "url",
+)
+
+
+def _brief(core: str, hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """What the agent is shown of each search hit."""
+    # Other cores name their fields differently, so only trim the ones we know.
+    if core != "biomedcore":
+        return hits
+    return [{f: h[f] for f in _HIT_FIELDS if f in h} for h in hits]
+
+
 BUILD_INSTRUCTIONS = f"""\
 Build a DAG of nodes that meets the user's goal. You make the nodes one at a time, in a
 registry, then wire them together. You are shown the input sequences. A config field
@@ -199,7 +276,7 @@ Match the DAG to the goal's archetype:
 - Screening Archetype: Goal asks to filter existing sequences against a threshold.
   Topology: Input -> Scorer -> Filter(threshold).
 - Optimization / Search Archetype: Goal asks to find, produce, reduce, increase, or
-  improve a metric (e.g. "find sequences with higher ostir expression", "lower atom count by 1").
+  improve a metric (e.g. "find sequences with higher ostir expression").
   Topology: Input -> Generator (e.g. mutate_synonymous with variants_per_sequence > 1) ->
             Scorer -> Filter(threshold beating input baseline).
   RULES FOR OPTIMIZATION:
@@ -208,14 +285,15 @@ Match the DAG to the goal's archetype:
   2. Increase variants_per_sequence (e.g. 10) on mutate_synonymous so a candidate pool
      is created for selection.
   3. Work out the input's baseline score, and set the filter threshold strictly relative
-     to that baseline (e.g. threshold < baseline for fewer atoms; threshold > baseline
-     for higher expression). A threshold that every entity passes is not a filter, and a
+     to that baseline (e.g. threshold > baseline for higher expression). A threshold that every entity passes is not a filter, and a
      DAG that keeps everything has chosen nothing.
 
 Steps:
 1. Call search_nodes (with query and input_type) or list_nodes to find nodes by intent.
    Call list_registry for nodes already made. Reuse a registered node when it does what
    you need.
+   When a choice depends on biology you are unsure of, such as a threshold or which
+   measure fits the goal, call search_literature, and get_record for more of a hit.
 2. Call describe_node for each kind you will make. Use only the fields its schema declares.
 3. Call create_node for each node you need, with a short description of what it is for.
    Leave config_hash out: it is set for you. The reply shows the node's id, its input
@@ -224,7 +302,9 @@ Steps:
    from the scorer's reply into the filter's `column`.
 4. Call submit_dag with your hypothesis: how the DAG meets the goal. Each step names a
    registered node by id. Connect its input port to a source whose kind is the kind of
-   that port.
+   that port. If you searched the literature, add an observation for each record that
+   bears on the hypothesis: its amassId and a summary of what it found and how that
+   shaped the DAG.
 
 Every source is a list of entities, and a node runs once on the whole list that reaches it.
 - A tool step makes new entities, under its key. They have no scores.
@@ -284,11 +364,57 @@ def build_agent(
         """List every registered node: id, description, config, input, outputs, score columns."""
         return [n.summary() for n in registry.all()]
 
+    # Every Amass record the agent was shown, by amassId, with its core. An
+    # observation must cite one of these, so it cannot cite a record it made up.
+    seen: dict[str, tuple[str, dict[str, Any]]] = {}
+
+    def search_literature(
+        query: str, core: amass.Core = "biomedcore", limit: int = 5
+    ) -> list[dict[str, Any]] | dict[str, str]:
+        """Search Amass for publications or other records about a topic.
+
+        Use it to ground a choice in what is known: e.g. a typical expression level, a
+        sensible threshold, or which measure suits the goal. A query asked before is
+        answered from the cache.
+
+        Args:
+            query: What to look for, in plain words, e.g. "Shine-Dalgarno spacing translation initiation".
+            core: biomedcore (publications), trialcore (clinical trials), drugcore
+                (drugs), regulatorycore (FDA and EMA approvals), genecore (genes) or
+                patentcore (patents).
+            limit: How many records to return, at most.
+        """
+        try:
+            hits = amass.search(core, query, limit)
+        except amass.AmassError as e:
+            return {"error": str(e)}
+        seen.update({h["amassId"]: (core, h) for h in hits if "amassId" in h})
+        return _brief(core, hits)
+
+    def get_record(
+        amass_id: str, core: amass.Core = "biomedcore", include: list[str] | None = None
+    ) -> dict[str, Any]:
+        """Fetch one Amass record in full, by the amassId that search_literature gave.
+
+        Args:
+            amass_id: The record's amassId, e.g. ``AMBC_...``.
+            core: The core the record came from.
+            include: Extra fields to add, e.g. ``["fulltext"]``. Full text is long: ask
+                for it only when the abstract is not enough.
+        """
+        try:
+            record = amass.get_record(core, amass_id, tuple(include or ()))
+        except amass.AmassError as e:
+            return {"error": str(e)}
+        seen[amass_id] = (core, record)
+        return record
+
     def submit_dag(
         ctx: RunContext[Hypothesis],
         hypothesis: str,
         inputs: dict[str, str],
         steps: dict[str, DraftStep],
+        observations: list[DraftObservation] | None = None,
     ) -> Hypothesis:
         """Submit your hypothesis and the DAG. If the DAG is not valid, you get the error.
 
@@ -296,10 +422,19 @@ def build_agent(
             hypothesis: How this DAG meets the goal: what each step does and why.
             inputs: Maps each DAG input name to the kind of its entities. Must be the goal's inputs.
             steps: The steps, keyed by name. A key must not contain ``.``.
+            observations: The findings from search_literature or get_record that bear
+                on the hypothesis, one per record. Leave out if you did not search.
         """
         kinds = ctx.deps.input_kinds()
         if inputs != kinds:
             raise ModelRetry(f"inputs must be exactly the goal's inputs: {kinds}")
+        observations = observations or []
+        if unseen := sorted({o.amass_id for o in observations} - seen.keys()):
+            raise ModelRetry(
+                f"Observations cite records you were not shown: {unseen}. Cite only "
+                f"amassIds from search_literature or get_record: {sorted(seen)}"
+            )
+        cited = [Observation.from_record(o, *seen[o.amass_id]) for o in observations]
         nodes = {n.id: n for n in registry.all()}
         if unknown := sorted({s.node for s in steps.values()} - nodes.keys()):
             raise ModelRetry(
@@ -372,7 +507,9 @@ def build_agent(
             )
         except ValidationError as e:
             raise ModelRetry(str(e)) from e
-        return ctx.deps.model_copy(update={"hypothesis": hypothesis, "dag": dag})
+        return ctx.deps.model_copy(
+            update={"hypothesis": hypothesis, "observations": cited, "dag": dag}
+        )
 
     return Agent(
         model,
@@ -384,6 +521,8 @@ def build_agent(
             Tool(describe_node),
             Tool(list_registry),
             Tool(create_node),
+            Tool(search_literature),
+            Tool(get_record),
         ],
         output_type=submit_dag,
         retries={"output": 3},

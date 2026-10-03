@@ -43,15 +43,18 @@
   .s-achieved, .s-done { background: var(--done); }
   .s-not-achieved { background: var(--amber); }
   .s-failed { background: var(--failed); }
+  .s-interrupted { background: var(--muted); }
   .s-skipped { background: var(--skipped); color: var(--muted); }
   .verdict { border-left: 3px solid var(--line); padding: 6px 10px; background: var(--bg); border-radius: 0 6px 6px 0; }
   .verdict.yes { border-color: var(--done); }
   .verdict.no { border-color: var(--amber); }
+  .verdict.error { border-color: var(--failed); white-space: pre-wrap; }
   .table { overflow-x: auto; }
   table { border-collapse: collapse; width: 100%; }
   th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { color: var(--muted); font-weight: 500; font-size: 12px; }
   td code { font-size: 12px; }
+  td.obs { min-width: 220px; max-width: 340px; }
   a { color: var(--running); }
   .crumbs { font-size: 13px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; }
   .crumbs a, .crumbs b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60ch; }
@@ -73,13 +76,14 @@
 <body>
 <header>
   <h1>node-dag</h1>
-  <nav><a href="/">Runs</a><a href="/hypotheses" class="here">Hypotheses</a><a href="/new">New</a><a href="/nodes">Nodes</a></nav>
+  <nav><a href="/">Runs</a><a href="/hypotheses" class="here">Hypotheses</a><a href="/observations">Observations</a><a href="/new">New</a><a href="/nodes">Nodes</a></nav>
   <span id="updated"></span>
 </header>
 <main id="view"><div class="empty">Loading…</div></main>
 <script>
 const POLL_MS = 3000;
-const STATUSES = ["achieved", "not achieved", "failed", "verifying", "running", "building"];
+const STATUSES = ["achieved", "not achieved", "failed", "interrupted", "verifying", "running", "building"];
+const STOPPED = new Set(["failed", "interrupted"]);
 let rows = null;    // The last /api/hypotheses response.
 let last = "";      // What was last drawn, to redraw only on change.
 
@@ -90,6 +94,29 @@ const badge = (status) => `<span class="badge ${cls(status)}">${status}</span>`;
 const when = (t) => new Date(t).toLocaleString();
 const showValue = (v) => v == null ? "" : Array.isArray(v) ? `${v.length} × ${v[0]?.kind ?? "empty"}` : v.items ? `${v.items.length} × ${v.items[0]?.kind ?? "empty"}${Object.keys(v.scores).length ? `, scores: ${Object.keys(v.scores).join(", ")}` : ""}` : JSON.stringify(v);
 const chips = (values) => Object.entries(values).map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(showValue(v))}</span>`).join("");
+
+// The plan, or why there is none yet.
+const plan = (row) => row.hypothesis.hypothesis ? esc(row.hypothesis.hypothesis)
+  : `<span class="meta">${STOPPED.has(row.status) ? "The builder agent did not finish one." : "The builder agent is writing it…"}</span>`;
+// Why it stopped: its own error, else its run's.
+const why = (row) => row.hypothesis.error ?? row.progress?.error;
+
+const obsHref = (o) => `/observations?${new URLSearchParams({ core: o.core, id: o.amass_id })}`;
+const obsSource = (o) => [o.source, o.date].filter(Boolean).map(esc).join(", ");
+
+// What the builder agent found in the literature, one row per record it cited.
+function observations(obs, withHypothesis) {
+  if (!obs.length) return "";
+  return `<div class="table"><table>
+    <thead><tr><th>Observation</th><th>Summary</th>${withHypothesis ? "<th>Hypothesis</th>" : ""}</tr></thead>
+    <tbody>${obs.map((o) => `
+      <tr>
+        <td class="obs"><a href="${obsHref(o)}">${esc(o.title)}</a><div class="meta">${obsSource(o)}</div></td>
+        <td>${esc(o.summary)}</td>
+        ${withHypothesis ? `<td>${badge(o.row.status)}<br><a href="${href({ id: o.row.hypothesis.id })}" class="meta">${esc(o.row.hypothesis.id.replace("hypothesis-", "").slice(0, 8))}</a></td>` : ""}
+      </tr>`).join("")}</tbody>
+  </table></div>`;
+}
 
 // Where we are: all goals, one goal, or one hypothesis. Kept in the URL.
 const route = () => Object.fromEntries(new URLSearchParams(location.search));
@@ -144,13 +171,24 @@ function goalView(goal) {
       const h = r.hypothesis;
       return `
       <a class="row" href="${href({ id: h.id })}">
-        <div class="line">${badge(r.status)}<span class="summary">${h.hypothesis ? esc(h.hypothesis) : `<span class="meta">The builder agent is writing it…</span>`}</span></div>
+        <div class="line">${badge(r.status)}<span class="summary">${plan(r)}</span></div>
         <div class="side"><span class="meta">${when(r.updated)}</span></div>
         <div class="chips">${chips(h.inputs)}</div>
         <div class="side">${h.verdict ? `<span class="meta">${h.verdict.achieved ? "goal achieved" : "goal not achieved"}</span>` : ""}</div>
       </a>`;
     }).join("")}
-    </div>`;
+    </div>
+    ${goalObservations(rs)}`;
+}
+
+function goalObservations(rs) {
+  const obs = rs.flatMap((r) => (r.hypothesis.observations ?? []).map((o) => ({ ...o, row: r })));
+  if (!obs.length) return "";
+  const records = new Set(obs.map((o) => o.amass_id)).size;
+  return `
+    <h2>Observations</h2>
+    <div class="counts"><span><b>${obs.length}</b> from <b>${records}</b> ${records === 1 ? "record" : "records"} in the literature</span></div>
+    <div class="card">${observations(obs, true)}</div>`;
 }
 
 // One row per step: its node, sources, status and value.
@@ -185,7 +223,13 @@ function detailView(id) {
       </div>
       <div class="id">${esc(h.id)}</div>
       <div><div class="label">Inputs</div><div class="chips">${chips(h.inputs)}</div></div>
-      <div><div class="label">Hypothesis</div><div class="plan">${h.hypothesis ? esc(h.hypothesis) : `<span class="meta">The builder agent is writing it…</span>`}</div></div>
+      ${STOPPED.has(row.status) && why(row) ? `
+      <div class="verdict error">
+        <div class="label">${row.status === "interrupted" ? "Interrupted" : "Failed"}</div>
+        <div>${esc(why(row))}</div>
+      </div>` : ""}
+      <div><div class="label">Hypothesis</div><div class="plan">${plan(row)}</div></div>
+      ${h.observations?.length ? `<div><div class="label">Observations from the literature</div>${observations(h.observations, false)}</div>` : ""}
       ${produced ? `<div><div class="label">Outcome</div><div class="chips">${Object.keys(produced).length ? chips(produced) : `<span class="meta">No step produced a value.</span>`}</div></div>` : ""}
       ${h.verdict ? `
       <div class="verdict ${h.verdict.achieved ? "yes" : "no"}">

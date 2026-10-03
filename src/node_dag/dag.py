@@ -13,9 +13,9 @@ class Step(BaseModel):
 
     Args:
         config: The node to run.
-        inputs: Maps the node's one input port to a source. A source is a DAG input
-            name, a tool or scoring step key, or ``<filter step>.yes`` / ``.no``.
-            The node runs once on every entity that source holds.
+        inputs: Maps each of the node's input ports to a source. A source is a DAG
+            input name, a tool or scoring step key, or ``<filter step>.yes`` /
+            ``.no``. The node runs once, on every entity each source holds.
     """
 
     config: NodeConfig
@@ -70,21 +70,25 @@ class Dag(BaseModel):
                     f"Step {key!r} ports {sorted(step.inputs)} != {config.name} ports "
                     f"{sorted(config.inputs)}"
                 )
-            ((port, src),) = step.inputs.items()
-            if src not in types:
-                raise ValueError(
-                    f"Step {key!r} port {port!r}: unknown source {src!r}. "
-                    "Read a filter's output as '<step>.yes' or '<step>.no'."
-                )
-            if not issubclass(types[src], config.inputs[port]):
-                raise ValueError(  # noqa: TRY004  A validator must raise ValueError.
-                    f"Step {key!r} port {port!r} takes {config.inputs[port].__name__}"
-                    f", but {src!r} gives {types[src].__name__}"
-                )
+            for port, src in step.inputs.items():
+                if src not in types:
+                    raise ValueError(
+                        f"Step {key!r} port {port!r}: unknown source {src!r}. "
+                        "Read a filter's output as '<step>.yes' or '<step>.no'."
+                    )
+                if not issubclass(types[src], config.inputs[port]):
+                    raise ValueError(  # noqa: TRY004  A validator must raise ValueError.
+                        f"Step {key!r} port {port!r} takes "
+                        f"{config.inputs[port].__name__}, but {src!r} gives "
+                        f"{types[src].__name__}"
+                    )
             if isinstance(config, BaseToolConfig):
                 # New entities, so none of the old scores apply.
                 types[key], columns[key] = config.output, set()
-            elif isinstance(config, BaseScoreConfig):
+                continue
+            # A score or filter has one port, and passes on what comes through it.
+            (src,) = step.inputs.values()
+            if isinstance(config, BaseScoreConfig):
                 types[key] = types[src]
                 columns[key] = columns[src] | set(config.columns().values())
             elif isinstance(config, BaseFilterConfig):

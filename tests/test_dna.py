@@ -4,8 +4,6 @@ from pydantic import ValidationError
 
 from node_dag.nodes.filters.at_most.config import AtMostConfig
 from node_dag.nodes.filters.at_most.function import AtMost
-from node_dag.nodes.tools.dna_atom_score.config import DnaAtomScoreConfig
-from node_dag.nodes.tools.dna_atom_score.function import DnaAtomScore
 from node_dag.nodes.tools.dna_complement.config import DnaComplementConfig
 from node_dag.nodes.tools.dna_complement.function import DnaComplement
 from node_dag.nodes.tools.dna_reverse_complement.config import (
@@ -18,6 +16,7 @@ from node_dag.nodes.tools.dna_transcribe.config import DnaTranscribeConfig
 from node_dag.nodes.tools.dna_transcribe.function import DnaTranscribe
 from node_dag.nodes.tools.mutate_synonymous.config import MutateSynonymousConfig
 from node_dag.nodes.tools.mutate_synonymous.function import MutateSynonymous
+from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
 from node_dag.nodes.tools.rna_back_transcribe.config import RnaBackTranscribeConfig
 from node_dag.nodes.tools.rna_back_transcribe.function import RnaBackTranscribe
 from node_dag.types import (
@@ -26,7 +25,6 @@ from node_dag.types import (
     Dna,
     ProteinStructure,
     Rna,
-    Score,
     Table,
 )
 
@@ -53,10 +51,6 @@ def test_dna_accepts_lengths_not_divisible_by_three(seq):
     dna = Dna(sequence=seq)
     assert dna.sequence == seq
 
-
-def test_atom_count():
-    assert Dna(sequence="AAA").atom_count() == 99
-    assert Dna(sequence="CCC").atom_count() == 93
 
 
 def test_id_is_the_same_for_the_same_sequence_and_differs_by_kind():
@@ -124,35 +118,19 @@ def test_table_merges_repeats_and_keeps_scores_of_what_is_left():
     assert Table.of([b], t.scores).scores == {"c": {b.id: 2.0}}
 
 
-def test_score_gives_atom_count_and_amino_acid_changes():
-    node = DnaAtomScore(DnaAtomScoreConfig(reference=REF))
-    synonymous = Dna(sequence="ATGGCCCTGAAATAA")
-    changed = Dna(sequence="ATGGCTCTGAAACAT")  # stop -> H
-    rows = node.run(sequence=[REF, synonymous, changed])
-    assert [r["atom_count"] for r in rows] == [
-        Score(value=s.atom_count()) for s in (REF, synonymous, changed)
-    ]
-    assert [r["amino_acid_changes"].value for r in rows] == [0, 0, 1]
-
-
-def test_score_columns_name_the_node_and_its_hash():
-    config = DnaAtomScoreConfig(reference=REF)
-    assert config.columns() == {
-        "atom_count": f"dna_atom_score__{config.config_hash}__atom_count",
-        "amino_acid_changes": f"dna_atom_score__{config.config_hash}__amino_acid_changes",
-    }
-
-
 def test_config_hash_says_what_the_node_does():
-    same = DnaAtomScoreConfig(reference=REF)
-    assert DnaAtomScoreConfig(reference=REF).config_hash == same.config_hash
-    other = DnaAtomScoreConfig(reference=Dna(sequence="ATGGCTCTGAAATGA"))
+    same = OstirExpressionConfig(utr="TTCTAGAAAGGAGGTAAAAAA")
+    assert (
+        OstirExpressionConfig(utr="TTCTAGAAAGGAGGTAAAAAA").config_hash
+        == same.config_hash
+    )
+    other = OstirExpressionConfig(utr="TTCTAGACCTCCTTATAAAAA")
     assert other.config_hash != same.config_hash
     assert same.model_dump()["config_hash"] == same.config_hash
     # The hash survives a round trip, and a wrong one is rejected.
-    assert DnaAtomScoreConfig.model_validate_json(same.model_dump_json()) == same
+    assert OstirExpressionConfig.model_validate_json(same.model_dump_json()) == same
     with pytest.raises(ValidationError, match="config_hash"):
-        DnaAtomScoreConfig(reference=REF, config_hash="deadbeef")
+        OstirExpressionConfig(utr="TTCTAGAAAGGAGGTAAAAAA", config_hash="deadbeef")
     # It covers every field, and the version.
     assert (
         MutateSynonymousConfig(seed=1).config_hash
@@ -163,11 +141,12 @@ def test_config_hash_says_what_the_node_does():
     )
 
 
-def test_config_hash_ignores_how_sequences_are_displayed():
+def test_entity_serialization_ignores_display_when_hashing():
     # Saved runs, registries and DAG columns hold these hashes, so they must not change
     # when an entity gains a field that is only for display.
-    assert DnaAtomScoreConfig(reference=REF).config_hash == "3745d4af"
-    assert "display" in DnaAtomScoreConfig(reference=REF).model_dump()["reference"]
+    dna = Dna(sequence="ATGGCTCTGAAATAA")
+    assert "display" in dna.model_dump()
+    assert "display" not in dna.model_dump(context={"hashing": True})
 
 
 def test_at_most_keeps_values_up_to_the_threshold():
