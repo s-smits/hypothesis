@@ -1,11 +1,11 @@
 from node_dag.nodes.base import BaseNode
 from node_dag.nodes.decisions.at_least.config import AtLeastConfig
-from node_dag.types import FooBar
+from node_dag.types import Score
 
 
 class AtLeast(BaseNode[AtLeastConfig]):
-    """Yes when ``count >= config.threshold``."""
+    """Yes when ``value >= config.threshold``."""
 
-    def run(self, value: FooBar) -> bool:
+    def run(self, value: Score) -> bool:
         """Return True for the yes branch."""
-        return value.count >= self.config.threshold
+        return value.value >= self.config.threshold

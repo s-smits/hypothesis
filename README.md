@@ -31,7 +31,8 @@ Each run, with the status of every step:
 
 ```
 src/node_dag/
-  types.py                     shared types (FooBar, Baz), the Value union, TYPES
+  types.py                     shared types (FooBar, Baz, Dna, Score), the Value union, TYPES
+  dna.py                       genetic code, synonymous codons, atoms per base
   nodes/base.py                Category, BaseToolConfig, BaseDecisionConfig, BaseNode
   nodes/tools/<name>/          config.py + function.py
   nodes/decisions/<name>/      config.py + function.py; run returns bool
@@ -110,10 +111,19 @@ inputs. Click a hypothesis to see all of it: inputs, hypothesis, outcome, verdic
 DAG step by step, and a link to its run. It reads the files
 under `results/`, so it needs no worker.
 
+http://127.0.0.1:8000/new starts a hypothesis: enter a goal, optionally your own
+hypothesis for how to meet it, and the inputs. The server then runs the builder agent,
+the DAG and the verifier in the background, and the page jumps to the hypothesis so you
+can watch it. This needs `--model` (and optionally `--verify-model`) on `run_ui`, and a
+worker running.
+
+Models use the Anthropic API directly, so set `ANTHROPIC_API_KEY` first.
+
 ```bash
+export ANTHROPIC_API_KEY=sk-ant-...
 temporal server start-dev &
 uv run python -m temporal.run_worker --step-delay 2 &
-uv run python -m temporal.run_ui &
+uv run python -m temporal.run_ui --model anthropic:claude-haiku-4-5 &
 uv run python -m temporal.run_workflow examples/simple.json
 ```
 
@@ -132,11 +142,12 @@ fills in the rest of the Hypothesis:
    out the expected result itself and compares it with the outcome.
 
 ```bash
-temporal server start-dev &
-uv run python -m temporal.run_worker &
-uv run --with 'pydantic-ai-slim[bedrock]' python -m temporal.run_hypothesis examples/double.json \
-  --model bedrock:eu.anthropic.claude-haiku-4-5-20251001-v1:0
-```
+# Start the server
+temporal server start-dev
+# Start the worker
+uv run python -m temporal.run_worker
+# Start the UI
+uv run python -m temporal.run_ui --model anthropic:claude-haiku-4-5
 
 
 ## Nodes/tools

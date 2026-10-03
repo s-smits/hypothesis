@@ -5,22 +5,26 @@ from pydantic import Discriminator
 from node_dag.nodes.base import BaseNode, BaseNodeConfig
 from node_dag.nodes.decisions.at_least.config import AtLeastConfig
 from node_dag.nodes.decisions.at_least.function import AtLeast
-from node_dag.nodes.tools.add.config import AddConfig
-from node_dag.nodes.tools.add.function import Add
-from node_dag.nodes.tools.sum.config import SumConfig
-from node_dag.nodes.tools.sum.function import Sum
-from node_dag.nodes.tools.to_baz.config import ToBazConfig
-from node_dag.nodes.tools.to_baz.function import ToBaz
+from node_dag.nodes.tools.dna_atom_score.config import DnaAtomScoreConfig
+from node_dag.nodes.tools.dna_atom_score.function import DnaAtomScore
+from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
+from node_dag.nodes.tools.dna_to_protein.function import DnaToProtein
+from node_dag.nodes.tools.mutate_synonymous.config import MutateSynonymousConfig
+from node_dag.nodes.tools.mutate_synonymous.function import MutateSynonymous
 
 NodeConfig = Annotated[
-    AddConfig | SumConfig | ToBazConfig | AtLeastConfig, Discriminator("name")
+    AtLeastConfig
+    | DnaAtomScoreConfig
+    | DnaToProteinConfig
+    | MutateSynonymousConfig,
+    Discriminator("name"),
 ]
 
 MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
-    AddConfig: Add,
-    SumConfig: Sum,
-    ToBazConfig: ToBaz,
     AtLeastConfig: AtLeast,
+    DnaAtomScoreConfig: DnaAtomScore,
+    DnaToProteinConfig: DnaToProtein,
+    MutateSynonymousConfig: MutateSynonymous,
 }
 
 

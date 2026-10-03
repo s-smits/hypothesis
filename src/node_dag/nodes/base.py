@@ -11,6 +11,8 @@ class Category(StrEnum):
     ARITHMETIC = "arithmetic"
     CONVERSION = "conversion"
     FILTER = "filter"
+    SCORING = "scoring"
+    GENERATION = "generation"
 
 
 def _kind(t: type[BaseModel]) -> str:

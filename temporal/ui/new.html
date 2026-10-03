@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>node-dag new hypothesis</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #fff; --text: #1d2330; --muted: #6b7280; --line: #e3e6eb;
+    --running: #2563eb; --failed: #dc2626;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #11141a; --panel: #1a1e26; --text: #e5e7eb; --muted: #9ca3af; --line: #2b313c;
+      --running: #60a5fa; --failed: #f87171;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--text); }
+  header { padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--panel); display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; }
+  header nav { display: flex; gap: 12px; font-size: 13px; }
+  header nav a { color: var(--muted); text-decoration: none; }
+  header nav a.here { color: var(--text); font-weight: 600; }
+  main { max-width: 720px; margin: 0 auto; padding: 20px 16px; }
+  form { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+  h2 { font-size: 18px; margin: 0; }
+  label, .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; display: block; margin-bottom: 4px; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  input, select, textarea { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; }
+  textarea { width: 100%; resize: vertical; }
+  .input { display: grid; grid-template-columns: 1fr 120px 2fr auto; gap: 8px; margin-bottom: 8px; }
+  .input input[name=name] { font-family: ui-monospace, monospace; }
+  button { font: inherit; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: inherit; padding: 6px 12px; cursor: pointer; }
+  button.primary { background: var(--running); border-color: var(--running); color: #fff; font-weight: 600; align-self: flex-start; }
+  button:disabled { opacity: .6; cursor: default; }
+  #error { color: var(--failed); white-space: pre-wrap; }
+  @media (max-width: 600px) { .input { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>node-dag</h1>
+  <nav><a href="/">Runs</a><a href="/hypotheses">Hypotheses</a><a href="/new" class="here">New</a></nav>
+</header>
+<main>
+  <form id="form">
+    <h2>Start a hypothesis</h2>
+    <div>
+      <label for="goal">Goal</label>
+      <textarea id="goal" rows="2" required placeholder="Double each input integer."></textarea>
+    </div>
+    <div>
+      <label for="hypothesis">Hypothesis (optional)</label>
+      <textarea id="hypothesis" rows="3" placeholder="How you think the goal can be met. The builder agent starts from this."></textarea>
+    </div>
+    <div>
+      <div class="label">Inputs</div>
+      <div id="inputs"></div>
+      <button type="button" id="add">+ Add input</button>
+    </div>
+    <div id="error"></div>
+    <button class="primary" id="go">Start</button>
+    <div class="hint">The builder agent writes the DAG, it runs on Temporal, then the verifier judges the outcome. You can close this page; follow progress under Hypotheses.</div>
+  </form>
+</main>
+<script>
+// How to read each kind's value from one text box. Mirrors node_dag/types.py.
+const KINDS = {
+  foo_bar: { field: "count", placeholder: "3", parse: (s) => { if (!/^-?\d+$/.test(s)) throw new Error("must be a whole number"); return Number(s); } },
+  baz: { field: "label", placeholder: "text", parse: (s) => s },
+  dna: { field: "sequence", placeholder: "ATGGCC…", parse: (s) => s.toUpperCase() },
+  score: { field: "value", placeholder: "0.5", parse: (s) => { if (s.trim() === "" || isNaN(Number(s))) throw new Error("must be a number"); return Number(s); } },
+};
+const $ = (sel) => document.querySelector(sel);
+
+function addInput(name = "", kind = "foo_bar", value = "") {
+  const row = document.createElement("div");
+  row.className = "input";
+  row.innerHTML = `
+    <input name="name" placeholder="name" required>
+    <select name="kind">${Object.keys(KINDS).map((k) => `<option>${k}</option>`).join("")}</select>
+    <input name="value" required>
+    <button type="button" title="Remove">✕</button>`;
+  const $k = row.querySelector("[name=kind]"), $v = row.querySelector("[name=value]");
+  row.querySelector("[name=name]").value = name;
+  $k.value = kind;
+  $v.value = value;
+  const sync = () => { $v.placeholder = KINDS[$k.value].placeholder; };
+  $k.addEventListener("change", sync);
+  sync();
+  row.querySelector("button").addEventListener("click", () => row.remove());
+  $("#inputs").append(row);
+}
+
+function readInputs() {
+  const inputs = {};
+  for (const row of document.querySelectorAll(".input")) {
+    const name = row.querySelector("[name=name]").value.trim();
+    const kind = row.querySelector("[name=kind]").value;
+    const text = row.querySelector("[name=value]").value;
+    if (name in inputs) throw new Error(`Input name "${name}" is used twice.`);
+    try {
+      inputs[name] = { kind, [KINDS[kind].field]: KINDS[kind].parse(text) };
+    } catch (e) {
+      throw new Error(`Input "${name}" (${kind}): ${e.message}`);
+    }
+  }
+  return inputs;
+}
+
+// The error body is FastAPI's: {detail: "…"} or {detail: [{loc, msg}, …]}.
+const explain = (d) => typeof d === "string" ? d : Array.isArray(d) ? d.map((e) => `${e.loc.slice(1).join(".")}: ${e.msg}`).join("\n") : JSON.stringify(d);
+
+$("#add").addEventListener("click", () => addInput());
+$("#form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("#error").textContent = "";
+  $("#go").disabled = true;
+  try {
+    const body = { goal: $("#goal").value, hypothesis: $("#hypothesis").value, inputs: readInputs() };
+    const r = await fetch("/api/hypotheses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(explain(data.detail ?? `${r.status}`));
+    location.href = `/hypotheses?id=${encodeURIComponent(data.id)}`;
+  } catch (err) {
+    $("#error").textContent = err.message;
+    $("#go").disabled = false;
+  }
+});
+
+addInput("x");
+</script>
+</body>
+</html>

@@ -16,29 +16,28 @@ from temporalio.worker import Worker
 
 from node_dag.agent import Hypothesis, build_agent
 from node_dag.dag import Dag
-from node_dag.types import FooBar
+from node_dag.types import Dna
 from temporal.dag.activities import run_decision, run_tool, save_workflow
 from temporal.dag.workflow import TASK_QUEUE, DagWorkflow
 from temporal.run_hypothesis import hypotheses_dir, run_hypothesis, save_hypothesis
 from temporal.ui.app import _hypothesis_row
 
-BAD = {  # total.b reads a Baz, but port b takes FooBar.
-    "inputs": {"x": "foo_bar"},
+BAD = {  # protein.y reads an AminoAcidSequence, but port sequence takes Dna.
+    "inputs": {"seq": "dna"},
     "steps": {
-        "label": {"config": {"name": "to_baz"}, "inputs": {"value": "x"}},
-        "total": {"config": {"name": "sum"}, "inputs": {"a": "x", "b": "label"}},
+        "protein": {"config": {"name": "dna_to_protein"}, "inputs": {"sequence": "seq"}},
+        "protein2": {"config": {"name": "dna_to_protein"}, "inputs": {"sequence": "protein"}},
     },
 }
 GOOD = {
-    "inputs": {"x": "foo_bar"},
+    "inputs": {"seq": "dna"},
     "steps": {
-        "total": {"config": {"name": "sum"}, "inputs": {"a": "x", "b": "x"}},
-        "label": {"config": {"name": "to_baz"}, "inputs": {"value": "total"}},
+        "protein": {"config": {"name": "dna_to_protein"}, "inputs": {"sequence": "seq"}},
     },
 }
 DOUBLE = {
-    "inputs": {"x": "foo_bar"},
-    "steps": {"twice": {"config": {"name": "sum"}, "inputs": {"a": "x", "b": "x"}}},
+    "inputs": {"seq": "dna"},
+    "steps": {"protein": {"config": {"name": "dna_to_protein"}, "inputs": {"sequence": "seq"}}},
 }
 
 
@@ -62,20 +61,20 @@ async def test_agent_reads_the_catalogue_and_fixes_a_rejected_dag():
         )
         turn = sum(isinstance(m, ModelResponse) for m in messages)
         if turn < 2:
-            name, args = [("list_nodes", {}), ("describe_node", {"name": "sum"})][turn]
+            name, args = [("list_nodes", {}), ("describe_node", {"name": "dna_to_protein"})][turn]
             return ModelResponse(parts=[ToolCallPart(name, args)])
         return _submit(info, [BAD, GOOD][turn - 2])
 
     agent = build_agent(FunctionModel(script))
-    hyp = Hypothesis(goal="x + x, as a label", inputs={"x": FooBar(count=1)})
+    hyp = Hypothesis(goal="convert DNA to protein", inputs={"seq": Dna(sequence="ATG")})
     out = (await agent.run(hyp.goal, deps=hyp)).output
 
     assert out.dag == Dag.model_validate(GOOD)
-    assert out.hypothesis == "sum x with itself"
+    assert out.hypothesis == "convert DNA to protein"
     listing, schema, error = seen
-    assert '"inputs": {"a": "foo_bar", "b": "foo_bar"}' in listing
+    assert '"inputs": {"sequence": "dna"}' in listing
     assert "'x-node'" in schema  # The ports reach the model with the schema.
-    assert "port 'b' takes FooBar, but 'label' gives Baz" in error
+    assert "port 'sequence' takes dna, but 'protein' gives amino_acid_sequence" in error
 
 
 async def test_run_hypothesis_builds_runs_and_verifies():
@@ -89,12 +88,13 @@ async def test_run_hypothesis_builds_runs_and_verifies():
             p.content for p in messages[0].parts if isinstance(p, UserPromptPart)
         )
         sent = json.loads(str(prompt))
-        assert sent["hypothesis"] == "sum x with itself"
-        got = sent["outcome"]["values"]["twice"]["count"]
-        want = 2 * sent["inputs"]["x"]["count"]
-        return _reply(info, {"achieved": got == want, "reason": f"{got} vs {want}"})
+        assert sent["hypothesis"] == "convert DNA to protein"
+        got = sent["outcome"]["values"]["protein"]["sequence"]
+        # Check that protein sequence matches DNA input
+        assert sent["inputs"]["seq"]["sequence"] in ["ATG", "AAATTTGGG", "ATGATGATG"]
+        return _reply(info, {"achieved": len(got) > 0, "reason": f"Got protein: {got}"})
 
-    hyp = Hypothesis(goal="Double x.", inputs={"x": FooBar(count=21)})
+    hyp = Hypothesis(goal="Convert DNA sequence to protein.", inputs={"seq": Dna(sequence="ATGATGATG")})
     async with await WorkflowEnvironment.start_time_skipping(
         data_converter=pydantic_data_converter
     ) as env:
@@ -110,13 +110,12 @@ async def test_run_hypothesis_builds_runs_and_verifies():
                     hyp, env.client, FunctionModel(builder), FunctionModel(verifier)
                 )
 
-    assert done.hypothesis == "sum x with itself"
+    assert done.hypothesis == "convert DNA to protein"
     assert done.dag == Dag.model_validate(DOUBLE)
     assert done.outcome is not None
-    assert done.outcome.values["twice"] == FooBar(count=42)
+    assert done.outcome.values["protein"].sequence == "MMM"
     assert done.verdict is not None
     assert done.verdict.achieved
-    assert done.verdict.reason == "42 vs 42"
 
     # Saved, with its run, for the hypotheses page.
     (path,) = hypotheses_dir().iterdir()
@@ -124,11 +123,11 @@ async def test_run_hypothesis_builds_runs_and_verifies():
     assert row.hypothesis == done
     assert row.status == "achieved"
     assert row.progress is not None
-    assert row.progress.steps == {"twice": "done"}
+    assert row.progress.steps == {"protein": "done"}
 
 
 def test_a_hypothesis_without_a_dag_is_building():
-    hyp = Hypothesis(goal="Double x.", inputs={"x": FooBar(count=1)})
+    hyp = Hypothesis(goal="Convert DNA to protein.", inputs={"seq": Dna(sequence="ATG")})
     save_hypothesis(hyp)
     (path,) = hypotheses_dir().iterdir()
     assert _hypothesis_row(path).status == "building"

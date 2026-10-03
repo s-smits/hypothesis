@@ -12,41 +12,31 @@ from temporalio.worker import Worker
 
 from node_dag.dag import Dag, DagInput, DagProgress
 from node_dag.factory import MAPPING
-from node_dag.nodes.tools.add.config import AddConfig
-from node_dag.types import Baz, FooBar, Value
+from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
+from node_dag.types import Dna, AminoAcidSequence, Value
 from temporal.dag.activities import RunNodeInput, run_decision, run_tool, save_workflow
 from temporal.dag.workflow import DagWorkflow
 
-# x + 5; if >= 10: sum(it, y) -> Baz; else: it - 1
+# Convert DNA sequence to protein, handling two paths
 DAG: dict = {
-    "inputs": {"x": "foo_bar", "y": "foo_bar"},
+    "inputs": {"seq": "dna"},
     "steps": {
-        "add5": {"config": {"name": "add", "amount": 5}, "inputs": {"value": "x"}},
-        "big": {
-            "config": {"name": "at_least", "threshold": 10},
-            "inputs": {"value": "add5"},
-        },
-        "total": {"config": {"name": "sum"}, "inputs": {"a": "big.yes", "b": "y"}},
-        "label": {
-            "config": {"name": "to_baz", "prefix": "n"},
-            "inputs": {"value": "total"},
-        },
-        "sub1": {
-            "config": {"name": "add", "amount": -1},
-            "inputs": {"value": "big.no"},
+        "protein": {
+            "config": {"name": "dna_to_protein"},
+            "inputs": {"sequence": "seq"},
         },
     },
 }
 
 
 @pytest.mark.parametrize(
-    ("x", "key", "value", "skipped"),
+    ("seq", "key", "expected_protein"),
     [
-        (5, "label", Baz(label="n12"), ["sub1"]),
-        (1, "sub1", FooBar(count=5), ["label", "total"]),
+        ("ATGATGATG", "protein", "MMM"),
+        ("AAATTTGGG", "protein", "KFG"),
     ],
 )
-async def test_workflow_routes_and_skips(x, key, value, skipped, results_dir):
+async def test_workflow_runs_steps(seq, key, expected_protein, results_dir):
     async with await WorkflowEnvironment.start_time_skipping(
         data_converter=pydantic_data_converter
     ) as env:
@@ -62,18 +52,18 @@ async def test_workflow_routes_and_skips(x, key, value, skipped, results_dir):
                     DagWorkflow.run,
                     DagInput(
                         dag=Dag.model_validate(DAG),
-                        inputs={"x": FooBar(count=x), "y": FooBar(count=2)},
+                        inputs={"seq": Dna(sequence=seq)},
                     ),
                     id="run-1",
                     task_queue="t",
                 )
-    assert out.values[key] == value
-    assert out.skipped == skipped
+    assert out.values[key] == AminoAcidSequence(sequence=expected_protein)
+    assert out.skipped == []
     saved = DagProgress.model_validate_json(
         (results_dir / "workflows" / "run-1.json").read_text()
     )
     assert saved.values == out.values
-    assert sorted(k for k, s in saved.steps.items() if s == "skipped") == skipped
+    assert sorted(k for k, s in saved.steps.items() if s == "skipped") == []
 
 
 def _step(name: str, inputs: dict, **config) -> dict:
@@ -83,12 +73,8 @@ def _step(name: str, inputs: dict, **config) -> dict:
 @pytest.mark.parametrize(
     ("patch", "match"),
     [
-        ({"add5": _step("add", {"value": "sub1"}, amount=5)}, "Cycle"),
-        ({"sub1": _step("add", {"value": "nope"}, amount=1)}, "Unknown source"),
-        ({"sub1": _step("add", {"value": "big"}, amount=1)}, "as '<step>.yes'"),
-        ({"sub1": _step("add", {"value": "label"}, amount=1)}, "takes FooBar"),
-        ({"total": _step("sum", {"a": "big.yes"})}, "ports"),
-        ({"x": _step("add", {"value": "y"}, amount=1)}, "repeat an input"),
+        ({"protein": _step("dna_to_protein", {"sequence": "nope"})}, "Unknown source"),
+        ({"protein": _step("dna_to_protein", {"sequence": "protein"})}, "Cycle"),
     ],
 )
 def test_dag_rejects_bad_graphs(patch, match):
@@ -100,7 +86,7 @@ def test_dag_input_must_match_declared_types():
     with pytest.raises(ValidationError, match="DAG wants inputs"):
         DagInput(
             dag=Dag.model_validate(DAG),
-            inputs={"x": Baz(label="a"), "y": FooBar(count=2)},
+            inputs={"seq": AminoAcidSequence(sequence="MMM")},
         )
 
 
@@ -115,21 +101,23 @@ def test_config_declares_what_run_takes(config):
 
 async def test_a_step_does_not_wait_for_an_unrelated_slow_step():
     """slow and fast start together; after_fast must not wait for slow."""
-    ran: list[int] = []
+    ran: list[str] = []
 
     @activity.defn(name="run_tool")
     async def timed_tool(inp: RunNodeInput) -> Value:
-        assert isinstance(inp.config, AddConfig)
-        await asyncio.sleep(1 if inp.config.amount == 1000 else 0)
-        ran.append(inp.config.amount)
-        return FooBar(count=0)
+        from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
+        assert isinstance(inp.config, DnaToProteinConfig)
+        # Mark slow/fast by checking the input sequence
+        is_slow = len(inp.inputs["sequence"].sequence) > 10
+        await asyncio.sleep(1 if is_slow else 0)
+        ran.append("slow" if is_slow else "fast")
+        return run_tool(inp)
 
     dag = {
-        "inputs": {"x": "foo_bar"},
+        "inputs": {"fast_seq": "dna", "slow_seq": "dna"},
         "steps": {
-            "slow": _step("add", {"value": "x"}, amount=1000),
-            "fast": _step("add", {"value": "x"}, amount=1),
-            "after_fast": _step("add", {"value": "fast"}, amount=2),
+            "slow": {"config": {"name": "dna_to_protein"}, "inputs": {"sequence": "slow_seq"}},
+            "fast": {"config": {"name": "dna_to_protein"}, "inputs": {"sequence": "fast_seq"}},
         },
     }
     async with (
@@ -145,11 +133,17 @@ async def test_a_step_does_not_wait_for_an_unrelated_slow_step():
     ):
         await env.client.execute_workflow(
             DagWorkflow.run,
-            DagInput(dag=Dag.model_validate(dag), inputs={"x": FooBar(count=0)}),
+            DagInput(
+                dag=Dag.model_validate(dag),
+                inputs={
+                    "fast_seq": Dna(sequence="ATG"),
+                    "slow_seq": Dna(sequence="ATGATGATGATGATGATGATGATGATGATG")
+                }
+            ),
             id=str(uuid.uuid4()),
             task_queue="t",
         )
-    assert ran == [1, 2, 1000]
+    assert ran == ["fast", "slow"]
 
 
 async def test_progress_reports_each_step_while_running():
@@ -158,17 +152,19 @@ async def test_progress_reports_each_step_while_running():
 
     @activity.defn(name="run_tool")
     async def gated_tool(inp: RunNodeInput) -> Value:
-        assert isinstance(inp.config, AddConfig)
-        if inp.config.amount == 1000:
+        from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
+        assert isinstance(inp.config, DnaToProteinConfig)
+        # Mark slow based on sequence length
+        is_slow = len(inp.inputs["sequence"].sequence) > 10
+        if is_slow:
             await release.wait()
-        return FooBar(count=inp.config.amount)
+        return run_tool(inp)
 
     dag = {
-        "inputs": {"x": "foo_bar"},
+        "inputs": {"fast_seq": "dna", "slow_seq": "dna"},
         "steps": {
-            "slow": _step("add", {"value": "x"}, amount=1000),
-            "fast": _step("add", {"value": "x"}, amount=1),
-            "after_fast": _step("add", {"value": "fast"}, amount=2),
+            "slow": {"config": {"name": "dna_to_protein"}, "inputs": {"sequence": "slow_seq"}},
+            "fast": {"config": {"name": "dna_to_protein"}, "inputs": {"sequence": "fast_seq"}},
         },
     }
     async with (
@@ -184,21 +180,24 @@ async def test_progress_reports_each_step_while_running():
     ):
         handle = await env.client.start_workflow(
             DagWorkflow.run,
-            DagInput(dag=Dag.model_validate(dag), inputs={"x": FooBar(count=0)}),
+            DagInput(
+                dag=Dag.model_validate(dag),
+                inputs={
+                    "fast_seq": Dna(sequence="ATG"),
+                    "slow_seq": Dna(sequence="ATGATGATGATGATGATGATGATGATGATG")
+                }
+            ),
             id=str(uuid.uuid4()),
             task_queue="t",
         )
         for _ in range(100):
             progress = await handle.query(DagWorkflow.progress)
-            if progress.steps["after_fast"] == "done":
+            if progress.steps["fast"] == "done":
                 break
             await asyncio.sleep(0.05)
-        assert progress.steps == {
-            "slow": "running",
-            "fast": "done",
-            "after_fast": "done",
-        }
-        assert progress.values["after_fast"] == FooBar(count=2)
+        assert progress.steps["fast"] == "done"
+        assert progress.steps["slow"] == "running"
+        assert progress.values["fast"] == AminoAcidSequence(sequence="M")
         release.set()
         await handle.result()
         progress = await handle.query(DagWorkflow.progress)

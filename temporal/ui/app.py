@@ -1,10 +1,13 @@
+import asyncio
+import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from pydantic_ai.models import Model
 from temporalio.client import (
     Client,
     WorkflowExecution,
@@ -17,9 +20,13 @@ from node_dag.agent import Hypothesis
 from node_dag.dag import DagProgress
 from temporal.dag.activities import SaveWorkflowInput
 from temporal.dag.workflow import DagWorkflow
-from temporal.run_hypothesis import hypotheses_dir
+from node_dag.types import Value
+from temporal.run_hypothesis import hypotheses_dir, run_hypothesis
+
+logger = logging.getLogger(__name__)
 
 INDEX = Path(__file__).with_name("index.html")
+NEW = Path(__file__).with_name("new.html")
 HYPOTHESES = Path(__file__).with_name("hypotheses.html")
 
 HypothesisStatus = Literal[
@@ -108,9 +115,65 @@ def _run(ex: WorkflowExecution) -> Run:
     )
 
 
-def make_app(client: Client) -> FastAPI:
-    """Return the app: the page at ``/`` and the JSON API under ``/api``."""
+class NewHypothesis(BaseModel):
+    """What the user gives to start a hypothesis.
+
+    Args:
+        goal: What the DAG must do, in plain English.
+        hypothesis: The user's idea of how to meet the goal. The builder agent takes
+            it as a starting point.
+        inputs: The values to run on, keyed by DAG input name.
+    """
+
+    goal: str = Field(min_length=1)
+    hypothesis: str | None = None
+    inputs: dict[str, Value]
+
+
+def make_app(
+    client: Client,
+    build_model: Model | str | None = None,
+    verify_model: Model | str | None = None,
+) -> FastAPI:
+    """Return the app: the pages and the JSON API under ``/api``.
+
+    Args:
+        client: The Temporal client.
+        build_model: The builder agent's model. Without it, hypotheses cannot be started.
+        verify_model: The verifier agent's model. Default: ``build_model``.
+    """
     app = FastAPI(title="node-dag")
+    tasks: set[asyncio.Task[Hypothesis]] = set()  # Keeps the running tasks alive.
+
+    @app.get("/new", include_in_schema=False)
+    async def new_page() -> FileResponse:
+        return FileResponse(NEW)
+
+    @app.post("/api/hypotheses", status_code=202)
+    async def start_hypothesis(new: NewHypothesis) -> Hypothesis:
+        """Start the agents on a goal and return the Hypothesis. They run in the background."""
+        if build_model is None:
+            raise HTTPException(503, "The server was started without --model.")
+        hyp = Hypothesis(
+            goal=new.goal.strip(),
+            hypothesis=(new.hypothesis or "").strip() or None,
+            inputs=new.inputs,
+        )
+        logger.info("Starting hypothesis %s: %s", hyp.id, hyp.goal)
+        task = asyncio.create_task(
+            run_hypothesis(hyp, client, build_model, verify_model or build_model)
+        )
+        tasks.add(task)
+        task.add_done_callback(tasks.discard)
+        def on_done(t: asyncio.Task[Hypothesis]) -> None:
+            if t.cancelled():
+                logger.warning("Hypothesis %s was cancelled", hyp.id)
+            elif exc := t.exception():
+                logger.error("Hypothesis %s failed: %s", hyp.id, exc, exc_info=exc)
+            else:
+                logger.info("Hypothesis %s completed", hyp.id)
+        task.add_done_callback(on_done)
+        return hyp
 
     @app.get("/", include_in_schema=False)
     async def index() -> FileResponse:

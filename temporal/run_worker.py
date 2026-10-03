@@ -1,9 +1,14 @@
 import asyncio
 import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from types import FunctionType
 
 import click
+from dotenv import load_dotenv
+
+# Load .env from the project root
+load_dotenv(Path(__file__).parent.parent / ".env")
 from temporalio import activity
 from temporalio.client import Client
 from temporalio.contrib.pydantic import pydantic_data_converter
