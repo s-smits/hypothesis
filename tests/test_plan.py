@@ -17,7 +17,7 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from node_dag.agent import PlanDeps, plan_agent
+from node_dag.agent import CRITERIA_INSTRUCTIONS, PlanDeps, plan_agent
 from node_dag.plan import Criterion
 
 NO_TCG = Criterion(id="no_tcg", claim="no TCG codon remains in the sequence")
@@ -119,9 +119,7 @@ def _run(plans: list[dict], nodes: list[str], deps: PlanDeps = DEPS):
 
     def script(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         retries.extend(
-            str(p.content)
-            for p in messages[-1].parts
-            if isinstance(p, RetryPromptPart)
+            str(p.content) for p in messages[-1].parts if isinstance(p, RetryPromptPart)
         )
         turn = sum(isinstance(m, ModelResponse) for m in messages)
         if (reply := _catalogue(info, turn, nodes)) is not None:
@@ -146,6 +144,12 @@ async def _retries(plans: list[dict], nodes: list[str], deps: PlanDeps = DEPS):
     return collected
 
 
+def test_scoring_metadata_is_not_an_implicit_acceptance_criterion():
+    assert "run metadata" in CRITERIA_INSTRUCTIONS
+    assert "not mandatory" in CRITERIA_INSTRUCTIONS
+    assert "normally return one criterion" in CRITERIA_INSTRUCTIONS
+
+
 async def test_a_plan_may_name_a_tool_that_does_not_exist():
     """The headline behaviour: no cage, and no complaint, for an unwritten node."""
     agent, retries, deps = _run([WANTS_TOOL], ["recode_codons", "dna_atom_score"])
@@ -162,6 +166,26 @@ async def test_a_plan_over_existing_nodes_still_builds_a_real_dag():
     assert retries == []
     assert out.requests == {}
     assert out.fingerprint()
+
+
+async def test_a_tool_output_can_settle_an_observational_criterion():
+    produced = {
+        **REAL,
+        "steps": {"recoded": REAL["steps"]["recoded"]},
+        "reasons": {"recode_codons": REAL["reasons"]["recode_codons"]},
+        "assertions": [
+            {
+                "criterion": "no_tcg",
+                "step": "recoded",
+                "branch": "produced",
+                "claim": "the requested output was produced",
+            }
+        ],
+    }
+    agent, retries, deps = _run([produced], ["recode_codons"])
+    out = (await agent.run("plan it", deps=deps)).output
+    assert retries == []
+    assert out.assertions[0].source() == "recoded"
 
 
 async def test_a_hypothetical_tool_is_still_typechecked():
@@ -251,7 +275,10 @@ async def test_an_uncovered_criterion_is_rejected():
     """Gap H: the builder cannot quietly drop a criterion it finds inconvenient."""
     deps = PlanDeps(
         goal=DEPS.goal,
-        criteria=[NO_TCG, Criterion(id="same_protein", claim="the protein is unchanged")],
+        criteria=[
+            NO_TCG,
+            Criterion(id="same_protein", claim="the protein is unchanged"),
+        ],
         input_kinds={"seq": "dna"},
     )
     retries = await _retries([REAL], ["recode_codons", "codons_absent"], deps)
@@ -288,7 +315,11 @@ def test_fingerprint_ignores_prose():
 
     a = Plan.model_validate(REAL)
     b = Plan.model_validate(
-        {**REAL, "hypothesis": "an entirely different sentence here", "expected": "x" * 20}
+        {
+            **REAL,
+            "hypothesis": "an entirely different sentence here",
+            "expected": "x" * 20,
+        }
     )
     assert a.fingerprint() == b.fingerprint()
     c = Plan.model_validate(

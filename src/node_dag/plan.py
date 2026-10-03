@@ -167,18 +167,18 @@ class Assertion(BaseModel):
     Args:
         criterion: The id of the Criterion this tests.
         step: The decision step whose branch settles it.
-        branch: The branch that must fire for the claim to hold.
+        branch: The branch that must fire, or ``produced`` when output is the claim.
         claim: What this proves about the goal, for a human reading the result.
     """
 
     criterion: str
     step: str
-    branch: Literal["yes", "no"]
+    branch: Literal["yes", "no", "produced"]
     claim: str = Field(min_length=5)
 
     def source(self) -> str:
         """The ``DagOutput.values`` key that must exist for this assertion to hold."""
-        return f"{self.step}.{self.branch}"
+        return self.step if self.branch == "produced" else f"{self.step}.{self.branch}"
 
 
 class Plan(BaseModel):
@@ -478,7 +478,9 @@ def holds(assertions: list[Assertion], outcome: DagOutput | None) -> dict[str, b
 
 
 def accepted(
-    criteria: list[Criterion], plan: Plan | None, verdict: Verdict | None,
+    criteria: list[Criterion],
+    plan: Plan | None,
+    verdict: Verdict | None,
     outcome: DagOutput | None,
 ) -> tuple[bool, str]:
     """Whether a round met the goal, and why not when it did not.
@@ -503,7 +505,9 @@ def accepted(
         return False, "the plan asserted nothing, so nothing could be checked"
     if missing := sorted(wanted - {a.criterion for a in plan.assertions}):
         return False, f"no assertion covers {missing}"
-    if failed := sorted(s for s, ok in holds(plan.assertions, outcome).items() if not ok):
+    if failed := sorted(
+        s for s, ok in holds(plan.assertions, outcome).items() if not ok
+    ):
         return False, f"these assertions did not hold: {failed}"
     if not verdict.covers_goal:
         return False, "the verifier judged the assertions not to cover the goal"

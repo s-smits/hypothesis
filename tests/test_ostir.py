@@ -44,7 +44,9 @@ def test_a_synonymous_recoding_can_change_expression_by_an_order_of_magnitude():
     synonymous changes move the mRNA folding near the start codon. A loop that could
     only check the protein would call this a success.
     """
-    recoded = RecodeCodons(RecodeCodonsConfig(targets=("TCG", "TCA"))).run(sequence=GENE)
+    recoded = RecodeCodons(RecodeCodonsConfig(targets=("TCG", "TCA"))).run(
+        sequence=GENE
+    )
     assert recoded.protein() == GENE.protein(), "the recoding must be synonymous"
     assert recoded.sequence != GENE.sequence
 

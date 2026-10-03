@@ -185,12 +185,13 @@ function goalView(goal) {
 const latest = (h) => (h.attempts ?? []).at(-1) ?? null;
 const planOf = (h) => latest(h)?.plan ?? null;
 
-// Which assertion sources fired. Mirrors node_dag.plan.holds(): a decision records the
-// branch it took as a value under "<step>.<branch>", so its presence settles the claim.
+// Which assertion sources fired. Decisions use "<step>.<branch>"; a produced assertion
+// uses the tool/scorer step itself, exactly as node_dag.plan.Assertion.source() does.
+const assertionSource = (a) => a.branch === "produced" ? a.step : `${a.step}.${a.branch}`;
 function heldSources(h) {
   const values = h.outcome?.values ?? {};
   const held = {};
-  for (const a of planOf(h)?.assertions ?? []) held[`${a.step}.${a.branch}`] = `${a.step}.${a.branch}` in values;
+  for (const a of planOf(h)?.assertions ?? []) held[assertionSource(a)] = assertionSource(a) in values;
   return held;
 }
 
@@ -234,7 +235,7 @@ function coverageView(h) {
             <td><code>${esc(c.id)}</code><br><span class="meta">${esc(c.source)}</span></td>
             <td>${esc(c.claim)}</td>
             <td>${tests.length ? tests.map((a) => `<code>${esc(a.step)}.${esc(a.branch)}</code> ${esc(a.claim)}`).join("<br>") : `<span class="unheld">no assertion covers it</span>`}</td>
-            <td>${tests.length ? tests.map((a) => held[`${a.step}.${a.branch}`] ? `<span class="held">held</span>` : (ran ? `<span class="unheld">did not hold</span>` : `<span class="meta">not run yet</span>`)).join("<br>") : "—"}</td>
+            <td>${tests.length ? tests.map((a) => held[assertionSource(a)] ? `<span class="held">held</span>` : (ran ? `<span class="unheld">did not hold</span>` : `<span class="meta">not run yet</span>`)).join("<br>") : "—"}</td>
           </tr>`).join("")}${orphans.map((a) => `
           <tr>
             <td><code>${esc(a.criterion)}</code><br><span class="meta">not a criterion</span></td>

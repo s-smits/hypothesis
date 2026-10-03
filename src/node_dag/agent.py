@@ -270,8 +270,8 @@ def submit_plan(
             restatement of the goal.
         inputs: Each DAG input name to its kind. Must be exactly the goal's inputs.
         steps: The steps, keyed by name. A key must not contain ``.``.
-        assertions: One per criterion at least, each naming a decision step of this plan
-            whose branch settles it. A plan that asserts nothing can never be accepted.
+        assertions: One per criterion at least. Use a decision's yes/no branch for a
+            pass/fail claim, or ``produced`` when a scorer/tool output is the result.
         reasons: Why you chose each existing node, keyed by node name.
         requests: A full contract for every node you named that does not exist.
         addresses_critique: What this plan changes in response to the critique. Required
@@ -282,7 +282,9 @@ def submit_plan(
 
     # G0: the DAG must run on the inputs the goal was asked about, not ones it invents.
     if inputs != deps.input_kinds:
-        raise ModelRetry(f"inputs must be exactly the goal's inputs: {deps.input_kinds}")
+        raise ModelRetry(
+            f"inputs must be exactly the goal's inputs: {deps.input_kinds}"
+        )
 
     names = {s.node for s in steps.values()}
     by_name = {r.name: r for r in requests}
@@ -391,11 +393,16 @@ def submit_plan(
         is_decision = (
             node in NODES and PortContract.of(NODES[node]).forwards is not None
         ) or (node in by_name and by_name[node].node == "decision")
-        if not is_decision:
+        if a.branch != "produced" and not is_decision:
             raise ModelRetry(
-                f"Assertion names step {a.step!r}, which runs {node!r}, a tool. Only a "
-                "decision has a branch to settle a claim. Add a decision step that "
-                "checks this, or request one."
+                f"Assertion names step {a.step!r}, which runs {node!r}, a tool. Use "
+                "branch='produced' when the requested output itself settles the "
+                "criterion, or add a decision step for a yes/no claim."
+            )
+        if a.branch == "produced" and is_decision:
+            raise ModelRetry(
+                f"Assertion names decision step {a.step!r} as produced. Name its yes/no "
+                "branch instead so the assertion says which outcome must hold."
             )
     if uncovered := sorted(wanted - {a.criterion for a in assertions}):
         raise ModelRetry(
@@ -452,8 +459,10 @@ Plan a DAG of nodes that meets the user's goal.
    need. Say in why_not_composable which existing nodes you considered and what each
    cannot do.
 3. Commit to a prediction. ``expected`` says what the DAG will produce, specifically
-   enough to be wrong about. Then back it with assertions: one per criterion at least,
-   each naming a decision step of your plan whose yes/no branch settles that criterion.
+   enough to be wrong about. Then back it with assertions: one per criterion at least.
+   For a pass/fail claim, name the decision step and yes/no branch that settles it. When
+   the goal only asks to compute or convert something, name the scorer/tool step with
+   branch ``produced`` because its output is the requested result.
    The criteria are fixed and you cannot change them. A plan that asserts nothing can
    never be accepted, however good it looks.
 4. Give a reason for every node you chose and every step you wired.
@@ -478,14 +487,20 @@ result, not a failure: it becomes a request for a human to write that node."""
 CRITERIA_INSTRUCTIONS = """\
 Turn a goal into the criteria that decide whether it was met.
 
-A criterion is one thing that must be true, stated so that a check could settle it: "no
-TCG, TCA or TAG codon remains", not "the sequence is improved". Prefer few and sharp over
-many and vague.
+A criterion is one requested outcome, stated so that a DAG output or check could settle
+it: "an expression score is produced" or "no TCG codon remains", not "the sequence is
+improved". Prefer few and sharp over many and vague. For a goal that only asks to score,
+convert, fold, or otherwise compute an output, normally return one criterion describing
+that output.
 
-These are frozen before anything is planned, and the agent that plans cannot change them.
-So include what the goal genuinely requires even when you doubt a tool exists to check
-it: an unverifiable criterion makes the run ask for the missing checker, which is the
-right outcome. Never weaken a criterion to make it easy to pass."""
+Do not turn implementation quality into extra acceptance criteria unless the goal asks
+for it. Predictor provenance, version identifiers, units, reference ranges, domain
+applicability, input normalisation, and repeatability are run metadata, not mandatory
+criteria for a plain scoring request.
+
+These criteria are frozen before anything is planned, and the planner cannot change them.
+Include every outcome the user explicitly requires even when no checker exists; never
+weaken an explicit requirement merely to make it easy to pass."""
 
 VERDICT_INSTRUCTIONS = """\
 Judge whether a DAG run met its goal. You are a check on the result, not its author.

@@ -48,7 +48,6 @@ from temporal.hypothesis.models import (
 )
 from temporal.store import save_hypothesis, save_tool_request, trajectories_dir
 
-
 #: A refusal is the provider declining, not a wobble. Another identical request gets
 #: an identical answer, so a loop that retries one only spends money to learn that.
 _REFUSALS = ("content filter", "refusal", "safety")
@@ -295,7 +294,9 @@ async def verify_outcome(inp: VerifyInput) -> Verdict:
         result = await agent.run(inp.view.model_dump_json(indent=2))
     except UnexpectedModelBehavior as e:
         return Verdict(
-            agrees=False, covers_goal=False, reason=f"the verifier failed: {_brief(str(e))}"
+            agrees=False,
+            covers_goal=False,
+            reason=f"the verifier failed: {_brief(str(e))}",
         )
     o = result.output
     _record(inp.tag, result)

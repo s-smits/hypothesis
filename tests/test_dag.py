@@ -123,8 +123,14 @@ async def test_a_step_does_not_wait_for_an_unrelated_slow_step():
     dag = {
         "inputs": {"fast_seq": "dna", "slow_seq": "dna"},
         "steps": {
-            "slow": {"config": {"name": "dna_to_protein"}, "inputs": {"sequence": "slow_seq"}},
-            "fast": {"config": {"name": "dna_to_protein"}, "inputs": {"sequence": "fast_seq"}},
+            "slow": {
+                "config": {"name": "dna_to_protein"},
+                "inputs": {"sequence": "slow_seq"},
+            },
+            "fast": {
+                "config": {"name": "dna_to_protein"},
+                "inputs": {"sequence": "fast_seq"},
+            },
         },
     }
     async with (
@@ -144,8 +150,8 @@ async def test_a_step_does_not_wait_for_an_unrelated_slow_step():
                 dag=Dag.model_validate(dag),
                 inputs={
                     "fast_seq": Dna(sequence="ATG"),
-                    "slow_seq": Dna(sequence="ATGATGATGATGATGATGATGATGATGATG")
-                }
+                    "slow_seq": Dna(sequence="ATGATGATGATGATGATGATGATGATGATG"),
+                },
             ),
             id=str(uuid.uuid4()),
             task_queue="t",
@@ -169,8 +175,14 @@ async def test_progress_reports_each_step_while_running():
     dag = {
         "inputs": {"fast_seq": "dna", "slow_seq": "dna"},
         "steps": {
-            "slow": {"config": {"name": "dna_to_protein"}, "inputs": {"sequence": "slow_seq"}},
-            "fast": {"config": {"name": "dna_to_protein"}, "inputs": {"sequence": "fast_seq"}},
+            "slow": {
+                "config": {"name": "dna_to_protein"},
+                "inputs": {"sequence": "slow_seq"},
+            },
+            "fast": {
+                "config": {"name": "dna_to_protein"},
+                "inputs": {"sequence": "fast_seq"},
+            },
         },
     }
     async with (
@@ -190,8 +202,8 @@ async def test_progress_reports_each_step_while_running():
                 dag=Dag.model_validate(dag),
                 inputs={
                     "fast_seq": Dna(sequence="ATG"),
-                    "slow_seq": Dna(sequence="ATGATGATGATGATGATGATGATGATGATG")
-                }
+                    "slow_seq": Dna(sequence="ATGATGATGATGATGATGATGATGATGATG"),
+                },
             ),
             id=str(uuid.uuid4()),
             task_queue="t",

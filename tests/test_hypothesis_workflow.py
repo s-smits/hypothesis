@@ -423,8 +423,10 @@ async def test_a_rejected_round_feeds_its_critique_into_the_next_plan(env):
         env,
         [
             _planner(plans),
-            _verifier([Verdict(agrees=False, reason="a TCG survived", score=0.2),
-                       _agrees()], seen),
+            _verifier(
+                [Verdict(agrees=False, reason="a TCG survived", score=0.2), _agrees()],
+                seen,
+            ),
             _critic(critiques),
         ],
         _hyp(),
@@ -462,9 +464,7 @@ async def test_the_verifier_never_sees_a_previous_verdict(env):
         env,
         [
             _planner([]),
-            _verifier(
-                [Verdict(agrees=False, reason="no", score=0.2), _agrees()], seen
-            ),
+            _verifier([Verdict(agrees=False, reason="no", score=0.2), _agrees()], seen),
             _critic([]),
         ],
         _hyp(),
@@ -490,7 +490,11 @@ async def test_a_terminal_builder_failure_stops_without_retrying(env):
     plans = []
     done = await _run(
         env,
-        [_failed_planner(plans, terminal=True), _verifier([_agrees()], []), _critic([])],
+        [
+            _failed_planner(plans, terminal=True),
+            _verifier([_agrees()], []),
+            _critic([]),
+        ],
         _hyp(),
         max_rounds=3,
     )
@@ -504,7 +508,11 @@ async def test_a_retryable_builder_failure_uses_the_remaining_rounds(env):
     plans = []
     done = await _run(
         env,
-        [_failed_planner(plans, terminal=False), _verifier([_agrees()], []), _critic([])],
+        [
+            _failed_planner(plans, terminal=False),
+            _verifier([_agrees()], []),
+            _critic([]),
+        ],
         _hyp(),
         max_rounds=3,
     )
@@ -562,9 +570,7 @@ async def test_a_worker_missing_an_activity_records_a_failure(env):
     activity that was not there. The run died, nothing wrote its state, and the page sat
     at "building" indefinitely -- indistinguishable from a model taking its time.
     """
-    hyp = Hypothesis(
-        goal="remove every TCG codon", criteria=[], inputs={"seq": GENE}
-    )
+    hyp = Hypothesis(goal="remove every TCG codon", criteria=[], inputs={"seq": GENE})
     with pytest.raises(WorkflowFailureError):
         # No derive_criteria here, and the hypothesis has no criteria, so the workflow
         # must reach for an activity this worker does not have.

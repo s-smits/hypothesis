@@ -37,7 +37,8 @@ ANNOTATIONS = {
 }
 
 _VERSION = re.compile(
-    r"^(?P<indent>[ \t]*)version:\s*ClassVar\[int\]\s*=\s*(?P<n>\d+)[ \t]*$", re.MULTILINE
+    r"^(?P<indent>[ \t]*)version:\s*ClassVar\[int\]\s*=\s*(?P<n>\d+)[ \t]*$",
+    re.MULTILINE,
 )
 _NAME = re.compile(r"^(?P<indent>[ \t]*)name:[ \t]*Literal\[.*$", re.MULTILINE)
 
@@ -183,7 +184,9 @@ def config_source(req: ToolRequest) -> str:
     return "\n".join(lines) + "\n"
 
 
-def signature(indent: str, ports: Sequence[str], types: Sequence[str], ret: str) -> list[str]:
+def signature(
+    indent: str, ports: Sequence[str], types: Sequence[str], ret: str
+) -> list[str]:
     """``def run(...) -> ret:``, broken across lines when it will not fit in one."""
     params = [f"{port}: {kind}" for port, kind in zip(ports, types, strict=True)]
     one = f"{indent}def run(self, {', '.join(params)}) -> {ret}:"
@@ -212,7 +215,9 @@ def function_source(req: ToolRequest) -> str:
     lines += docstring("    ", req.purpose)
     lines.append("")
     ports = list(req.inputs)
-    lines += signature("    ", ports, [TYPES[k].__name__ for k in req.inputs.values()], ret)
+    lines += signature(
+        "    ", ports, [TYPES[k].__name__ for k in req.inputs.values()], ret
+    )
     lines += docstring(
         "        ",
         "Return True for the yes branch."
@@ -355,7 +360,9 @@ def main(name: str, force: bool, bump: bool, out_dir: Path | None) -> None:
         raise click.ClickException(f"No tool request at {path}")
     req = ToolRequest.model_validate_json(path.read_text(encoding="utf-8"))
     if req.name != name:
-        raise click.ClickException(f"{path} is a request for {req.name!r}, not {name!r}")
+        raise click.ClickException(
+            f"{path} is a request for {req.name!r}, not {name!r}"
+        )
     directory = write_node(req, root, force)
     click.echo(f"Wrote {directory / '__init__.py'}")
     click.echo(f"Wrote {directory / 'config.py'}")

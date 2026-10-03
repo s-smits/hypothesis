@@ -126,8 +126,9 @@ async def _main(
     help="pydantic-ai model for the verifier. Keep it different from --model.",
 )
 @click.option(
-    "--critique-model", default=None, help="pydantic-ai model for the critic. "
-    "Default: --model."
+    "--critique-model",
+    default=None,
+    help="pydantic-ai model for the critic. Default: --model.",
 )
 @click.option(
     "--results",

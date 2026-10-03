@@ -68,6 +68,17 @@ def test_holds_is_true_only_when_the_branch_fired():
     assert holds([a], None) == {"clean.yes": False}
 
 
+def test_a_produced_assertion_holds_when_the_step_returned_a_value():
+    assertion = Assertion(
+        criterion="score_returned",
+        step="scored",
+        branch="produced",
+        claim="the scorer returned a value",
+    )
+    assert holds([assertion], _outcome("scored")) == {"scored": True}
+    assert holds([assertion], _outcome()) == {"scored": False}
+
+
 def test_a_covered_plan_whose_assertions_held_is_accepted():
     ok, why = accepted(
         [NO_TCG, SAME_PROTEIN],
@@ -134,7 +145,9 @@ def test_the_verifier_can_veto_a_plan_whose_assertions_held(verdict, fragment):
 
 def test_a_hypothesis_without_criteria_cannot_be_accepted():
     ok, why = accepted(
-        [], _plan(ALL_COVERED), Verdict(agrees=True, reason="fine", score=1.0),
+        [],
+        _plan(ALL_COVERED),
+        Verdict(agrees=True, reason="fine", score=1.0),
         _outcome("clean.yes"),
     )
     assert not ok

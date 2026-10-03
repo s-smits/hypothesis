@@ -20,8 +20,7 @@ class Broken:
 
 def test_a_node_runs_once_per_config_and_inputs(results_dir, monkeypatch):
     inp = RunNodeInput(
-        config=DnaToProteinConfig(),
-        inputs={"sequence": Dna(sequence="ATGATGATG")}
+        config=DnaToProteinConfig(), inputs={"sequence": Dna(sequence="ATGATGATG")}
     )
     result = run_tool(inp)
     assert isinstance(result, AminoAcidSequence)

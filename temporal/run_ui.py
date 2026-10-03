@@ -67,9 +67,7 @@ def main(
     critique_model: str | None,
 ) -> None:
     """Serve pages that show DagWorkflow runs and hypotheses, and start hypotheses."""
-    asyncio.run(
-        _main(address, host, port, model, verify_model, critique_model)
-    )
+    asyncio.run(_main(address, host, port, model, verify_model, critique_model))
 
 
 if __name__ == "__main__":

@@ -26,6 +26,7 @@ from temporal.hypothesis.workflow import HypothesisWorkflow
 from temporal.store import hypotheses_dir, requests_dir, save_hypothesis
 
 logger = logging.getLogger(__name__)
+_WARNED_INCOMPATIBLE: set[tuple[Path, int]] = set()
 
 INDEX = Path(__file__).with_name("index.html")
 NEW = Path(__file__).with_name("new.html")
@@ -131,6 +132,23 @@ def _hypothesis_row(path: Path) -> HypothesisRow:
     return HypothesisRow(
         hypothesis=hyp, status=status, progress=progress, updated=mtime
     )
+
+
+def _saved_rows() -> list[HypothesisRow]:
+    """Every compatible saved Hypothesis, newest first.
+
+    Results from a different schema are ignored so one stale file cannot break the page.
+    """
+    rows = []
+    for path in hypotheses_dir().glob("*.json"):
+        try:
+            rows.append(_hypothesis_row(path))
+        except ValidationError as e:
+            key = (path, path.stat().st_mtime_ns)
+            if key not in _WARNED_INCOMPATIBLE:
+                logger.warning("Skipping incompatible hypothesis %s: %s", path.name, e)
+                _WARNED_INCOMPATIBLE.add(key)
+    return sorted(rows, key=lambda row: row.updated, reverse=True)
 
 
 def _run(ex: WorkflowExecution) -> Run:
@@ -513,9 +531,8 @@ def make_app(
 
     @app.get("/api/hypotheses")
     async def hypotheses() -> list[HypothesisRow]:
-        """Every saved Hypothesis, the most recently saved first."""
-        rows = [_hypothesis_row(p) for p in hypotheses_dir().glob("*.json")]
-        return sorted(rows, key=lambda r: r.updated, reverse=True)
+        """Every compatible saved Hypothesis, the most recently saved first."""
+        return _saved_rows()
 
     @app.get("/api/runs")
     async def runs(limit: int = 50) -> list[Run]:
@@ -527,7 +544,12 @@ def make_app(
     async def run(workflow_id: str) -> RunDetail:
         """One run, with the status of each step."""
         handle = client.get_workflow_handle(workflow_id)
-        run = _run(await handle.describe())
+        try:
+            run = _run(await handle.describe())
+        except RPCError as e:
+            if e.status == RPCStatusCode.NOT_FOUND:
+                raise HTTPException(404, f"No run {workflow_id}.") from e
+            raise HTTPException(503, f"Could not reach Temporal: {e}") from e
         progress, error = None, None
         # A finished run is on disk, so it needs no worker, and an old run need not
         # replay under the current workflow code.

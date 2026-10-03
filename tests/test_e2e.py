@@ -209,7 +209,9 @@ async def _start(page, stack: _Stack, criterion: str = "no_tcg") -> None:
 
 async def test_a_hypothesis_runs_from_the_form_to_an_accepted_verdict(page):
     """The whole path: form, workflow, real DAG, verdict, rendered."""
-    verdict = Verdict(agrees=True, covers_goal=True, reason="both targets gone", score=1.0)
+    verdict = Verdict(
+        agrees=True, covers_goal=True, reason="both targets gone", score=1.0
+    )
     async for stack in _serve(_fakes(PLAN, verdict)):
         await _start(page, stack)
         await page.wait_for_selector("text=achieved", timeout=20000)
@@ -282,9 +284,7 @@ async def test_the_new_form_offers_the_kinds_the_server_actually_has(page):
     verdict = Verdict(agrees=True, covers_goal=True, reason="ok", score=1.0)
     async for stack in _serve(_fakes(PLAN, verdict)):
         await page.goto(f"{stack.url}/new")
-        await page.wait_for_selector(
-            "select[name=kind] option", state="attached"
-        )
+        await page.wait_for_selector("select[name=kind] option", state="attached")
         kinds = await page.eval_on_selector_all(
             "select[name=kind] option", "els => els.map(e => e.value || e.textContent)"
         )

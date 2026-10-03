@@ -14,7 +14,6 @@ class AminoAcidChanges(BaseNode[AminoAcidChangesConfig]):
         # position it still has and score 0, which is the one answer it must not give.
         return Score(
             value=sum(
-                a != b
-                for a, b in zip_longest(sequence.protein(), reference.protein())
+                a != b for a, b in zip_longest(sequence.protein(), reference.protein())
             )
         )

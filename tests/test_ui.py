@@ -11,9 +11,13 @@ results file on disk predates ``Hypothesis.state``, and ``state=None`` must keep
 import json
 import re
 from pathlib import Path
-from typing import get_args
+from typing import cast, get_args
 
 import pytest
+from fastapi import HTTPException
+from fastapi.routing import APIRoute
+from temporalio.client import Client
+from temporalio.service import RPCError, RPCStatusCode
 
 from node_dag.plan import (
     Attempt,
@@ -31,8 +35,10 @@ from temporal.ui.app import (
     _hypothesis_row,
     _kinds,
     _request_rows,
+    _saved_rows,
     _stats,
     _waterfall,
+    make_app,
 )
 
 STATUSES = get_args(HypothesisStatus)
@@ -78,9 +84,17 @@ def _blocked(goal: str, names: list[str]) -> Hypothesis:
 @pytest.mark.parametrize("status", STATUSES)
 def test_every_status_resolves_through_a_row(status: str) -> None:
     """Whatever the workflow recorded, the row carries it back unchanged."""
-    hyp = save_hypothesis(Hypothesis(goal="recode it", inputs={"seq": DNA}, state=status))
+    hyp = save_hypothesis(
+        Hypothesis(goal="recode it", inputs={"seq": DNA}, state=status)
+    )
     row = _hypothesis_row(hypotheses_dir() / f"{hyp.id}.json")
     assert row.status == status
+
+
+def test_produced_assertions_use_the_step_output_in_the_ui() -> None:
+    page = HYPOTHESES.read_text(encoding="utf-8")
+    assert 'a.branch === "produced" ? a.step' in page
+    assert "held[assertionSource(a)]" in page
 
 
 def test_the_status_literal_covers_every_workflow_state() -> None:
@@ -124,7 +138,11 @@ def _write_old(name: str, **fields: object) -> Path:
     """Write a pre-``state`` Hypothesis file by hand, as the single pass wrote them."""
     path = hypotheses_dir() / f"{name}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    body = {"id": name, "goal": "convert DNA to protein", "inputs": {"seq": DNA.model_dump()}}
+    body = {
+        "id": name,
+        "goal": "convert DNA to protein",
+        "inputs": {"seq": DNA.model_dump()},
+    }
     path.write_text(json.dumps(body | fields), encoding="utf-8")
     return path
 
@@ -135,7 +153,13 @@ def _write_old(name: str, **fields: object) -> Path:
         ({}, "building"),
         ({"hypothesis": "translate it"}, "building"),
         ({"dag": DAG}, "running"),
-        ({"dag": DAG, "outcome": {"values": {"seq": DNA.model_dump()}, "skipped": []}}, "verifying"),
+        (
+            {
+                "dag": DAG,
+                "outcome": {"values": {"seq": DNA.model_dump()}, "skipped": []},
+            },
+            "verifying",
+        ),
         ({"verdict": {"reason": "the protein is right", "achieved": True}}, "achieved"),
         ({"verdict": {"reason": "wrong protein", "achieved": False}}, "not achieved"),
     ],
@@ -153,6 +177,46 @@ def test_an_old_file_with_no_state_still_resolves(
     assert row.hypothesis.state is None
     assert row.hypothesis.attempts == []
     assert row.hypothesis.criteria == []
+
+
+def test_an_incompatible_hypothesis_file_does_not_break_the_listing(caplog) -> None:
+    good = save_hypothesis(Hypothesis(goal="recode it", inputs={"seq": DNA}))
+    stale = hypotheses_dir() / "table-schema.json"
+    stale.write_text(
+        json.dumps(
+            {
+                "id": "table-schema",
+                "goal": "score it",
+                "inputs": {"sequence": [DNA.model_dump()]},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert [row.hypothesis.id for row in _saved_rows()] == [good.id]
+    assert [row.hypothesis.id for row in _saved_rows()] == [good.id]
+    warnings = [r for r in caplog.records if "Skipping incompatible" in r.message]
+    assert len(warnings) == 1
+
+
+async def test_a_stale_workflow_reference_returns_not_found() -> None:
+    class MissingWorkflow:
+        def get_workflow_handle(self, workflow_id: str):
+            return self
+
+        async def describe(self):
+            raise RPCError("workflow not found", RPCStatusCode.NOT_FOUND, b"")
+
+    app = make_app(cast(Client, MissingWorkflow()))
+    endpoint = next(
+        route.endpoint
+        for route in app.routes
+        if isinstance(route, APIRoute) and route.path == "/api/runs/{workflow_id}"
+    )
+    with pytest.raises(HTTPException) as exc:
+        await endpoint("missing-r1")
+    assert exc.value.status_code == 404
+    assert exc.value.detail == "No run missing-r1."
 
 
 def test_an_old_verdict_still_reads_as_achieved() -> None:
@@ -191,7 +255,9 @@ def test_requests_rank_by_how_much_work_is_stuck() -> None:
 
 def test_a_contract_with_nobody_blocked_is_still_listed() -> None:
     """The file holds only the contract; who is waiting is computed every time."""
-    save_tool_request("recode_codons", _request("recode_codons").model_dump_json().encode())
+    save_tool_request(
+        "recode_codons", _request("recode_codons").model_dump_json().encode()
+    )
     (row,) = _request_rows()
     assert row.request.name == "recode_codons"
     assert row.blocked == []
@@ -267,5 +333,7 @@ def test_the_default_models_are_set_and_the_verifier_differs():
 
     cfg = HypothesisConfig()
     assert cfg.build_model and cfg.verify_model and cfg.critique_model
-    assert cfg.verify_model != cfg.build_model, "the verifier must not grade its own work"
+    assert cfg.verify_model != cfg.build_model, (
+        "the verifier must not grade its own work"
+    )
     assert cfg.critique_model == cfg.build_model

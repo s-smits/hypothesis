@@ -14,7 +14,9 @@ class OstirExpression(BaseNode[OstirExpressionConfig]):
         # warns that ViennaRNA is missing when the RNAfold binary is not on PATH, but it
         # calls the Python bindings, which the viennarna wheel does install.
         with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message=".*missing dependency ViennaRNA.*")
+            warnings.filterwarnings(
+                "ignore", message=".*missing dependency ViennaRNA.*"
+            )
             from ostir import run_ostir
 
         # OSTIR counts bases from 1, so the coding sequence starts just past the UTR.

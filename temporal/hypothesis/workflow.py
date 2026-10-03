@@ -360,9 +360,7 @@ class HypothesisWorkflow:
                     goal=self._hyp.goal,
                     criteria=self._hyp.criteria,
                     input_kinds=self._hyp.input_kinds(),
-                    input_preview={
-                        k: preview(v) for k, v in self._hyp.inputs.items()
-                    },
+                    input_preview={k: preview(v) for k, v in self._hyp.inputs.items()},
                     model=self._cfg.build_model,
                     proposed=inp.proposed,
                     critique=critique,
@@ -379,7 +377,8 @@ class HypothesisWorkflow:
                 self._put(att)
                 if planned.terminal:
                     return await self._stop(
-                        "not achieved", planned.error or "the builder could not continue"
+                        "not achieved",
+                        planned.error or "the builder could not continue",
                     )
                 critique = Critique(
                     diagnosis=planned.error or "the builder produced no plan",
@@ -398,7 +397,9 @@ class HypothesisWorkflow:
             res = await self._resolve(att, plan)
             if self._abandoned:
                 self._put(att)
-                return await self._stop("abandoned", "abandoned while blocked on a tool")
+                return await self._stop(
+                    "abandoned", "abandoned while blocked on a tool"
+                )
             self._update(state="running", pending=[])
 
             if res.error or res.dag is None:
@@ -439,9 +440,7 @@ class HypothesisWorkflow:
             stale = 0 if score > self._hyp.best_score else stale + 1
             att.finished = workflow.now()
             self._put(att)
-            self._update(
-                best_score=max(self._hyp.best_score, score), critique=critique
-            )
+            self._update(best_score=max(self._hyp.best_score, score), critique=critique)
             await self._save()
 
             if not plan.assertions:

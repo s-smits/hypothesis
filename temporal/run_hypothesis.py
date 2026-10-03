@@ -96,8 +96,12 @@ async def _main(
     show_default=True,
     help="pydantic-ai model for the verifier. Keep it different from --model.",
 )
-@click.option("--critique-model", help="pydantic-ai model for the critic. Default: --model.")
-@click.option("--max-rounds", default=3, help="Plan-run-verify rounds before giving up.")
+@click.option(
+    "--critique-model", help="pydantic-ai model for the critic. Default: --model."
+)
+@click.option(
+    "--max-rounds", default=3, help="Plan-run-verify rounds before giving up."
+)
 @click.option("--address", default="localhost:7233", help="Temporal server address.")
 def main(
     path: Path,
@@ -108,9 +112,7 @@ def main(
     address: str,
 ) -> None:
     """Build, run and verify the Hypothesis JSON file at PATH. Print the result."""
-    asyncio.run(
-        _main(path, model, verify_model, critique_model, max_rounds, address)
-    )
+    asyncio.run(_main(path, model, verify_model, critique_model, max_rounds, address))
 
 
 if __name__ == "__main__":

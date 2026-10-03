@@ -95,7 +95,9 @@ def test_a_conversion_is_found_in_the_right_direction():
     phrased from their own input side to keep that from coming back.
     """
     assert _order(search_nodes("turn DNA into RNA"))[0] == "dna_transcribe"
-    assert _order(search_nodes("transcribe this coding sequence"))[0] == "dna_transcribe"
+    assert (
+        _order(search_nodes("transcribe this coding sequence"))[0] == "dna_transcribe"
+    )
     assert _order(search_nodes("convert RNA back to DNA"))[0] == "rna_back_transcribe"
     assert (
         _order(search_nodes("my value is RNA but the next node wants DNA"))[0]

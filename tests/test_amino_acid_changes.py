@@ -28,7 +28,9 @@ def test_an_identical_sequence_has_no_changes():
 
 
 def test_a_synonymous_recoding_has_no_changes():
-    recoded = RecodeCodons(RecodeCodonsConfig(targets=("TCG", "TCA"))).run(sequence=GENE)
+    recoded = RecodeCodons(RecodeCodonsConfig(targets=("TCG", "TCA"))).run(
+        sequence=GENE
+    )
     assert recoded.sequence != GENE.sequence
     assert _changes(recoded.sequence) == 0
 
@@ -57,7 +59,9 @@ def test_at_most_zero_turns_the_count_into_a_branch():
     branch means the protein survived, which is exactly the shape an Assertion needs.
     """
     gate = AtMost(AtMostConfig(threshold=0))
-    recoded = RecodeCodons(RecodeCodonsConfig(targets=("TCG", "TCA"))).run(sequence=GENE)
+    recoded = RecodeCodons(RecodeCodonsConfig(targets=("TCG", "TCA"))).run(
+        sequence=GENE
+    )
     scorer = AminoAcidChanges(AminoAcidChangesConfig())
 
     synonymous = scorer.run(sequence=recoded, reference=GENE)

@@ -46,7 +46,9 @@ def test_a_sequence_in_range_passes_and_one_outside_does_not():
 
 def test_recoding_moves_gc_enough_to_change_the_answer():
     """Synonymous codons differ in their third base, so a recoding cannot miss GC."""
-    recoded = RecodeCodons(RecodeCodonsConfig(targets=("TCG", "TCA"))).run(sequence=GENE)
+    recoded = RecodeCodons(RecodeCodonsConfig(targets=("TCG", "TCA"))).run(
+        sequence=GENE
+    )
     assert recoded.protein() == GENE.protein()
     assert gc_fraction(GENE.sequence) > gc_fraction(recoded.sequence)
     assert _gc(GENE.sequence, 0.38, 0.7) is True
