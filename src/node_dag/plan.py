@@ -41,6 +41,12 @@ class Criterion(BaseModel):
     source: Literal["human", "derived"] = "human"
 
 
+#: What a node config field may hold. Deliberately a closed union rather than Any:
+#: an output schema with an Any in it has no "type", which Anthropic's strict mode
+#: rejects outright, so the builder could not be called at all.
+ConfigValue = str | int | float | bool | list[str]
+
+
 class ConfigField(BaseModel):
     """One config field a requested node needs.
 
@@ -57,7 +63,7 @@ class ConfigField(BaseModel):
     type: Literal["str", "int", "float", "bool", "list[str]"]
     description: str = Field(min_length=5)
     required: bool = True
-    default: Any | None = None
+    default: ConfigValue | None = None
 
 
 class ToolRequest(BaseModel):
@@ -143,7 +149,7 @@ class PlannedStep(BaseModel):
     """
 
     node: str
-    config: dict[str, Any] = {}
+    config: dict[str, ConfigValue] = {}
     inputs: dict[str, str]
     why: str = Field(min_length=10)
 
