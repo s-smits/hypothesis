@@ -7,6 +7,8 @@ from node_dag.nodes.filters.at_least.config import AtLeastConfig
 from node_dag.nodes.filters.at_least.function import AtLeast
 from node_dag.nodes.filters.at_most.config import AtMostConfig
 from node_dag.nodes.filters.at_most.function import AtMost
+from node_dag.nodes.tools.chain_contacts.config import ChainContactsConfig
+from node_dag.nodes.tools.chain_contacts.function import ChainContacts
 from node_dag.nodes.tools.codon_adaptation.config import CodonAdaptationConfig
 from node_dag.nodes.tools.codon_adaptation.function import CodonAdaptation
 from node_dag.nodes.tools.codon_optimise.config import CodonOptimiseConfig
@@ -39,6 +41,10 @@ from node_dag.nodes.tools.mutate_synonymous.config import MutateSynonymousConfig
 from node_dag.nodes.tools.mutate_synonymous.function import MutateSynonymous
 from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
 from node_dag.nodes.tools.ostir_expression.function import OstirExpression
+from node_dag.nodes.tools.protlib_design.config import ProtlibDesignConfig
+from node_dag.nodes.tools.protlib_design.function import ProtlibDesign
+from node_dag.nodes.tools.pdbfixer_fix.config import PdbfixerFixConfig
+from node_dag.nodes.tools.pdbfixer_fix.function import PdbfixerFix
 from node_dag.nodes.tools.resample_synonymous.config import ResampleSynonymousConfig
 from node_dag.nodes.tools.resample_synonymous.function import ResampleSynonymous
 from node_dag.nodes.tools.rna_back_transcribe.config import RnaBackTranscribeConfig
@@ -47,6 +53,7 @@ from node_dag.nodes.tools.rna_back_transcribe.function import RnaBackTranscribe
 NodeConfig = Annotated[
     AtLeastConfig
     | AtMostConfig
+    | ChainContactsConfig
     | CodonAdaptationConfig
     | CodonOptimiseConfig
     | CodonPairScoreConfig
@@ -62,6 +69,8 @@ NodeConfig = Annotated[
     | Mrna5primeMfeConfig
     | MutateSynonymousConfig
     | OstirExpressionConfig
+    | ProtlibDesignConfig
+    | PdbfixerFixConfig
     | ResampleSynonymousConfig
     | RnaBackTranscribeConfig,
     Discriminator("name"),
@@ -70,6 +79,7 @@ NodeConfig = Annotated[
 MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
     AtLeastConfig: AtLeast,
     AtMostConfig: AtMost,
+    ChainContactsConfig: ChainContacts,
     CodonAdaptationConfig: CodonAdaptation,
     CodonOptimiseConfig: CodonOptimise,
     CodonPairScoreConfig: CodonPairScore,
@@ -85,6 +95,8 @@ MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
     Mrna5primeMfeConfig: Mrna5primeMfe,
     MutateSynonymousConfig: MutateSynonymous,
     OstirExpressionConfig: OstirExpression,
+    ProtlibDesignConfig: ProtlibDesign,
+    PdbfixerFixConfig: PdbfixerFix,
     ResampleSynonymousConfig: ResampleSynonymous,
     RnaBackTranscribeConfig: RnaBackTranscribe,
 }

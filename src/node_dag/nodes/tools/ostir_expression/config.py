@@ -50,9 +50,7 @@ class OstirExpressionConfig(BaseScoreConfig):
         "Use when the goal asks to score, measure, increase, or optimize sequence "
         "expression, translation initiation rate, or ribosome binding site (RBS) strength."
     )
-    when_not_to_use: ClassVar = (
-        "Do not use on non-coding sequences."
-    )
+    when_not_to_use: ClassVar = "Do not use on non-coding sequences."
 
     @field_validator("utr", "anti_sd")
     @classmethod
