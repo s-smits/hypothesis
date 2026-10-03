@@ -45,6 +45,7 @@
   th { color: var(--muted); font-weight: 500; font-size: 12px; }
   td code { font-size: 12px; word-break: break-all; }
   details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+  button { font: inherit; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: inherit; padding: 2px 10px; cursor: pointer; }
   pre { margin: 6px 0 0; padding: 8px 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; font-size: 12px; }
 </style>
 </head>
@@ -59,6 +60,7 @@
     <span id="count"></span>
     <input id="search" type="search" placeholder="Filter by name, description, score column…" autocomplete="off">
   </div>
+  <div id="requests"></div>
   <div id="list"><div class="empty">Loading…</div></div>
 </main>
 <script>
@@ -100,6 +102,34 @@ function card(n) {
     </div>`;
 }
 
+// Nodes the builder asked for. Resume tells every run blocked on one to resolve its plan again.
+function requestCard(r) {
+  const q = r.request;
+  return `
+    <div class="card">
+      <div class="top">
+        <span class="name">${esc(q.name)}</span><span class="cat">${esc(q.node)}</span>
+        <span class="meta">${r.blocked.length ? `${r.blocked.length} blocked` : "nobody blocked"}</span>
+        ${r.blocked.length ? `<button data-resume="${esc(r.blocked.join(","))}">Resume ${r.blocked.length}</button>` : ""}
+      </div>
+      <div class="desc">${esc(q.purpose)}</div>
+      <details><summary>Contract</summary><pre>${esc(JSON.stringify(q, null, 2))}</pre></details>
+    </div>`;
+}
+
+let lastRequests = "";
+function drawRequests(requests) {
+  const html = requests.length ? `<div class="label">Requested nodes, most blocked first</div>${requests.map(requestCard).join("")}` : "";
+  if (html !== lastRequests) $("#requests").innerHTML = lastRequests = html;
+}
+
+$("#requests").addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-resume]");
+  if (!b) return;
+  b.disabled = true;
+  await Promise.all(b.dataset.resume.split(",").map((id) => fetch(`/api/hypotheses/${encodeURIComponent(id)}/tool_added`, { method: "POST" })));
+});
+
 function draw() {
   if (nodes === null) return;
   const q = $("#search").value.trim().toLowerCase();
@@ -120,9 +150,10 @@ function draw() {
 
 async function load() {
   try {
-    const r = await fetch("/api/nodes");
+    const [r, q] = await Promise.all([fetch("/api/nodes"), fetch("/api/requests")]);
     if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
     nodes = await r.json();
+    if (q.ok) drawRequests(await q.json());
     $("#updated").textContent = `updated ${new Date().toLocaleTimeString()}`;
     draw();
   } catch (e) {

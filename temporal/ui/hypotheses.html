@@ -43,6 +43,10 @@
   .s-achieved, .s-done { background: var(--done); }
   .s-not-achieved { background: var(--amber); }
   .s-failed { background: var(--failed); }
+  .s-blocked { background: var(--amber); }
+  .s-critiquing { background: var(--running); }
+  .s-abandoned { background: var(--skipped); color: var(--muted); }
+  button { font: inherit; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: inherit; padding: 4px 12px; cursor: pointer; }
   .s-skipped { background: var(--skipped); color: var(--muted); }
   .verdict { border-left: 3px solid var(--line); padding: 6px 10px; background: var(--bg); border-radius: 0 6px 6px 0; }
   .verdict.yes { border-color: var(--done); }
@@ -79,7 +83,7 @@
 <main id="view"><div class="empty">Loading…</div></main>
 <script>
 const POLL_MS = 3000;
-const STATUSES = ["achieved", "not achieved", "failed", "verifying", "running", "building"];
+const STATUSES = ["achieved", "not achieved", "failed", "abandoned", "blocked", "critiquing", "verifying", "running", "building"];
 let rows = null;    // The last /api/hypotheses response.
 let last = "";      // What was last drawn, to redraw only on change.
 
@@ -89,6 +93,10 @@ const cls = (status) => `s-${status.replace(" ", "-")}`;
 const badge = (status) => `<span class="badge ${cls(status)}">${status}</span>`;
 const when = (t) => new Date(t).toLocaleString();
 const showValue = (v) => v == null ? "" : Array.isArray(v) ? `${v.length} × ${v[0]?.kind ?? "empty"}` : v.items ? `${v.items.length} × ${v.items[0]?.kind ?? "empty"}${Object.keys(v.scores).length ? `, scores: ${Object.keys(v.scores).join(", ")}` : ""}` : JSON.stringify(v);
+// This round's attempt: its plan, DAG, outcome and verdict. Missing while the builder plans.
+const cur = (h) => h.attempts.find((a) => a.round === h.round);
+// The builder's plan once there is one, else the idea the user gave.
+const idea = (h) => cur(h)?.plan?.hypothesis ?? h.hypothesis;
 const chips = (values) => Object.entries(values).map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(showValue(v))}</span>`).join("");
 
 // Where we are: all goals, one goal, or one hypothesis. Kept in the URL.
@@ -144,10 +152,10 @@ function goalView(goal) {
       const h = r.hypothesis;
       return `
       <a class="row" href="${href({ id: h.id })}">
-        <div class="line">${badge(r.status)}<span class="summary">${h.hypothesis ? esc(h.hypothesis) : `<span class="meta">The builder agent is writing it…</span>`}</span></div>
+        <div class="line">${badge(r.status)}<span class="summary">${idea(h) ? esc(idea(h)) : `<span class="meta">The builder agent is writing it…</span>`}</span></div>
         <div class="side"><span class="meta">${when(r.updated)}</span></div>
         <div class="chips">${chips(h.inputs)}</div>
-        <div class="side">${h.verdict ? `<span class="meta">${h.verdict.achieved ? "goal achieved" : "goal not achieved"}</span>` : ""}</div>
+        <div class="side">${cur(h)?.verdict ? `<span class="meta">${cur(h).verdict.achieved ? "goal achieved" : "goal not achieved"}</span>` : ""}</div>
       </a>`;
     }).join("")}
     </div>`;
@@ -155,10 +163,10 @@ function goalView(goal) {
 
 // One row per step: its node, sources, status and value.
 function steps(row) {
-  const h = row.hypothesis, p = row.progress;
-  const values = h.outcome?.values ?? p?.values ?? {};
-  const skipped = new Set(h.outcome?.skipped ?? []);
-  return Object.entries(h.dag.steps).map(([k, step]) => {
+  const a = cur(row.hypothesis), p = row.progress;
+  const values = a.outcome?.values ?? p?.values ?? {};
+  const skipped = new Set(a.outcome?.skipped ?? []);
+  return Object.entries(a.dag.steps).map(([k, step]) => {
     const { name, ...args } = step.config;
     const params = Object.entries(args).map(([a, v]) => `${a}=${JSON.stringify(v)}`).join(", ");
     const branch = ["yes", "no"].find((b) => `${k}.${b}` in values);
@@ -170,11 +178,42 @@ function steps(row) {
   });
 }
 
+// What the latest round's assertions say about each criterion.
+function criteriaView(h) {
+  if (!h.criteria.length) return "";
+  const att = cur(h), ran = att && Object.keys(att.held).length > 0;
+  const state = (c) => {
+    const a = att?.plan?.assertions.find((x) => x.criterion === c.id);
+    if (!a) return att?.plan ? "no assertion covers it" : "no plan yet";
+    return !ran ? "not run yet" : att.held[`${a.step}.${a.branch}`] ? "holds" : "did not hold";
+  };
+  return `<div><div class="label">Criteria</div><table><tbody>${h.criteria.map((c) => `
+    <tr><td><code>${esc(c.id)}</code></td><td>${esc(c.claim)}</td><td>${esc(state(c))}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function roundsView(h) {
+  if (!h.attempts.length) return "";
+  return `<div><div class="label">Rounds</div><table><thead><tr><th>#</th><th>Result</th><th>What happened</th></tr></thead><tbody>${h.attempts.map((a) => `
+    <tr><td>${a.round}</td><td>${a.verdict ? badge(a.verdict.achieved ? "achieved" : "not achieved") : a.error ? badge("failed") : ""}</td>
+    <td>${esc(a.critique?.fix ?? a.error ?? a.verdict?.reason ?? "")}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function blockedView(h) {
+  if (h.state !== "blocked") return "";
+  const att = cur(h), pending = att?.requests ?? [], note = att?.error;
+  const button = (signal, text) => `<button data-signal="${signal}" data-id="${esc(h.id)}">${text}</button>`;
+  return `<div class="verdict no"><div class="label">Blocked: waiting for ${pending.map((r) => esc(r.name)).join(", ")}</div>
+    ${pending.map((r) => `<div><b>${esc(r.name)}</b> (${esc(r.node)}): ${esc(r.purpose)}</div>`).join("")}
+    ${note ? `<div class="meta">${esc(note)}</div>` : ""}
+    <p>Write the node, restart the worker, then resume. The same plan is resolved again.</p>
+    ${button("tool_added", "Resume")} ${button("abandon", "Abandon")}</div>`;
+}
+
 function detailView(id) {
   const row = rows.find((r) => r.hypothesis.id === id);
   if (!row) return `${crumbs(null, id)}<div class="empty">No hypothesis ${esc(id)}.</div>`;
-  const h = row.hypothesis;
-  const produced = h.outcome ? Object.fromEntries(Object.entries(h.outcome.values).filter(([k]) => !(k in h.inputs))) : null;
+  const h = row.hypothesis, a = cur(h);
+  const produced = a?.outcome ? Object.fromEntries(Object.entries(a.outcome.values).filter(([k]) => !(k in h.inputs))) : null;
   return `
     ${crumbs(h.goal, id)}
     <article class="card">
@@ -185,16 +224,20 @@ function detailView(id) {
       </div>
       <div class="id">${esc(h.id)}</div>
       <div><div class="label">Inputs</div><div class="chips">${chips(h.inputs)}</div></div>
-      <div><div class="label">Hypothesis</div><div class="plan">${h.hypothesis ? esc(h.hypothesis) : `<span class="meta">The builder agent is writing it…</span>`}</div></div>
+      <div><div class="label">Hypothesis</div><div class="plan">${idea(h) ? esc(idea(h)) : `<span class="meta">The builder agent is writing it…</span>`}</div></div>
+      ${blockedView(h)}
+      ${criteriaView(h)}
+      ${roundsView(h)}
+      ${h.stopped_because ? `<div class="meta">Stopped: ${esc(h.stopped_because)}${h.usage.total ? ` · ${h.usage.total} tokens` : ""}</div>` : ""}
       ${produced ? `<div><div class="label">Outcome</div><div class="chips">${Object.keys(produced).length ? chips(produced) : `<span class="meta">No step produced a value.</span>`}</div></div>` : ""}
-      ${h.verdict ? `
-      <div class="verdict ${h.verdict.achieved ? "yes" : "no"}">
-        <div class="label">Verdict: ${h.verdict.achieved ? "goal achieved" : "goal not achieved"}</div>
-        <div>${esc(h.verdict.reason)}</div>
+      ${a?.verdict ? `
+      <div class="verdict ${a.verdict.achieved ? "yes" : "no"}">
+        <div class="label">Verdict: ${a.verdict.achieved ? "goal achieved" : "goal not achieved"}</div>
+        <div>${esc(a.verdict.reason)}</div>
       </div>` : ""}
-      ${h.dag ? `
+      ${a?.dag ? `
       <div>
-        <div class="label">DAG: ${Object.keys(h.dag.steps).length} steps${h.outcome?.skipped.length ? `, ${h.outcome.skipped.length} skipped` : ""}</div>
+        <div class="label">DAG: ${Object.keys(a.dag.steps).length} steps${a.outcome?.skipped.length ? `, ${a.outcome.skipped.length} skipped` : ""}</div>
         <div class="table"><table>
           <thead><tr><th>Step</th><th>Status</th><th>Node</th><th>Inputs</th><th>Value</th></tr></thead>
           <tbody>${steps(row).map((s) => `
@@ -206,7 +249,7 @@ function detailView(id) {
               <td><code>${esc(s.value)}</code></td>
             </tr>`).join("")}</tbody>
         </table></div>
-        ${h.workflow_id ? `<p style="margin:8px 0 0"><a href="/?run=${encodeURIComponent(h.workflow_id)}">Open the run's graph →</a></p>` : ""}
+        ${a.workflow_id ? `<p style="margin:8px 0 0"><a href="/?run=${encodeURIComponent(a.workflow_id)}">Open the run's graph →</a></p>` : ""}
       </div>` : ""}
     </article>`;
 }
@@ -220,8 +263,14 @@ function render() {
   $("#view").innerHTML = r.id ? detailView(r.id) : r.goal != null ? goalView(r.goal) : goalsView();
 }
 
-// Follow links inside the page without a reload, so the back button still works.
-$("#view").addEventListener("click", (e) => {
+$("#view").addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-signal]");
+  if (b) {
+    b.disabled = true;
+    await fetch(`/api/hypotheses/${encodeURIComponent(b.dataset.id)}/${b.dataset.signal}`, { method: "POST" });
+    return;
+  }
+  // Follow links inside the page without a reload, so the back button still works.
   const a = e.target.closest("a[href^='/hypotheses']");
   if (!a || e.metaKey || e.ctrlKey || e.shiftKey) return;
   e.preventDefault();

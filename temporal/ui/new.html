@@ -57,13 +57,21 @@
       <textarea id="hypothesis" rows="3" placeholder="How you think the goal can be met. The builder agent starts from this."></textarea>
     </div>
     <div>
+      <label for="criteria">Criteria (optional, one per line)</label>
+      <textarea id="criteria" rows="3" placeholder="What must be true for the goal to be met. Left empty, the agent derives them from the goal."></textarea>
+    </div>
+    <div>
+      <label for="rounds">Max rounds (optional)</label>
+      <input id="rounds" type="number" min="1" max="10" placeholder="3">
+    </div>
+    <div>
       <div class="label">Inputs</div>
       <div id="inputs"></div>
       <button type="button" id="add">+ Add input</button>
     </div>
     <div id="error"></div>
     <button class="primary" id="go">Start</button>
-    <div class="hint">The builder agent writes the DAG, it runs on Temporal, then the verifier judges the outcome. You can close this page; follow progress under Hypotheses.</div>
+    <div class="hint">The agent plans a DAG, it runs on Temporal, and the goal is met only when each criterion's assertion holds. A missing node blocks the run until someone adds it. You can close this page; follow progress under Hypotheses.</div>
   </form>
 </main>
 <script>
@@ -153,7 +161,9 @@ $("#form").addEventListener("submit", async (e) => {
   $("#error").textContent = "";
   $("#go").disabled = true;
   try {
-    const body = { goal: goalText(), hypothesis: $("#hypothesis").value, inputs: readInputs() };
+    const criteria = $("#criteria").value.split("\n").map((l) => l.trim()).filter(Boolean);
+    const body = { goal: goalText(), hypothesis: $("#hypothesis").value, inputs: readInputs(), criteria };
+    if ($("#rounds").value) body.max_rounds = Number($("#rounds").value);  // Blank means absent, not null.
     const r = await fetch("/api/hypotheses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(explain(data.detail ?? `${r.status}`));

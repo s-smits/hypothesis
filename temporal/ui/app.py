@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -7,7 +6,6 @@ from typing import Any, Literal
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, ValidationError
-from pydantic_ai.models import Model
 from temporalio.client import (
     Client,
     WorkflowExecution,
@@ -18,11 +16,12 @@ from temporalio.service import RPCError
 
 from node_dag.agent import Hypothesis
 from node_dag.dag import DagProgress
+from node_dag.plan import Criterion, HypothesisState, ToolRequest
 from node_dag.registry import Registry
-from temporal.dag.activities import SaveWorkflowInput
-from temporal.dag.workflow import DagWorkflow
 from node_dag.types import Value
-from temporal.run_hypothesis import hypotheses_dir, registry_dir, run_hypothesis
+from temporal.dag.activities import SaveWorkflowInput, results_subdir
+from temporal.dag.workflow import TASK_QUEUE, DagWorkflow
+from temporal.hypothesis.loop import HypothesisInput, HypothesisLoop
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +29,6 @@ INDEX = Path(__file__).with_name("index.html")
 NEW = Path(__file__).with_name("new.html")
 HYPOTHESES = Path(__file__).with_name("hypotheses.html")
 NODES = Path(__file__).with_name("nodes.html")
-
-HypothesisStatus = Literal[
-    "building", "running", "failed", "verifying", "achieved", "not achieved"
-]
 
 
 class Run(BaseModel):
@@ -78,27 +73,31 @@ class HypothesisRow(BaseModel):
     """
 
     hypothesis: Hypothesis
-    status: HypothesisStatus
+    status: HypothesisState
     progress: DagProgress | None
     updated: datetime
 
 
 def _hypothesis_row(path: Path) -> HypothesisRow:
     hyp = Hypothesis.model_validate_json(path.read_bytes())
+    att = hyp.current
     progress = None
     if (
-        hyp.workflow_id
-        and (saved := SaveWorkflowInput.path_for(hyp.workflow_id)).exists()
+        att
+        and att.workflow_id
+        and (saved := SaveWorkflowInput.path_for(att.workflow_id)).exists()
     ):
         progress = DagProgress.model_validate_json(saved.read_bytes())
-    status: HypothesisStatus
-    if hyp.verdict:
-        status = "achieved" if hyp.verdict.achieved else "not achieved"
-    elif hyp.outcome:
+    status: HypothesisState
+    if hyp.state:
+        status = hyp.state
+    elif att and att.verdict:
+        status = "achieved" if att.verdict.achieved else "not achieved"
+    elif att and att.outcome:
         status = "verifying"
     elif progress and "failed" in progress.steps.values():
         status = "failed"
-    elif hyp.dag:
+    elif att and att.dag:
         status = "running"
     else:
         status = "building"
@@ -131,7 +130,7 @@ def _saved_rows() -> list[HypothesisRow]:
     file does not take out the whole page.
     """
     rows = []
-    for path in hypotheses_dir().glob("*.json"):
+    for path in results_subdir("hypotheses").glob("*.json"):
         try:
             rows.append(_hypothesis_row(path))
         except ValidationError as e:
@@ -169,17 +168,33 @@ class NewHypothesis(BaseModel):
         hypothesis: The user's idea of how to meet the goal. The builder agent takes
             it as a starting point.
         inputs: The values to run on, keyed by DAG input name.
+        criteria: What must be true for the goal to be met. Derived from the goal if empty.
+        max_rounds: Most plans to try. Omit for the default.
     """
 
     goal: str = Field(min_length=1)
     hypothesis: str | None = None
     inputs: dict[str, list[Value]]
+    criteria: list[str] = []
+    max_rounds: int | None = Field(default=None, ge=1, le=10)
+
+
+class RequestRow(BaseModel):
+    """A node someone asked for, and the hypotheses blocked on it.
+
+    Args:
+        request: The contract, as the builder wrote it.
+        blocked: Ids of the hypotheses waiting for this node.
+    """
+
+    request: ToolRequest
+    blocked: list[str]
 
 
 def make_app(
     client: Client,
-    build_model: Model | str | None = None,
-    verify_model: Model | str | None = None,
+    build_model: str | None = None,
+    verify_model: str | None = None,
 ) -> FastAPI:
     """Return the app: the pages and the JSON API under ``/api``.
 
@@ -189,7 +204,6 @@ def make_app(
         verify_model: The verifier agent's model. Default: ``build_model``.
     """
     app = FastAPI(title="node-dag")
-    tasks: set[asyncio.Task[Hypothesis]] = set()  # Keeps the running tasks alive.
 
     @app.get("/new", include_in_schema=False)
     async def new_page() -> FileResponse:
@@ -197,29 +211,57 @@ def make_app(
 
     @app.post("/api/hypotheses", status_code=202)
     async def start_hypothesis(new: NewHypothesis) -> Hypothesis:
-        """Start the agents on a goal and return the Hypothesis. They run in the background."""
+        """Start the loop on a goal and return the Hypothesis. It runs in the background."""
         if build_model is None:
             raise HTTPException(503, "The server was started without --model.")
+        criteria = [
+            Criterion(id=f"c{n}", claim=c.strip())
+            for n, c in enumerate(new.criteria, 1)
+            if c.strip()
+        ]
         hyp = Hypothesis(
             goal=new.goal.strip(),
-            hypothesis=(new.hypothesis or "").strip() or None,
             inputs=new.inputs,
+            criteria=criteria,
+            hypothesis=(new.hypothesis or "").strip() or None,
         )
-        logger.info("Starting hypothesis %s: %s", hyp.id, hyp.goal)
-        task = asyncio.create_task(
-            run_hypothesis(hyp, client, build_model, verify_model or build_model)
+        cfg = {"max_rounds": new.max_rounds} if new.max_rounds else {}
+        inp = HypothesisInput(
+            hypothesis=hyp,
+            build_model=build_model,
+            verify_model=verify_model or build_model,
+            **cfg,
         )
-        tasks.add(task)
-        task.add_done_callback(tasks.discard)
-        def on_done(t: asyncio.Task[Hypothesis]) -> None:
-            if t.cancelled():
-                logger.warning("Hypothesis %s was cancelled", hyp.id)
-            elif exc := t.exception():
-                logger.error("Hypothesis %s failed: %s", hyp.id, exc, exc_info=exc)
-            else:
-                logger.info("Hypothesis %s completed", hyp.id)
-        task.add_done_callback(on_done)
+        await client.start_workflow(
+            HypothesisLoop.run, inp, id=hyp.id, task_queue=TASK_QUEUE
+        )
         return hyp
+
+    @app.post("/api/hypotheses/{hyp_id}/{signal}", status_code=202)
+    async def signal_hypothesis(
+        hyp_id: str, signal: Literal["tool_added", "abandon"]
+    ) -> None:
+        """Tell a blocked run its node was added (resolve the plan again), or give up on it."""
+        try:
+            await client.get_workflow_handle(hyp_id).signal(signal)
+        except RPCError as e:
+            raise HTTPException(404, f"No running hypothesis {hyp_id}: {e}") from e
+
+    @app.get("/api/requests")
+    async def requests() -> list[RequestRow]:
+        """Every requested node, the one most runs are blocked on first."""
+        waiting: dict[str, list[str]] = {}
+        for r in _saved_rows():
+            for q in r.hypothesis.pending if r.status == "blocked" else []:
+                waiting.setdefault(q.name, []).append(r.hypothesis.id)
+        rows = [
+            RequestRow(
+                request=ToolRequest.model_validate_json(p.read_bytes()),
+                blocked=waiting.get(p.stem, []),
+            )
+            for p in results_subdir("requests").glob("*.json")
+        ]
+        return sorted(rows, key=lambda r: len(r.blocked), reverse=True)
 
     @app.get("/", include_in_schema=False)
     async def index() -> FileResponse:
@@ -236,7 +278,7 @@ def make_app(
     @app.get("/api/nodes")
     async def nodes() -> list[dict[str, Any]]:
         """Every registered node as the builder agent sees it, in id order."""
-        return [n.summary() for n in Registry(registry_dir()).all()]
+        return [n.summary() for n in Registry(results_subdir("registry")).all()]
 
     @app.get("/api/hypotheses")
     async def hypotheses() -> list[HypothesisRow]:
