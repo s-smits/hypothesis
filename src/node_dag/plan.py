@@ -34,10 +34,15 @@ JSON_TYPES = {
 
 
 class Criterion(BaseModel):
-    """One thing that must be true for the goal to be met. Frozen before any plan."""
+    """One thing that must be true for the goal to be met. Frozen before any plan.
+
+    ``source`` says who wrote it: a person (typed or edited by them), or the criteria
+    agent, which the loop sets itself.
+    """
 
     id: str = Field(pattern=SLUG)
     claim: str
+    source: Literal["human", "derived"] = "human"
 
 
 def repeated(criteria: list[Criterion]) -> list[str]:
@@ -121,11 +126,16 @@ class PlannedStep(BaseModel):
 
 
 class Assertion(BaseModel):
-    """A claim the DAG settles by which branch of a filter step it takes."""
+    """A claim the DAG settles by which branch of a filter step it takes.
+
+    ``produced`` is for a goal with nothing to filter, such as scoring or converting: on a
+    tool or score step it holds when the step gave output, and says nothing about the
+    output being right.
+    """
 
     criterion: str
     step: str
-    branch: Literal["yes", "no"]
+    branch: Literal["yes", "no", "produced"]
     claim: str
 
 
@@ -302,17 +312,22 @@ HypothesisState = Literal[
 
 
 def holds(assertions: list[Assertion], outcome: DagOutput | None) -> dict[str, bool]:
-    """Whether each assertion's branch took every entity and the other took none."""
+    """Whether each assertion's branch took every entity and the other took none.
+
+    A ``produced`` assertion holds when its step gave at least one entity.
+    """
     values = outcome.values if outcome else {}
 
     def n(source: str) -> int:
         return len(values[source].items) if source in values else 0
 
-    return {
-        f"{a.step}.{a.branch}": n(f"{a.step}.{a.branch}") > 0
-        and n(f"{a.step}.{'no' if a.branch == 'yes' else 'yes'}") == 0
-        for a in assertions
-    }
+    def holds_one(a: Assertion) -> bool:
+        if a.branch == "produced":
+            return n(a.step) > 0
+        other = "no" if a.branch == "yes" else "yes"
+        return n(f"{a.step}.{a.branch}") > 0 and n(f"{a.step}.{other}") == 0
+
+    return {f"{a.step}.{a.branch}": holds_one(a) for a in assertions}
 
 
 def accepted(

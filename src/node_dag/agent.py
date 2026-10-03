@@ -264,6 +264,9 @@ Shapes that usually fit a goal:
    name from the reply.
 3. Every criterion needs an assertion: a filter step and the branch, yes or no, that proves
    it. The assertion holds only if that branch took every entity and the other took none.
+   Never assert both branches of one filter: they cannot both hold. A goal that only asks
+   to measure or convert has nothing to filter: assert branch "produced" on the tool or
+   score step, which holds when that step gave output.
 4. If no existing node can do a step, put its contract in `requests`, keyed by name, and use
    that name in a step. Name the existing nodes you considered in why_not_composable. A
    filter on a requested scorer's column gets that column name from the error you are shown.
@@ -283,8 +286,11 @@ You get JSON: a goal, its criteria and inputs, the plan (hypothesis, expected, a
 out by code: false does not mean the branch took nothing), the DAG and the outcome.
 Work out the expected result from the goal and inputs yourself, and do not trust the plan.
 Set agrees to true only if the outcome holds the expected result for every input. Set
-covers_goal to true only if the assertions genuinely test every criterion. You cannot
-declare success: false is a veto and true grants nothing.
+covers_goal to true only if the assertions genuinely test every criterion. Do not claim
+to have checked by eye what no assertion covers: say in reason what went unchecked. A
+"produced" assertion only shows its step gave output: set covers_goal to false if the
+criterion is about what that output holds. You cannot declare success: false is a veto and
+true grants nothing.
 Set agrees to false, whatever else the DAG did, when:
 - The goal names a measure, a method or a node that the DAG did not use. A different
   node is not a substitute, and the hypothesis calling it one does not make it one.
@@ -298,7 +304,9 @@ CRITIQUE_INSTRUCTIONS = """\
 You get a round that missed its goal as JSON: the plan, the outcome, the verdict and earlier
 rounds. Say what went wrong in terms of its steps and values, the one root cause, which
 step keys were right (keep), and what the next plan must do differently. Do not send it
-back to a wiring an earlier round already ran."""
+back to a wiring an earlier round already ran. If no available node can check or do
+something the goal needs, say so with root_cause "missing_tool" and name the tool in fix:
+it becomes a request for a person to write that node."""
 
 CRITERIA_INSTRUCTIONS = """\
 Turn the goal into one to four criteria that decide whether it was met. Each is a claim a
@@ -457,8 +465,19 @@ def build_agent(
                 raise ModelRetry(
                     f"Assertion on unknown criterion {a.criterion!r}; criteria: {sorted(ids)}"
                 )
-            if not isinstance(configs.get(a.step), BaseFilterConfig):
-                raise ModelRetry(f"Assertion step {a.step!r} must be a filter step.")
+            if (cfg := configs.get(a.step)) is None:
+                raise ModelRetry(f"Assertion step {a.step!r} is not a step of the plan.")
+            if isinstance(cfg, BaseFilterConfig) == (a.branch == "produced"):
+                raise ModelRetry(
+                    f"Assertion step {a.step!r}: use branch yes or no on a filter step, "
+                    "and produced on any other step."
+                )
+        sides = {(a.step, a.branch) for a in plan.assertions}
+        if both := sorted(s for s, b in sides if b == "yes" and (s, "no") in sides):
+            raise ModelRetry(
+                f"Assertions on both branches of {both} cannot both hold: a filter that "
+                "takes every entity down one branch takes none down the other."
+            )
         if uncovered := sorted(ids - {a.criterion for a in plan.assertions}):
             raise ModelRetry(f"No assertion covers {uncovered}.")
         last = hyp.attempts[-1] if hyp.attempts else None

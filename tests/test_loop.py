@@ -279,6 +279,51 @@ async def test_an_agent_activity_that_keeps_failing_ends_the_run_as_failed(resul
     assert saved.state == "failed"  # The pages show it ended, not "building".
 
 
+async def test_a_bug_in_the_loop_ends_the_run_as_failed_instead_of_wedging_it(
+    results_dir,
+):
+    # A Dag whose input the hypothesis does not have: DagInput refuses it inside the loop.
+    stray = Dag.model_validate(
+        {
+            "inputs": {"other": "dna"},
+            "steps": {
+                "counted": {
+                    "config": COUNT.model_dump(mode="json"),
+                    "inputs": {"sequence": "other"},
+                }
+            },
+        }
+    )
+    done = await _drive(_fakes({}, [PLAN], [ResolveOut(dag=stray)], []))
+    assert done.state == "failed" and "the loop stopped" in (done.stopped_because or "")
+    saved = Hypothesis.model_validate_json(
+        (results_dir / "hypotheses" / f"{HYP.id}.json").read_bytes()
+    )
+    assert saved.state == "failed"
+
+
+async def test_a_model_that_declines_ends_the_run_instead_of_being_asked_again():
+    asked = []
+    fakes = _fakes({}, [], [], [])
+
+    @activity.defn(name="plan_hypothesis")
+    async def declines(inp: Stage) -> Out:
+        asked.append(inp.hyp.round)
+        return Out(error="refused", declined=True, tokens=7)
+
+    done = await _drive([declines, *fakes[1:]])
+    assert asked == [1]  # Not again in round 2 and 3.
+    assert done.state == "failed" and "declined the plan request" in (
+        done.stopped_because or ""
+    )
+    assert done.usage["plan"] == 7  # What the refused call cost is still counted.
+
+
+def test_the_models_default_to_two_different_ones():
+    inp = HypothesisInput(hypothesis=HYP)
+    assert inp.build_model != inp.verify_model
+
+
 async def test_a_resume_sent_while_the_plan_resolves_again_is_not_lost():
     resolves = [
         ResolveOut(missing=[REQUEST]),

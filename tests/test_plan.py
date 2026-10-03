@@ -85,6 +85,21 @@ def test_holds_needs_the_branch_full_and_the_other_empty():
     assert holds(a, _out(1, 1)) == {"none.yes": False}
 
 
+def test_a_produced_assertion_holds_when_its_step_gave_an_entity():
+    a = [Assertion(criterion="c", step="scored", branch="produced", claim="c")]
+    gave = DagOutput(values={"scored": Table.of([D])}, skipped=[])
+    assert holds(a, gave) == {"scored.produced": True}
+    assert holds(a, DagOutput(values={"scored": Table()}, skipped=[])) == {
+        "scored.produced": False
+    }
+    assert holds(a, None) == {"scored.produced": False}
+
+
+def test_a_criterion_says_who_wrote_it_and_older_files_read_as_human():
+    assert Criterion(id="no_tcg", claim="no TCG remains").source == "human"
+    assert Criterion.model_validate_json('{"id": "x", "claim": "c"}').source == "human"
+
+
 def test_fingerprint_ignores_prose_not_wiring():
     base = _plan().fingerprint()
     assert _plan(hypothesis="reworded", expected="x").fingerprint() == base

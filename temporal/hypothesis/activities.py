@@ -9,7 +9,7 @@ from typing import Any, cast
 
 from pydantic import BaseModel, ValidationError
 from pydantic_ai import RunUsage, capture_run_messages
-from pydantic_ai.exceptions import UnexpectedModelBehavior
+from pydantic_ai.exceptions import ContentFilterError, UnexpectedModelBehavior
 from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
 from pydantic_core import to_json
 from temporalio import activity
@@ -60,6 +60,9 @@ class Stage(BaseModel):
 class Out(BaseModel):
     """What an agent activity returns: its answer, or an ``error``, and the tokens spent.
 
+    ``declined`` is set when the model refused the request: asking again would only be
+    refused again.
+
     ``observations`` are the records the plan cites, filled in from the literature the
     builder was shown.
     """
@@ -70,6 +73,7 @@ class Out(BaseModel):
     opinion: VerifyOpinion | None = None
     critique: Critique | None = None
     error: str | None = None
+    declined: bool = False
     tokens: int = 0
 
 
@@ -92,8 +96,10 @@ async def _ask(
     with capture_run_messages() as messages:
         try:
             run = await agent.run(prompt, usage=usage, **kw)
+        except ContentFilterError as e:
+            return {"error": e.message, "declined": True, "tokens": usage.total_tokens}
         except UnexpectedModelBehavior as e:
-            return {"error": str(e), "tokens": usage.total_tokens}
+            return {"error": e.message, "tokens": usage.total_tokens}
         finally:
             _record(f"{inp.hyp.id}-r{inp.hyp.round}-{stage}", messages)
     return {"out": run.output, "tokens": usage.total_tokens}
@@ -138,7 +144,10 @@ async def derive_criteria(inp: Stage) -> Out:
         "criteria",
     )
     return Out(
-        criteria=r.get("out", []), error=r.get("error"), tokens=r.get("tokens", 0)
+        criteria=[c.model_copy(update={"source": "derived"}) for c in r.get("out", [])],
+        error=r.get("error"),
+        declined=r.get("declined", False),
+        tokens=r.get("tokens", 0),
     )
 
 
@@ -153,6 +162,7 @@ async def plan_hypothesis(inp: Stage) -> Out:
         plan=plan,
         observations=cite(plan, seen) if plan else [],
         error=r.get("error") and f"no valid plan: {r['error']}",
+        declined=r.get("declined", False),
         tokens=r.get("tokens", 0),
     )
 
@@ -163,7 +173,12 @@ async def verify_outcome(inp: Stage) -> Out:
     r = await _ask(
         verify_agent(inp.model), to_json(_view(inp.hyp)).decode(), inp, "verify"
     )
-    return Out(opinion=r.get("out"), error=r.get("error"), tokens=r.get("tokens", 0))
+    return Out(
+        opinion=r.get("out"),
+        error=r.get("error"),
+        declined=r.get("declined", False),
+        tokens=r.get("tokens", 0),
+    )
 
 
 @activity.defn
@@ -177,7 +192,12 @@ async def critique_attempt(inp: Stage) -> Out:
         inp,
         "critique",
     )
-    return Out(critique=r.get("out"), error=r.get("error"), tokens=r.get("tokens", 0))
+    return Out(
+        critique=r.get("out"),
+        error=r.get("error"),
+        declined=r.get("declined", False),
+        tokens=r.get("tokens", 0),
+    )
 
 
 @activity.defn

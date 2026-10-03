@@ -79,13 +79,34 @@ async def test_the_guards_send_a_bad_plan_back(results_dir):
             {"criterion": "no_tcg", "step": "counted", "branch": "yes", "claim": "c"}
         ]
     )
+    on_filter = _plan(
+        assertions=[
+            {"criterion": "no_tcg", "step": "small", "branch": "produced", "claim": "c"}
+        ]
+    )
+    both = _plan(
+        assertions=[
+            {"criterion": "no_tcg", "step": "small", "branch": "yes", "claim": "c"},
+            {"criterion": "no_tcg", "step": "small", "branch": "no", "claim": "c"},
+        ]
+    )
     for bad, why in [
         (_plan(requests={"at_most": shadow}), "already exists"),
         (bare, "No assertion covers ['no_tcg']"),
-        (on_tool, "must be a filter"),
+        (on_tool, "use branch yes or no on a filter step"),
+        (on_filter, "use branch yes or no on a filter step"),
+        (both, "cannot both hold"),
     ]:
         _, errors = await _run(results_dir, bad, _plan())
         assert why in errors[0], (why, errors)
+
+
+async def test_a_goal_with_nothing_to_filter_may_assert_that_a_step_produced(
+    results_dir,
+):
+    ask = {"criterion": "no_tcg", "step": "counted", "branch": "produced", "claim": "c"}
+    out, errors = await _run(results_dir, _plan(assertions=[ask]))
+    assert errors == [] and out.assertions[0].branch == "produced"
 
 
 async def test_a_wiring_that_already_ran_is_not_resubmitted_and_a_critique_must_be_addressed(

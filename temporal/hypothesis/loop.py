@@ -59,12 +59,23 @@ QUICK: Options = {
 }
 
 
+# The loop was tuned with these two. The verifier is a different model from the builder on
+# purpose: the critique loop pushes the builder to satisfy it, so a blind spot they shared
+# would pass every round.
+BUILD_MODEL = "anthropic:claude-sonnet-5-5"
+VERIFY_MODEL = "anthropic:claude-haiku-4-5"
+
+
+class Declined(Exception):
+    """A model refused the request, so the run ends: the same prompt would be refused again."""
+
+
 class HypothesisInput(BaseModel):
     """Start a Hypothesis loop. Models are pydantic-ai model strings."""
 
     hypothesis: Hypothesis
-    build_model: str
-    verify_model: str
+    build_model: str = BUILD_MODEL
+    verify_model: str = VERIFY_MODEL
     max_rounds: int = 3
     max_tokens: int = 500_000
 
@@ -129,6 +140,8 @@ class HypothesisLoop:
                 }
             }
         )
+        if out.declined:
+            raise Declined(f"the model declined the {stage} request: {out.error}")
         return out
 
     async def _stop(self, state: HypothesisState, why: str) -> Hypothesis:
@@ -140,13 +153,21 @@ class HypothesisLoop:
         """Loop until the goal is met, the rounds run out, or a person stops it."""
         try:
             final = await self._loop(inp)
-        except ActivityError as e:
+        except Declined as e:
+            final = await self._stop("failed", str(e))
+        except Exception as e:  # noqa: BLE001
             # Out of retries on an error that is not the model's answer, such as an API
-            # error. End as failed, or the saved Hypothesis stays "building" for good.
+            # error, or a bug here. End as failed, or the saved Hypothesis stays
+            # "building" for good, and the SDK retries a bug in workflow code for ever.
             cause: BaseException = e
             while cause.__cause__:  # The activity's own error is at the bottom.
                 cause = cause.__cause__
-            final = await self._stop("failed", f"{e.activity_type} failed: {cause}")
+            what = (
+                f"{e.activity_type} failed"
+                if isinstance(e, ActivityError)
+                else "the loop stopped"
+            )
+            final = await self._stop("failed", f"{what}: {cause}")
         # By name: ``temporal.ledger`` reads the run as pulse does.
         # A ledger that cannot be written never changes how the run ended.
         try:

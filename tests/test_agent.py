@@ -258,6 +258,33 @@ async def test_derived_criteria_that_share_an_id_are_sent_back():
     assert [c.id for c in done.output] == ["no_tcg", "no_tca"]
 
 
+async def test_criteria_the_agent_derives_are_marked_derived(results_dir, monkeypatch):
+    from temporal.hypothesis.activities import derive_criteria
+
+    def script(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        return _reply(info, {"response": [{"id": "no_tcg", "claim": "no TCG remains"}]})
+
+    monkeypatch.setattr(
+        "temporal.hypothesis.activities.criteria_agent",
+        lambda model: criteria_agent(FunctionModel(script)),
+    )
+    hyp = Hypothesis(goal="g", inputs={"seq": [Dna(sequence="ATG")]})
+    out = await derive_criteria(Stage(hyp=hyp, model="test"))
+    assert [(c.id, c.source) for c in out.criteria] == [("no_tcg", "derived")]
+
+
+async def test_a_refusal_is_reported_as_declined_with_the_short_message(results_dir):
+    from pydantic_ai import Agent
+    from pydantic_ai.exceptions import ContentFilterError
+
+    def refuse(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        raise ContentFilterError("the response was filtered", body='{"big": "body"}')
+
+    stage = Stage(hyp=Hypothesis(goal="g", inputs={"seq": [Dna(sequence="ATG")]}), model="test")
+    out = await _ask(Agent(FunctionModel(refuse), output_type=str), "p", stage, "plan")
+    assert out["declined"] and out["error"] == "the response was filtered"
+
+
 async def test_a_call_that_fails_still_counts_its_tokens():
     from pydantic_ai import Agent, ModelRetry
     from pydantic_ai.models.test import TestModel
