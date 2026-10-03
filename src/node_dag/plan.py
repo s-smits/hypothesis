@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field, model_validator
 from node_dag.dag import Dag, DagOutput
 from node_dag.nodes.base import Category
 from node_dag.types import TYPES, Value
+from node_dag.wiring import PortContract
 
 
 class Criterion(BaseModel):
@@ -115,6 +116,17 @@ class ToolRequest(BaseModel):
                     f"{sorted(self.inputs)}, got {self.forwards!r}"
                 )
         return self
+
+    def contract(self) -> PortContract:
+        """This request as a port contract, the same shape an existing node gives.
+
+        What lets a plan naming nodes nobody has written be typechecked exactly like a
+        Dag: the request declares its ports and kinds, so ``check_wiring`` cannot tell
+        the difference.
+        """
+        return PortContract(
+            inputs=dict(self.inputs), output=self.output, forwards=self.forwards
+        )
 
 
 class PlannedStep(BaseModel):
@@ -252,6 +264,29 @@ class Critique(BaseModel):
     keep: list[str] = []
     fix: str = Field(min_length=20)
     reason: str = Field(min_length=20)
+
+
+class VerifyOpinion(BaseModel):
+    """What the verifier agent is allowed to return.
+
+    Deliberately smaller than :class:`Verdict`: there is no ``achieved`` field here, so
+    the model has no way to declare success even if it wants to. The workflow computes
+    that from :func:`accepted` and builds the full Verdict around this opinion.
+
+    Args:
+        agrees: Whether the outcome meets the goal, in the model's judgement. Taken as a
+            veto when false; it grants nothing when true.
+        covers_goal: Whether the assertions genuinely test the criteria. Say false when
+            the checks are superficial, or when a criterion was judged by eye rather
+            than by a node.
+        reason: The expected result, the actual result, and how they compare.
+        score: How close the outcome came, 0 nothing right, 1 fully achieved.
+    """
+
+    agrees: bool
+    covers_goal: bool
+    reason: str
+    score: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
 class Verdict(BaseModel):
