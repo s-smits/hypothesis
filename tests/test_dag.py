@@ -242,7 +242,8 @@ def test_config_declares_what_run_takes(config):
     got = {k: p.annotation for k, p in params.items() if k != "self"}
     want = {port: list[t] for port, t in config.inputs.items()}
     if issubclass(config, BaseFilterConfig):
-        want["values"] = list[float]  # The score column.
+        # One column arrives as a list, several as a dict keyed by column.
+        want["values"] = config.values_type
     assert got == want
     assert config.inputs
     assert config.categories

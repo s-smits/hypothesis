@@ -7,6 +7,10 @@ from node_dag.nodes.filters.at_least.config import AtLeastConfig
 from node_dag.nodes.filters.at_least.function import AtLeast
 from node_dag.nodes.filters.at_most.config import AtMostConfig
 from node_dag.nodes.filters.at_most.function import AtMost
+from node_dag.nodes.filters.pareto_front.config import ParetoFrontConfig
+from node_dag.nodes.filters.pareto_front.function import ParetoFront
+from node_dag.nodes.filters.top_k.config import TopKConfig
+from node_dag.nodes.filters.top_k.function import TopK
 from node_dag.nodes.tools.chain_contacts.config import ChainContactsConfig
 from node_dag.nodes.tools.chain_contacts.function import ChainContacts
 from node_dag.nodes.tools.codon_adaptation.config import CodonAdaptationConfig
@@ -78,7 +82,9 @@ NodeConfig = Annotated[
     | PdbfixerFixConfig
     | RecodeTargetedConfig
     | ResampleSynonymousConfig
-    | RnaBackTranscribeConfig,
+    | ParetoFrontConfig
+    | RnaBackTranscribeConfig
+    | TopKConfig,
     Discriminator("name"),
 ]
 
@@ -106,7 +112,9 @@ MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
     PdbfixerFixConfig: PdbfixerFix,
     RecodeTargetedConfig: RecodeTargeted,
     ResampleSynonymousConfig: ResampleSynonymous,
+    ParetoFrontConfig: ParetoFront,
     RnaBackTranscribeConfig: RnaBackTranscribe,
+    TopKConfig: TopK,
 }
 
 
