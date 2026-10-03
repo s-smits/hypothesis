@@ -1,13 +1,32 @@
 {
   "dag": {
-    "inputs": {"x": "foo_bar", "y": "foo_bar"},
+    "inputs": {"gene": "dna"},
     "steps": {
-      "add5":  {"config": {"name": "add", "amount": 5}, "inputs": {"value": "x"}},
-      "big":   {"config": {"name": "at_least", "threshold": 10}, "inputs": {"value": "add5"}},
-      "total": {"config": {"name": "sum", "scale": 2}, "inputs": {"a": "big.yes", "b": "y"}},
-      "label": {"config": {"name": "to_baz", "prefix": "total="}, "inputs": {"value": "total"}},
-      "sub1":  {"config": {"name": "add", "amount": -1}, "inputs": {"value": "big.no"}}
+      "recoded": {
+        "config": {"name": "recode_codons", "targets": ["TCG", "TCA"]},
+        "inputs": {"sequence": "gene"}
+      },
+      "clean": {
+        "config": {"name": "codons_absent", "codons": ["TCG", "TCA"]},
+        "inputs": {"sequence": "recoded"}
+      },
+      "protein": {
+        "config": {"name": "dna_to_protein"},
+        "inputs": {"sequence": "clean.yes"}
+      },
+      "atoms": {
+        "config": {"name": "dna_atom_score"},
+        "inputs": {"sequence": "clean.yes", "reference": "gene"}
+      },
+      "bulky": {
+        "config": {"name": "at_least", "threshold": 400},
+        "inputs": {"value": "atoms"}
+      },
+      "still_there": {
+        "config": {"name": "dna_to_protein"},
+        "inputs": {"sequence": "clean.no"}
+      }
     }
   },
-  "inputs": {"x": {"kind": "foo_bar", "count": 5}, "y": {"kind": "foo_bar", "count": 2}}
+  "inputs": {"gene": {"kind": "dna", "sequence": "ATGTCGTCAGCTTAA"}}
 }

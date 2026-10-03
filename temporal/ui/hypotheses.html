@@ -8,13 +8,13 @@
   :root {
     --bg: #f6f7f9; --panel: #fff; --text: #1d2330; --muted: #6b7280; --line: #e3e6eb;
     --pending: #9ca3af; --running: #2563eb; --done: #16a34a; --skipped: #d1d5db; --failed: #dc2626;
-    --amber: #d97706; --accent-bg: #eef2ff;
+    --amber: #d97706; --accent-bg: #eef2ff; --blocked: #7c3aed;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #11141a; --panel: #1a1e26; --text: #e5e7eb; --muted: #9ca3af; --line: #2b313c;
       --pending: #6b7280; --running: #60a5fa; --done: #4ade80; --skipped: #3a404b; --failed: #f87171;
-      --amber: #fbbf24; --accent-bg: #1f2740;
+      --amber: #fbbf24; --accent-bg: #1f2740; --blocked: #a78bfa;
     }
   }
   * { box-sizing: border-box; }
@@ -39,11 +39,28 @@
   .chip { font: 12px ui-monospace, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 1px 8px; }
   .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; }
   .s-building, .s-pending { background: var(--pending); }
-  .s-running, .s-verifying { background: var(--running); }
+  .s-running, .s-verifying, .s-critiquing { background: var(--running); }
   .s-achieved, .s-done { background: var(--done); }
-  .s-not-achieved { background: var(--amber); }
+  .s-not-achieved, .s-unverified { background: var(--amber); }
+  .s-blocked { background: var(--blocked); }
   .s-failed { background: var(--failed); }
-  .s-skipped { background: var(--skipped); color: var(--muted); }
+  .s-abandoned, .s-skipped { background: var(--skipped); color: var(--muted); }
+  .panel { border-left: 3px solid var(--line); padding: 6px 10px; background: var(--bg); border-radius: 0 6px 6px 0; display: flex; flex-direction: column; gap: 6px; }
+  .panel.warn { border-color: var(--amber); }
+  .panel.block { border-color: var(--blocked); }
+  .hint { font-size: 12px; margin-top: 4px; }
+  .unheld { color: var(--amber); font-weight: 600; }
+  .held { color: var(--done); font-weight: 600; }
+  pre { margin: 0; padding: 8px 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; font-size: 12px; }
+  .buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+  button { font: inherit; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: inherit; padding: 6px 12px; cursor: pointer; }
+  button.primary { background: var(--running); border-color: var(--running); color: #fff; font-weight: 600; }
+  button:disabled { opacity: .6; cursor: default; }
+  .strip { display: flex; flex-direction: column; gap: 6px; }
+  .strip a { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; color: inherit; text-decoration: none; border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+  .strip a:hover { background: var(--accent-bg); }
+  .strip .why { color: var(--muted); min-width: 0; }
+  .err { color: var(--failed); white-space: pre-wrap; }
   .verdict { border-left: 3px solid var(--line); padding: 6px 10px; background: var(--bg); border-radius: 0 6px 6px 0; }
   .verdict.yes { border-color: var(--done); }
   .verdict.no { border-color: var(--amber); }
@@ -73,22 +90,32 @@
 <body>
 <header>
   <h1>node-dag</h1>
-  <nav><a href="/">Runs</a><a href="/hypotheses" class="here">Hypotheses</a><a href="/new">New</a></nav>
+  <nav><a href="/">Runs</a><a href="/hypotheses" class="here">Hypotheses</a><a href="/requests">Requests</a><a href="/new">New</a></nav>
   <span id="updated"></span>
 </header>
 <main id="view"><div class="empty">Loading…</div></main>
 <script>
 const POLL_MS = 3000;
-const STATUSES = ["achieved", "not achieved", "failed", "verifying", "running", "building"];
+// Drives the tally order AND what the tally can see: a status missing from here is
+// silently dropped from every count. Keep it in step with HypothesisStatus in app.py.
+const STATUSES = ["achieved", "not achieved", "unverified", "blocked", "abandoned",
+                  "failed", "critiquing", "verifying", "running", "building"];
+const SCAFFOLD = (name) => `uv run python -m temporal.scaffold_node ${name}`;
 let rows = null;    // The last /api/hypotheses response.
 let last = "";      // What was last drawn, to redraw only on change.
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const cls = (status) => `s-${status.replace(" ", "-")}`;
+const cls = (status) => `s-${status.replace(/ /g, "-")}`;
 const badge = (status) => `<span class="badge ${cls(status)}">${status}</span>`;
 const when = (t) => new Date(t).toLocaleString();
-const showValue = (v) => v == null ? "" : v.kind === "foo_bar" ? `count = ${v.count}` : v.kind === "baz" ? `label = "${v.label}"` : JSON.stringify(v);
+// A sequence is thousands of bases long, so show its ends and its length, never all of it.
+const preview = (s) => s.length > 48 ? `${s.slice(0, 24)}…${s.slice(-8)}` : s;
+const showValue = (v) => v == null ? ""
+  : v.kind === "dna" ? `${preview(v.sequence)} (${v.sequence.length} bases)`
+  : v.kind === "amino_acid_sequence" ? `${preview(v.sequence)} (${v.sequence.length} aa)`
+  : v.kind === "score" ? `value = ${v.value}`
+  : JSON.stringify(v);
 const chips = (values) => Object.entries(values).map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(showValue(v))}</span>`).join("");
 
 // Where we are: all goals, one goal, or one hypothesis. Kept in the URL.
@@ -153,6 +180,20 @@ function goalView(goal) {
     </div>`;
 }
 
+// The latest attempt and its plan. Hypothesis mirrors the current attempt in its flat
+// fields, but the plan, the critique and the prediction only live on the attempt.
+const latest = (h) => (h.attempts ?? []).at(-1) ?? null;
+const planOf = (h) => latest(h)?.plan ?? null;
+
+// Which assertion sources fired. Mirrors node_dag.plan.holds(): a decision records the
+// branch it took as a value under "<step>.<branch>", so its presence settles the claim.
+function heldSources(h) {
+  const values = h.outcome?.values ?? {};
+  const held = {};
+  for (const a of planOf(h)?.assertions ?? []) held[`${a.step}.${a.branch}`] = `${a.step}.${a.branch}` in values;
+  return held;
+}
+
 // One row per step: its node, sources, status and value.
 function steps(row) {
   const h = row.hypothesis, p = row.progress;
@@ -166,8 +207,107 @@ function steps(row) {
     return {
       key: k, status, node: params ? `${name}(${params})` : name, sources: step.inputs,
       value: branch ? `→ ${branch}: ${showValue(values[`${k}.${branch}`])}` : showValue(values[k]),
+      why: planOf(h)?.steps?.[k]?.why ?? "",
     };
   });
+}
+
+// The acceptance rule, made visible: every criterion, whether an assertion covers it,
+// and whether that assertion held. A criterion with no assertion is why a run ends
+// "unverified" rather than achieved — nothing in the DAG could check it.
+function coverageView(h) {
+  const plan = planOf(h), held = heldSources(h);
+  const assertions = plan?.assertions ?? [];
+  const rows = h.criteria.map((c) => ({ criterion: c, tests: assertions.filter((a) => a.criterion === c.id) }));
+  const orphans = assertions.filter((a) => !h.criteria.some((c) => c.id === a.criterion));
+  const uncovered = rows.filter((r) => !r.tests.length).length;
+  return `
+    <div>
+      <div class="label">Criteria vs assertions: ${h.criteria.length} criteria, ${assertions.length} assertions</div>
+      <div class="table"><table>
+        <thead><tr><th>Criterion</th><th>Must be true</th><th>Asserted by</th><th>Held</th></tr></thead>
+        <tbody>${rows.map(({ criterion: c, tests }) => `
+          <tr>
+            <td><code>${esc(c.id)}</code><br><span class="meta">${esc(c.source)}</span></td>
+            <td>${esc(c.claim)}</td>
+            <td>${tests.length ? tests.map((a) => `<code>${esc(a.step)}.${esc(a.branch)}</code> ${esc(a.claim)}`).join("<br>") : `<span class="unheld">no assertion covers it</span>`}</td>
+            <td>${tests.length ? tests.map((a) => held[`${a.step}.${a.branch}`] ? `<span class="held">held</span>` : `<span class="unheld">did not hold</span>`).join("<br>") : "—"}</td>
+          </tr>`).join("")}${orphans.map((a) => `
+          <tr>
+            <td><code>${esc(a.criterion)}</code><br><span class="meta">not a criterion</span></td>
+            <td class="unheld">No criterion with this id. It cannot count towards acceptance.</td>
+            <td><code>${esc(a.step)}.${esc(a.branch)}</code> ${esc(a.claim)}</td>
+            <td>—</td>
+          </tr>`).join("")}</tbody>
+      </table></div>
+      ${uncovered ? `<div class="hint meta">${uncovered} criteria have no assertion, so this run can only end <b>unverified</b>: nothing in the DAG checks them. That becomes a request for a checking node.</div>` : ""}
+    </div>`;
+}
+
+// What a human must write before this run can carry on. Per pending request: the full
+// contract, the scaffold command, what re-resolving found, and the two ways out.
+function blockedView(h) {
+  const att = latest(h);
+  return (h.pending ?? []).map((r) => `
+    <div class="panel block">
+      <div class="label">Blocked on a node that does not exist: <code>${esc(r.name)}</code></div>
+      <div><b>${esc(r.name)}</b> — ${esc(r.node)}, ${esc(r.category)}</div>
+      <div>${esc(r.purpose)}</div>
+      <div class="table"><table>
+        <thead><tr><th>Port</th><th>Kind</th></tr></thead>
+        <tbody>${Object.entries(r.inputs).map(([port, kind]) => `
+          <tr><td><code>${esc(port)}</code></td><td><code>${esc(kind)}</code></td></tr>`).join("")}
+          ${r.output ? `<tr><td><code>output</code></td><td><code>${esc(r.output)}</code></td></tr>` : ""}
+          ${r.forwards ? `<tr><td><code>forwards</code></td><td><code>${esc(r.forwards)}</code></td></tr>` : ""}
+        </tbody>
+      </table></div>
+      ${r.config_fields.length ? `<div class="table"><table>
+        <thead><tr><th>Config field</th><th>Type</th><th>Required</th><th>Default</th><th>What it controls</th></tr></thead>
+        <tbody>${r.config_fields.map((f) => `
+          <tr>
+            <td><code>${esc(f.name)}</code></td><td><code>${esc(f.type)}</code></td>
+            <td>${f.required ? "yes" : "no"}</td>
+            <td><code>${esc(f.default == null ? "—" : JSON.stringify(f.default))}</code></td>
+            <td>${esc(f.description)}</td>
+          </tr>`).join("")}</tbody>
+      </table></div>` : `<div class="meta">No config fields.</div>`}
+      <div><div class="label">Why it is needed</div>${esc(r.why_needed)}</div>
+      <div><div class="label">Why it cannot be composed</div>${esc(r.why_not_composable)}</div>
+      <div><div class="label">Example</div><pre>${esc(r.example)}</pre></div>
+      <div>
+        <div class="label">Scaffold it</div>
+        <pre>${esc(SCAFFOLD(r.name))}</pre>
+        <div class="hint meta">Then write <code>run</code>, register it in <code>factory.py</code> (the NodeConfig union and MAPPING), and <b>restart the worker</b> — the registry is read at import. Bump <code>version</code> after any later change to <code>run</code>, or the cache serves the old result.</div>
+      </div>
+      ${(att?.resumes ?? []).map((note) => `<div class="panel warn">${esc(note)}</div>`).join("")}
+      <div class="buttons">
+        <button class="primary" data-act="tool-added" data-id="${esc(h.id)}">Tool added — resume</button>
+        <button data-act="abandon" data-id="${esc(h.id)}">Abandon</button>
+      </div>
+      <div class="err" id="act-error"></div>
+    </div>`).join("");
+}
+
+// Round, how it ended, its score and one line of verdict, each linking to its run graph.
+function attemptsView(h) {
+  const status = (a) => a.error ? "failed"
+    : a.verdict ? (a.verdict.achieved ? "achieved" : "not achieved")
+    : a.requests.length ? "blocked" : "running";
+  return `
+    <div>
+      <div class="label">Attempts: ${h.attempts.length} ${h.attempts.length === 1 ? "round" : "rounds"}${h.stopped_because ? `, stopped because ${esc(h.stopped_because)}` : ""}</div>
+      <div class="strip">${h.attempts.map((a) => {
+        const line = a.error ?? a.verdict?.reason ?? a.critique?.diagnosis ?? "";
+        const body = `
+          <span class="meta">round ${a.round}</span>
+          ${badge(status(a))}
+          <span class="meta">${a.verdict ? `score ${a.verdict.score.toFixed(2)}` : "no score"}</span>
+          <span class="why">${esc(line)}</span>`;
+        return a.workflow_id
+          ? `<a href="/?run=${encodeURIComponent(a.workflow_id)}">${body}</a>`
+          : `<a>${body}</a>`;
+      }).join("")}</div>
+    </div>`;
 }
 
 function detailView(id) {
@@ -175,6 +315,8 @@ function detailView(id) {
   if (!row) return `${crumbs(null, id)}<div class="empty">No hypothesis ${esc(id)}.</div>`;
   const h = row.hypothesis;
   const produced = h.outcome ? Object.fromEntries(Object.entries(h.outcome.values).filter(([k]) => !(k in h.inputs))) : null;
+  const plan = planOf(h), crit = h.critique ?? latest(h)?.critique ?? null;
+  const tokens = Object.values(h.usage ?? {}).reduce((a, b) => a + b, 0);
   return `
     ${crumbs(h.goal, id)}
     <article class="card">
@@ -184,19 +326,48 @@ function detailView(id) {
         <span class="meta">updated ${when(row.updated)}</span>
       </div>
       <div class="id">${esc(h.id)}</div>
+      <div class="meta">round ${h.round ?? 0}${h.best_score ? `, best score ${h.best_score.toFixed(2)}` : ""}${tokens ? `, ${tokens.toLocaleString()} tokens` : ""}</div>
       <div><div class="label">Inputs</div><div class="chips">${chips(h.inputs)}</div></div>
       <div><div class="label">Hypothesis</div><div class="plan">${h.hypothesis ? esc(h.hypothesis) : `<span class="meta">The builder agent is writing it…</span>`}</div></div>
+      ${h.criteria.length ? coverageView(h) : `<div class="panel warn">This hypothesis has no criteria, so no run against it can be accepted.</div>`}
+      ${h.state === "blocked" ? blockedView(h) : ""}
       ${produced ? `<div><div class="label">Outcome</div><div class="chips">${Object.keys(produced).length ? chips(produced) : `<span class="meta">No step produced a value.</span>`}</div></div>` : ""}
+      ${plan?.expected ? `
+      <div class="panel ${h.verdict?.prediction_held ? "" : "warn"}">
+        <div class="label">Prediction</div>
+        <div>${esc(plan.expected)}</div>
+        ${h.verdict ? `<div>${h.verdict.prediction_held ? `<span class="held">The prediction held</span>: every assertion's branch fired.` : `<span class="unheld">The prediction did not hold</span>: at least one assertion's branch did not fire.`}</div>` : `<span class="meta">Not judged yet.</span>`}
+      </div>` : ""}
       ${h.verdict ? `
       <div class="verdict ${h.verdict.achieved ? "yes" : "no"}">
         <div class="label">Verdict: ${h.verdict.achieved ? "goal achieved" : "goal not achieved"}</div>
         <div>${esc(h.verdict.reason)}</div>
+        <div class="meta">the verifier ${h.verdict.agrees ? "agrees" : "does not agree"} the goal was met · assertions ${h.verdict.covers_goal ? "cover" : "do not cover"} the goal · score ${h.verdict.score.toFixed(2)}</div>
       </div>` : ""}
+      ${crit ? `
+      <div class="panel warn">
+        <div class="label">Critique: ${esc(crit.root_cause)}</div>
+        <div>${esc(crit.diagnosis)}</div>
+        <div><div class="label">Evidence</div><div class="chips">${crit.evidence.map((e) => `<span class="chip">${esc(e)}</span>`).join("")}</div></div>
+        ${crit.keep.length ? `<div><div class="label">Keep</div><div class="chips">${crit.keep.map((k) => `<span class="chip">${esc(k)}</span>`).join("")}</div></div>` : ""}
+        <div><div class="label">Fix</div>${esc(crit.fix)}</div>
+        <div><div class="label">Why this diagnosis</div>${esc(crit.reason)}</div>
+      </div>` : ""}
+      ${plan && Object.keys(plan.reasons).length ? `
+      <div>
+        <div class="label">Why these nodes</div>
+        <div class="table"><table>
+          <thead><tr><th>Node</th><th>Reason</th></tr></thead>
+          <tbody>${Object.entries(plan.reasons).map(([node, why]) => `
+            <tr><td><code>${esc(node)}</code></td><td>${esc(why)}</td></tr>`).join("")}</tbody>
+        </table></div>
+      </div>` : ""}
+      ${h.attempts?.length ? attemptsView(h) : ""}
       ${h.dag ? `
       <div>
         <div class="label">DAG: ${Object.keys(h.dag.steps).length} steps${h.outcome?.skipped.length ? `, ${h.outcome.skipped.length} skipped` : ""}</div>
         <div class="table"><table>
-          <thead><tr><th>Step</th><th>Status</th><th>Node</th><th>Inputs</th><th>Value</th></tr></thead>
+          <thead><tr><th>Step</th><th>Status</th><th>Node</th><th>Inputs</th><th>Value</th>${plan ? "<th>Why</th>" : ""}</tr></thead>
           <tbody>${steps(row).map((s) => `
             <tr>
               <td><code>${esc(s.key)}</code></td>
@@ -204,6 +375,7 @@ function detailView(id) {
               <td><code>${esc(s.node)}</code></td>
               <td>${Object.entries(s.sources).map(([port, src]) => `<code>${esc(port)} ← ${esc(src)}</code>`).join("<br>")}</td>
               <td><code>${esc(s.value)}</code></td>
+              ${plan ? `<td>${esc(s.why)}</td>` : ""}
             </tr>`).join("")}</tbody>
         </table></div>
         ${h.workflow_id ? `<p style="margin:8px 0 0"><a href="/?run=${encodeURIComponent(h.workflow_id)}">Open the run's graph →</a></p>` : ""}
@@ -230,6 +402,23 @@ $("#view").addEventListener("click", (e) => {
   render();
 });
 addEventListener("popstate", render);
+
+// Resume a blocked run, or give up on it. Both signal the workflow by hypothesis id.
+$("#view").addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-act]");
+  if (!b) return;
+  for (const other of $("#view").querySelectorAll("button[data-act]")) other.disabled = true;
+  const err = $("#act-error");
+  if (err) err.textContent = "";
+  try {
+    const r = await fetch(`/api/hypotheses/${encodeURIComponent(b.dataset.id)}/${b.dataset.act}`, { method: "POST" });
+    if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+    last = "";          // The state changes on the worker's clock, so force a redraw.
+  } catch (ex) {
+    if (err) err.textContent = ex.message;
+    for (const other of $("#view").querySelectorAll("button[data-act]")) other.disabled = false;
+  }
+});
 
 async function tick() {
   try {

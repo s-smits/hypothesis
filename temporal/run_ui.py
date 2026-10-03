@@ -20,10 +20,15 @@ logging.basicConfig(
 
 
 async def _main(
-    address: str, host: str, port: int, model: str | None, verify_model: str | None
+    address: str,
+    host: str,
+    port: int,
+    model: str | None,
+    verify_model: str | None,
+    critique_model: str | None,
 ) -> None:
     client = await Client.connect(address, data_converter=pydantic_data_converter)
-    app = make_app(client, model, verify_model)
+    app = make_app(client, model, verify_model, critique_model)
     logger = logging.getLogger(__name__)
     logger.info("Starting UI server on %s:%d with model=%s", host, port, model)
     await uvicorn.Server(uvicorn.Config(app, host=host, port=port)).serve()
@@ -38,13 +43,25 @@ async def _main(
     help="pydantic-ai model for the builder. Needed to start hypotheses from the UI.",
 )
 @click.option(
-    "--verify-model", help="pydantic-ai model for the verifier. Default: --model."
+    "--verify-model",
+    help="pydantic-ai model for the verifier. Use a different model from --model: "
+    "the critique loop pushes the builder to satisfy this judge.",
+)
+@click.option(
+    "--critique-model", help="pydantic-ai model for the critic. Default: --model."
 )
 def main(
-    address: str, host: str, port: int, model: str | None, verify_model: str | None
+    address: str,
+    host: str,
+    port: int,
+    model: str | None,
+    verify_model: str | None,
+    critique_model: str | None,
 ) -> None:
     """Serve pages that show DagWorkflow runs and hypotheses, and start hypotheses."""
-    asyncio.run(_main(address, host, port, model, verify_model))
+    asyncio.run(
+        _main(address, host, port, model, verify_model, critique_model)
+    )
 
 
 if __name__ == "__main__":

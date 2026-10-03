@@ -31,24 +31,26 @@
   textarea { width: 100%; resize: vertical; }
   .input { display: grid; grid-template-columns: 1fr 120px 2fr auto; gap: 8px; margin-bottom: 8px; }
   .input input[name=name] { font-family: ui-monospace, monospace; }
+  .criterion { display: grid; grid-template-columns: 1fr 2fr auto; gap: 8px; margin-bottom: 8px; }
+  .criterion input[name=cid] { font-family: ui-monospace, monospace; }
   button { font: inherit; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: inherit; padding: 6px 12px; cursor: pointer; }
   button.primary { background: var(--running); border-color: var(--running); color: #fff; font-weight: 600; align-self: flex-start; }
   button:disabled { opacity: .6; cursor: default; }
   #error { color: var(--failed); white-space: pre-wrap; }
-  @media (max-width: 600px) { .input { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 600px) { .input, .criterion { grid-template-columns: 1fr 1fr; } }
 </style>
 </head>
 <body>
 <header>
   <h1>node-dag</h1>
-  <nav><a href="/">Runs</a><a href="/hypotheses">Hypotheses</a><a href="/new" class="here">New</a></nav>
+  <nav><a href="/">Runs</a><a href="/hypotheses">Hypotheses</a><a href="/requests">Requests</a><a href="/new" class="here">New</a></nav>
 </header>
 <main>
   <form id="form">
     <h2>Start a hypothesis</h2>
     <div>
       <label for="goal">Goal</label>
-      <textarea id="goal" rows="2" required placeholder="Double each input integer."></textarea>
+      <textarea id="goal" rows="2" required placeholder="Remove every CTG codon without changing the protein."></textarea>
     </div>
     <div>
       <label for="hypothesis">Hypothesis (optional)</label>
@@ -59,22 +61,44 @@
       <div id="inputs"></div>
       <button type="button" id="add">+ Add input</button>
     </div>
+    <div>
+      <div class="label">Success criteria</div>
+      <div id="criteria"></div>
+      <button type="button" id="add-criterion">+ Add criterion</button>
+      <div class="hint">Criteria are frozen here, before the builder plans, so it cannot write its own exam — and a run with no criterion can never be accepted, only <code>unverified</code>.</div>
+    </div>
+    <div>
+      <label for="rounds">Max rounds (optional)</label>
+      <input id="rounds" type="number" min="1" step="1" placeholder="3">
+      <div class="hint">How many times the builder may retry after a critique. Default 3.</div>
+    </div>
     <div id="error"></div>
     <button class="primary" id="go">Start</button>
     <div class="hint">The builder agent writes the DAG, it runs on Temporal, then the verifier judges the outcome. You can close this page; follow progress under Hypotheses.</div>
   </form>
 </main>
 <script>
-// How to read each kind's value from one text box. Mirrors node_dag/types.py.
-const KINDS = {
-  foo_bar: { field: "count", placeholder: "3", parse: (s) => { if (!/^-?\d+$/.test(s)) throw new Error("must be a whole number"); return Number(s); } },
-  baz: { field: "label", placeholder: "text", parse: (s) => s },
-  dna: { field: "sequence", placeholder: "ATGGCC…", parse: (s) => s.toUpperCase() },
-  score: { field: "value", placeholder: "0.5", parse: (s) => { if (s.trim() === "" || isNaN(Number(s))) throw new Error("must be a number"); return Number(s); } },
-};
+// How to read each kind's value from one text box. Built from GET /api/kinds, which
+// serves node_dag/types.py, so this form cannot offer a kind the server rejects.
+const KINDS = {};
+const PLACEHOLDERS = { dna: "ATGGCC…", amino_acid_sequence: "MAW*", score: "0.5" };
 const $ = (sel) => document.querySelector(sel);
 
-function addInput(name = "", kind = "foo_bar", value = "") {
+const number = (s) => { if (s.trim() === "" || isNaN(Number(s))) throw new Error("must be a number"); return Number(s); };
+const whole = (s) => { if (!/^-?\d+$/.test(s)) throw new Error("must be a whole number"); return Number(s); };
+
+async function loadKinds() {
+  const r = await fetch("/api/kinds");
+  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+  for (const k of await r.json()) {
+    const parse = k.type === "int" ? whole : k.type === "float" ? number
+      : k.kind === "dna" || k.kind === "amino_acid_sequence" ? (s) => s.toUpperCase().trim()
+      : (s) => s;
+    KINDS[k.kind] = { field: k.field, placeholder: PLACEHOLDERS[k.kind] ?? k.field, parse };
+  }
+}
+
+function addInput(name = "", kind = Object.keys(KINDS)[0], value = "") {
   const row = document.createElement("div");
   row.className = "input";
   row.innerHTML = `
@@ -109,16 +133,47 @@ function readInputs() {
   return inputs;
 }
 
+function addCriterion(id = "", claim = "") {
+  const row = document.createElement("div");
+  row.className = "criterion";
+  row.innerHTML = `
+    <input name="cid" placeholder="no_ctg" pattern="[a-z][a-z0-9_]*" title="lower-case, digits and underscores">
+    <input name="claim" placeholder="no CTG codon remains">
+    <button type="button" title="Remove">✕</button>`;
+  row.querySelector("[name=cid]").value = id;
+  row.querySelector("[name=claim]").value = claim;
+  row.querySelector("button").addEventListener("click", () => row.remove());
+  $("#criteria").append(row);
+}
+
+function readCriteria() {
+  const criteria = [];
+  for (const row of document.querySelectorAll(".criterion")) {
+    const id = row.querySelector("[name=cid]").value.trim();
+    const claim = row.querySelector("[name=claim]").value.trim();
+    if (!id && !claim) continue;
+    if (!id || !claim) throw new Error(`Criterion "${id || claim}" needs both an id and a claim.`);
+    if (criteria.some((c) => c.id === id)) throw new Error(`Criterion id "${id}" is used twice.`);
+    criteria.push({ id, claim, source: "human" });
+  }
+  return criteria;
+}
+
 // The error body is FastAPI's: {detail: "…"} or {detail: [{loc, msg}, …]}.
 const explain = (d) => typeof d === "string" ? d : Array.isArray(d) ? d.map((e) => `${e.loc.slice(1).join(".")}: ${e.msg}`).join("\n") : JSON.stringify(d);
 
 $("#add").addEventListener("click", () => addInput());
+$("#add-criterion").addEventListener("click", () => addCriterion());
 $("#form").addEventListener("submit", async (e) => {
   e.preventDefault();
   $("#error").textContent = "";
   $("#go").disabled = true;
   try {
-    const body = { goal: $("#goal").value, hypothesis: $("#hypothesis").value, inputs: readInputs() };
+    const rounds = $("#rounds").value.trim();
+    const body = {
+      goal: $("#goal").value, hypothesis: $("#hypothesis").value, inputs: readInputs(),
+      criteria: readCriteria(), max_rounds: rounds === "" ? null : Number(rounds),
+    };
     const r = await fetch("/api/hypotheses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(explain(data.detail ?? `${r.status}`));
@@ -129,7 +184,11 @@ $("#form").addEventListener("submit", async (e) => {
   }
 });
 
-addInput("x");
+// The dropdown needs the kinds, so the first row waits for them.
+loadKinds().then(() => {
+  addInput("sequence", "dna");
+  addCriterion();
+}).catch((err) => { $("#error").textContent = `Could not load the input kinds: ${err.message}`; });
 </script>
 </body>
 </html>

@@ -1,4 +1,16 @@
 {
-  "goal": "Double each input integer.",
-  "inputs": {"x": {"kind": "foo_bar", "count": 3}, "y": {"kind": "foo_bar", "count": 7}}
+  "goal": "Remove every TCG and TCA codon from the gene without changing the protein it codes for.",
+  "criteria": [
+    {
+      "id": "no_tcg_tca",
+      "claim": "No TCG or TCA codon remains in frame in the recoded sequence.",
+      "source": "human"
+    },
+    {
+      "id": "protein_unchanged",
+      "claim": "The recoded sequence codes for exactly the same amino acid sequence as the input gene.",
+      "source": "human"
+    }
+  ],
+  "inputs": {"gene": {"kind": "dna", "sequence": "ATGTCGTCAGCTTAA"}}
 }

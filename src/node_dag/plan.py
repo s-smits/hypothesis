@@ -361,6 +361,7 @@ class AttemptSummary(BaseModel):
 
     Args:
         round: Which round this was.
+        fingerprint: That plan's wiring hash, so the builder cannot resubmit it.
         hypothesis: What that plan claimed.
         expected: What it predicted.
         assertions: The claims it committed to.
@@ -374,6 +375,7 @@ class AttemptSummary(BaseModel):
     """
 
     round: int
+    fingerprint: str | None = None
     hypothesis: str
     expected: str
     assertions: list[Assertion] = []

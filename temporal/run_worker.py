@@ -16,6 +16,16 @@ from temporalio.worker import Worker
 
 from temporal.dag.activities import RunNodeInput, run_decision, run_tool, save_workflow
 from temporal.dag.workflow import TASK_QUEUE, DagWorkflow
+from temporal.hypothesis.activities import (
+    critique_attempt,
+    derive_criteria,
+    plan_hypothesis,
+    resolve_plan,
+    save_hypothesis_state,
+    save_requests,
+    verify_outcome,
+)
+from temporal.hypothesis.workflow import HypothesisWorkflow
 
 
 def _delayed(fn: FunctionType, seconds: float) -> FunctionType:
@@ -35,11 +45,21 @@ async def _main(address: str, step_delay: float) -> None:
     if step_delay:
         activities = [_delayed(fn, step_delay) for fn in activities]
     activities.append(save_workflow)
+    # The hypothesis loop runs on the same queue: its DagWorkflow children have to.
+    activities += [
+        critique_attempt,
+        derive_criteria,
+        plan_hypothesis,
+        resolve_plan,
+        save_hypothesis_state,
+        save_requests,
+        verify_outcome,
+    ]
     with ThreadPoolExecutor() as pool:
         await Worker(
             client,
             task_queue=TASK_QUEUE,
-            workflows=[DagWorkflow],
+            workflows=[DagWorkflow, HypothesisWorkflow],
             activities=activities,
             activity_executor=pool,
         ).run()

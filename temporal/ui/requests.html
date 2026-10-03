@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>node-dag tool requests</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #fff; --text: #1d2330; --muted: #6b7280; --line: #e3e6eb;
+    --running: #2563eb; --done: #16a34a; --failed: #dc2626;
+    --amber: #d97706; --accent-bg: #eef2ff; --blocked: #7c3aed;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #11141a; --panel: #1a1e26; --text: #e5e7eb; --muted: #9ca3af; --line: #2b313c;
+      --running: #60a5fa; --done: #4ade80; --failed: #f87171;
+      --amber: #fbbf24; --accent-bg: #1f2740; --blocked: #a78bfa;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--text); }
+  header { padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--panel); display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; }
+  header nav { display: flex; gap: 12px; font-size: 13px; }
+  header nav a { color: var(--muted); text-decoration: none; }
+  header nav a.here { color: var(--text); font-weight: 600; }
+  header #updated { color: var(--muted); font-size: 12px; margin-left: auto; }
+  main { max-width: 980px; margin: 0 auto; padding: 20px 16px; display: flex; flex-direction: column; gap: 14px; }
+  .counts { display: flex; gap: 14px; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
+  .empty { color: var(--muted); padding: 20px 0; }
+  .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+  .meta { color: var(--muted); font-size: 12px; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .rows { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  details { border-bottom: 1px solid var(--line); }
+  details:last-child { border-bottom: 0; }
+  summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; padding: 12px 16px; cursor: pointer; }
+  summary:hover { background: var(--accent-bg); }
+  summary .title { font-weight: 600; font-family: ui-monospace, monospace; }
+  summary .side { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .body { padding: 0 16px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; }
+  .b-blocked { background: var(--blocked); }
+  .b-satisfied { background: var(--done); }
+  .b-missing { background: var(--amber); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { font: 12px ui-monospace, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 1px 8px; }
+  .table { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; }
+  pre { margin: 0; padding: 8px 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; font-size: 12px; }
+  a { color: var(--running); }
+  ul { margin: 0; padding-left: 18px; }
+  @media (max-width: 600px) { summary { grid-template-columns: minmax(0, 1fr); } summary .side { justify-content: flex-start; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>node-dag</h1>
+  <nav><a href="/">Runs</a><a href="/hypotheses">Hypotheses</a><a href="/requests" class="here">Requests</a><a href="/new">New</a></nav>
+  <span id="updated"></span>
+</header>
+<main id="view"><div class="empty">Loading…</div></main>
+<script>
+const POLL_MS = 3000;
+let rows = null;    // The last /api/requests response.
+let last = "";      // What was last drawn, to redraw only on change.
+
+const $ = (sel) => document.querySelector(sel);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const scaffold = (name) => `uv run python -m temporal.scaffold_node ${name}`;
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+// The contract, in full. Enough to write config.py and function.py without asking.
+function contract(r) {
+  return `
+    <div><div class="label">Purpose</div>${esc(r.purpose)}</div>
+    <div class="table"><table>
+      <thead><tr><th>Port</th><th>Kind</th></tr></thead>
+      <tbody>${Object.entries(r.inputs).map(([port, kind]) => `
+        <tr><td><code>${esc(port)}</code></td><td><code>${esc(kind)}</code></td></tr>`).join("")}
+        ${r.output ? `<tr><td><code>output</code></td><td><code>${esc(r.output)}</code></td></tr>` : ""}
+        ${r.forwards ? `<tr><td><code>forwards</code></td><td><code>${esc(r.forwards)}</code></td></tr>` : ""}
+      </tbody>
+    </table></div>
+    ${r.config_fields.length ? `<div class="table"><table>
+      <thead><tr><th>Config field</th><th>Type</th><th>Required</th><th>Default</th><th>What it controls</th></tr></thead>
+      <tbody>${r.config_fields.map((f) => `
+        <tr>
+          <td><code>${esc(f.name)}</code></td><td><code>${esc(f.type)}</code></td>
+          <td>${f.required ? "yes" : "no"}</td>
+          <td><code>${esc(f.default == null ? "—" : JSON.stringify(f.default))}</code></td>
+          <td>${esc(f.description)}</td>
+        </tr>`).join("")}</tbody>
+    </table></div>` : `<div class="meta">No config fields.</div>`}
+    <div><div class="label">Why it is needed</div>${esc(r.why_needed)}</div>
+    <div><div class="label">Why it cannot be composed</div>${esc(r.why_not_composable)}</div>
+    <div><div class="label">Example</div><pre>${esc(r.example)}</pre></div>
+    <div>
+      <div class="label">Scaffold it</div>
+      <pre>${esc(scaffold(r.name))}</pre>
+      <div class="hint">Then write <code>run</code>, register it in <code>factory.py</code> (the NodeConfig union and MAPPING), and <b>restart the worker</b> — the registry is read at import. Bump the config's <code>version</code> after any later change to <code>run</code>, or the cache serves the old result.</div>
+    </div>`;
+}
+
+function row(r) {
+  const req = r.request;
+  return `
+    <details>
+      <summary>
+        <div class="title">${esc(req.name)}</div>
+        <div class="side">
+          ${r.blocked.length ? `<span class="badge b-blocked">${plural(r.blocked.length, "hypothesis", "hypotheses")}</span>` : `<span class="meta">nothing blocked</span>`}
+          <span class="badge ${r.satisfied ? "b-satisfied" : "b-missing"}">${r.satisfied ? "satisfied" : "not written"}</span>
+        </div>
+        <div class="meta">${esc(req.node)} · ${esc(req.category)} · ${plural(r.blocked.length, "hypothesis", "hypotheses")} / ${plural(r.goals, "goal", "goals")}</div>
+      </summary>
+      <div class="body">
+        ${contract(req)}
+        <div>
+          <div class="label">Blocked on it</div>
+          ${r.blocked.length ? `<ul>${r.blocked.map((b) => `
+            <li><a href="/hypotheses?id=${encodeURIComponent(b.id)}">${esc(b.goal)}</a> <span class="meta">${esc(b.id)}</span></li>`).join("")}</ul>`
+            : `<span class="meta">No hypothesis is waiting on it right now.</span>`}
+        </div>
+      </div>
+    </details>`;
+}
+
+function view() {
+  if (!rows.length) return `<div class="empty">No tools have been requested. A run blocks here when the builder's best plan needs a node nobody has written.</div>`;
+  const blocked = rows.reduce((n, r) => n + r.blocked.length, 0);
+  const unwritten = rows.filter((r) => !r.satisfied).length;
+  return `
+    <div class="counts">
+      <span><b>${rows.length}</b> ${rows.length === 1 ? "request" : "requests"}</span>
+      <span><b>${blocked}</b> blocked ${blocked === 1 ? "hypothesis" : "hypotheses"}</span>
+      <span><b>${unwritten}</b> not written yet</span>
+    </div>
+    <div class="hint">Ranked by how many hypotheses are stuck on each, then by how many distinct goals. Write the one at the top and every run behind it can resume. <code>satisfied</code> means <i>this</i> worker process can build it — a node added since the worker started still reads as not written.</div>
+    <div class="rows">${rows.map(row).join("")}</div>`;
+}
+
+function render() {
+  if (!rows) return;
+  const key = JSON.stringify(rows);
+  if (key === last) return;   // Redrawing would collapse every open expander.
+  last = key;
+  $("#view").innerHTML = view();
+}
+
+async function tick() {
+  try {
+    const r = await fetch("/api/requests");
+    if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+    rows = await r.json();
+    render();
+    $("#updated").textContent = `updated ${new Date().toLocaleTimeString()}`;
+  } catch (e) {
+    $("#updated").textContent = `update failed: ${e.message}`;
+  }
+  setTimeout(tick, POLL_MS);
+}
+tick();
+</script>
+</body>
+</html>

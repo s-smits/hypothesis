@@ -110,6 +110,7 @@ class CriteriaInput(BaseModel):
     goal: str
     input_kinds: dict[str, str]
     model: str
+    tag: str = ""
 
 
 class AgentOutput(BaseModel):
@@ -169,6 +170,7 @@ class PlanInput(BaseModel):
     history: list[AttemptSummary] = []
     brief: Brief | None = None
     max_requests: int = 2
+    tag: str = ""
 
 
 class PlanOutput(AgentOutput):
@@ -257,6 +259,7 @@ class VerifyInput(BaseModel):
 
     view: VerifyView
     model: str
+    tag: str = ""
 
 
 class CritiqueInput(BaseModel):
@@ -275,6 +278,7 @@ class CritiqueInput(BaseModel):
     history: list[AttemptSummary] = []
     brief: Brief | None = None
     model: str
+    tag: str = ""
 
 
 class CritiqueOutput(AgentOutput):

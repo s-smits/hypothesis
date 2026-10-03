@@ -1,4 +1,21 @@
 {
-  "goal": "Compute 3 times (x + y). If that is at least 20, label it 'big:<n>'. Otherwise subtract 5 and label the result 'small:<n>'.",
-  "inputs": {"x": {"kind": "foo_bar", "count": 4}, "y": {"kind": "foo_bar", "count": 5}}
+  "goal": "Remove every CTG codon from the gene without changing the protein, and show the recoded sequence is no bulkier than 520 atoms.",
+  "criteria": [
+    {
+      "id": "no_ctg",
+      "claim": "No CTG codon remains in frame in the recoded sequence.",
+      "source": "human"
+    },
+    {
+      "id": "protein_unchanged",
+      "claim": "The recoded sequence codes for exactly the same amino acid sequence as the input gene, so scoring it against the gene as reference does not raise.",
+      "source": "human"
+    },
+    {
+      "id": "under_520_atoms",
+      "claim": "The recoded sequence scores fewer than 520 atoms.",
+      "source": "human"
+    }
+  ],
+  "inputs": {"gene": {"kind": "dna", "sequence": "ATGCTGCTGAAATAA"}}
 }
