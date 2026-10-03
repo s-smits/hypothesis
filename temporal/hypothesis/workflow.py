@@ -323,7 +323,14 @@ class HypothesisWorkflow:
         """Plan, resolve, run, verify and critique until one of the stops fires."""
         await self._save()
         if not await self._criteria():
-            return await self._stop("failed", "no criteria could be derived for the goal")
+            # Not "failed": nothing went wrong, nobody said what success would mean. A
+            # run that cannot be checked is unverified, which is a request for someone
+            # to state the criteria rather than a fault in the machinery.
+            return await self._stop(
+                "unverified",
+                "no criteria were given and none could be derived from the goal, so "
+                "there is nothing this run could be checked against",
+            )
 
         critique: Critique | None = None
         stale = 0
