@@ -22,6 +22,7 @@ from node_dag.agent import (
     cite,
     criteria_agent,
     critique_agent,
+    inputs_agent,
     plan_prompt,
     step_config,
     verify_agent,
@@ -38,6 +39,7 @@ from node_dag.plan import (
     VerifyOpinion,
 )
 from node_dag.registry import Registry
+from node_dag.types import Value
 from temporal.dag.activities import results_subdir, write_atomic
 
 
@@ -60,6 +62,8 @@ class Stage(BaseModel):
 class Out(BaseModel):
     """What an agent activity returns: its answer, or an ``error``, and the tokens spent.
 
+    ``inputs`` and their ``sources`` are what the inputs agent found.
+
     ``declined`` is set when the model refused the request: asking again would only be
     refused again.
 
@@ -67,6 +71,8 @@ class Out(BaseModel):
     builder was shown.
     """
 
+    inputs: dict[str, list[Value]] = {}
+    sources: dict[str, str] = {}
     criteria: list[Criterion] = []
     plan: Plan | None = None
     observations: list[Observation] = []
@@ -132,6 +138,24 @@ def _view(hyp: Hypothesis) -> dict[str, Any]:
         "outcome": a.outcome,
         "error": a.error,
     }
+
+
+@activity.defn
+async def draft_inputs(inp: Stage) -> Out:
+    """Find the sequences a goal with no inputs is about. Runs once, before round 1."""
+    agent, found = inputs_agent(inp.model)
+    hyp = inp.hyp
+    prompt = f"Goal: {hyp.goal}" + (
+        f"\nProposed hypothesis: {hyp.hypothesis}" if hyp.hypothesis else ""
+    )
+    r = await _ask(agent, prompt, inp, "inputs")
+    return Out(
+        inputs=found.inputs,
+        sources=found.sources,
+        error=r.get("error"),
+        declined=r.get("declined", False),
+        tokens=r.get("tokens", 0),
+    )
 
 
 @activity.defn

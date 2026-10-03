@@ -230,6 +230,20 @@ async def test_starting_without_max_rounds_is_accepted_and_blank_criteria_are_dr
         inp.max_rounds == 3 and kw["id"] == hyp.id
     )  # Blank means the default, not a 422.
     assert [c.claim for c in inp.hypothesis.criteria] == ["no TCG remains"]
+    assert [c.source for c in inp.hypothesis.criteria] == ["human"]  # Typed by a person.
+    # Saved before the workflow starts, so the page has it with no worker running.
+    saved = results_subdir("hypotheses") / f"{hyp.id}.json"
+    assert Hypothesis.model_validate_json(saved.read_bytes()).state == "building"
+
+
+async def test_a_goal_alone_starts_and_the_loop_fetches_its_inputs():
+    client = _Client()
+    hyp = await _endpoint("/api/hypotheses", "POST", client, "model")(
+        NewHypothesis(goal="translate the E. coli lacZ CDS")
+    )
+    ((inp, _),) = client.started
+    assert hyp.inputs == {} and inp.hypothesis.inputs == {}
+    assert inp.build_model == "model" and inp.verify_model != "model"  # Not its own judge.
 
 
 async def test_requests_are_ranked_by_how_many_runs_they_block_and_resume_signals_a_run():
@@ -265,6 +279,8 @@ async def test_requests_are_ranked_by_how_many_runs_they_block_and_resume_signal
             )
         )  # The achieved one is not waiting.
 
+    stale = results_subdir("requests") / "stale.json"
+    stale.write_text('{"name": "stale"}')  # No longer validates: skipped, not a 500.
     rows = await _endpoint("/api/requests")()
     assert [(r.request.name, len(r.blocked)) for r in rows] == [
         ("wanted", 2),
@@ -363,3 +379,11 @@ async def test_the_criteria_endpoint_drafts_a_list_to_edit():
     with pytest.raises(HTTPException) as e:  # No model, no agent.
         await _endpoint("/api/criteria", "POST")(NewCriteria(goal="faster lacZ"))
     assert e.value.status_code == 503
+
+    def down(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        raise RuntimeError("no API key")
+
+    broken = _endpoint("/api/criteria", "POST", None, FunctionModel(down))
+    with pytest.raises(HTTPException) as e:  # The page shows why, not a bare 500.
+        await broken(NewCriteria(goal="faster lacZ"))
+    assert e.value.status_code == 502 and "no API key" in e.value.detail

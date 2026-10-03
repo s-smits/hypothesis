@@ -30,7 +30,8 @@ from temporal.dag.activities import (
     step_links,
 )
 from temporal.dag.workflow import TASK_QUEUE, DagWorkflow
-from temporal.hypothesis.loop import HypothesisInput, HypothesisLoop
+from temporal.hypothesis.activities import save_hypothesis
+from temporal.hypothesis.loop import VERIFY_MODEL, HypothesisInput, HypothesisLoop
 
 logger = logging.getLogger(__name__)
 
@@ -218,14 +219,15 @@ class NewHypothesis(BaseModel):
         goal: What the DAG must do, in plain English.
         hypothesis: The user's idea of how to meet the goal. The builder agent takes
             it as a starting point.
-        inputs: The values to run on, keyed by DAG input name.
+        inputs: The values to run on, keyed by DAG input name. Omit them and the agent
+            fetches the sequences the goal names from NCBI before round 1.
         criteria: What must be true for the goal to be met. Derived from the goal if empty.
         max_rounds: Most plans to try. Omit for the default.
     """
 
     goal: str = Field(min_length=1)
     hypothesis: str | None = None
-    inputs: dict[str, list[Value]]
+    inputs: dict[str, list[Value]] = {}
     criteria: list[str] = []
     max_rounds: int | None = Field(default=None, ge=1, le=10)
 
@@ -291,7 +293,7 @@ def make_app(
     Args:
         client: The Temporal client.
         build_model: The builder agent's model. Without it, hypotheses cannot be started.
-        verify_model: The verifier agent's model. Default: ``build_model``.
+        verify_model: The verifier agent's model. Default: ``VERIFY_MODEL``.
     """
     app = FastAPI(title="node-dag")
 
@@ -319,9 +321,11 @@ def make_app(
         inp = HypothesisInput(
             hypothesis=hyp,
             build_model=build_model,
-            verify_model=verify_model or build_model,
+            verify_model=verify_model or VERIFY_MODEL,
             **cfg,
         )
+        # Saved first, so the page has something to show before any worker picks it up.
+        save_hypothesis(hyp.model_copy(update={"state": "building"}))
         await client.start_workflow(
             HypothesisLoop.run, inp, id=hyp.id, task_queue=TASK_QUEUE
         )
@@ -344,13 +348,14 @@ def make_app(
         for r in _saved_rows():
             for q in r.hypothesis.pending if r.status == "blocked" else []:
                 waiting.setdefault(q.name, []).append(r.hypothesis.id)
-        rows = [
-            RequestRow(
-                request=ToolRequest.model_validate_json(p.read_bytes()),
-                blocked=waiting.get(p.stem, []),
-            )
-            for p in results_subdir("requests").glob("*.json")
-        ]
+        rows = []
+        for p in results_subdir("requests").glob("*.json"):
+            try:  # One file that no longer validates must not take out the list.
+                request = ToolRequest.model_validate_json(p.read_bytes())
+            except ValidationError as e:
+                logger.warning("Skipping unreadable request %s: %s", p.name, e)
+                continue
+            rows.append(RequestRow(request=request, blocked=waiting.get(p.stem, [])))
         return sorted(rows, key=lambda r: len(r.blocked), reverse=True)
 
     @app.post("/api/criteria")
@@ -361,7 +366,10 @@ def make_app(
         prompt = f"Goal: {new.goal.strip()}"
         if new.hypothesis and new.hypothesis.strip():
             prompt += f"\nProposed hypothesis: {new.hypothesis.strip()}"
-        result = await criteria_agent(build_model).run(prompt)
+        try:
+            result = await criteria_agent(build_model).run(prompt)
+        except Exception as e:
+            raise HTTPException(502, f"The criteria agent failed: {e}") from e
         return result.output
 
     @app.get("/", include_in_schema=False)

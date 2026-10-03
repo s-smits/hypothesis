@@ -11,21 +11,32 @@ from temporalio.contrib.pydantic import pydantic_data_converter
 
 from node_dag.agent import Hypothesis
 from temporal.dag.workflow import TASK_QUEUE
-from temporal.hypothesis.loop import HypothesisInput, HypothesisLoop
+from temporal.hypothesis.loop import (
+    BUILD_MODEL,
+    VERIFY_MODEL,
+    HypothesisInput,
+    HypothesisLoop,
+)
 
 
 @click.command()
 @click.argument("path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @click.option(
-    "--model", required=True, help="pydantic-ai model for the builder and critic."
+    "--model",
+    default=BUILD_MODEL,
+    show_default=True,
+    help="pydantic-ai model for the builder and critic.",
 )
 @click.option(
-    "--verify-model", help="pydantic-ai model for the verifier. Default: --model."
+    "--verify-model",
+    default=VERIFY_MODEL,
+    show_default=True,
+    help="pydantic-ai model for the verifier. Keep it different from the builder's.",
 )
 @click.option("--max-rounds", default=3, help="Most plans to try.")
 @click.option("--address", default="localhost:7233", help="Temporal server address.")
 def main(
-    path: Path, model: str, verify_model: str | None, max_rounds: int, address: str
+    path: Path, model: str, verify_model: str, max_rounds: int, address: str
 ) -> None:
     """Run the Hypothesis JSON file at PATH to a verdict. Print the result."""
 
@@ -35,7 +46,7 @@ def main(
         inp = HypothesisInput(
             hypothesis=hyp,
             build_model=model,
-            verify_model=verify_model or model,
+            verify_model=verify_model,
             max_rounds=max_rounds,
         )
         done = await client.execute_workflow(

@@ -65,9 +65,10 @@
       <input id="rounds" type="number" min="1" max="10" placeholder="3">
     </div>
     <div>
-      <div class="label">Inputs</div>
+      <div class="label">Inputs (optional)</div>
       <div id="inputs"></div>
       <button type="button" id="add">+ Add input</button>
+      <div class="hint">Left empty, the agent fetches the sequences the goal names from NCBI before it plans, so name the gene, organism or accession in the goal. Inputs you give are used as they are.</div>
     </div>
     <div id="error"></div>
     <button class="primary" id="go">Start</button>
@@ -194,7 +195,6 @@ $("#form").addEventListener("submit", async (e) => {
   }
 });
 
-addInput("seq");
 loadGoals();
 </script>
 </body>

@@ -1,4 +1,3 @@
-
 from node_dag.nodes.tools.codon_count.config import CodonCountConfig
 from node_dag.nodes.tools.codon_count.function import CodonCount
 from node_dag.types import Dna

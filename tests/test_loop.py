@@ -302,6 +302,40 @@ async def test_a_bug_in_the_loop_ends_the_run_as_failed_instead_of_wedging_it(
     assert saved.state == "failed"
 
 
+async def test_a_goal_with_no_inputs_has_them_fetched_once_and_frozen_before_round_1(
+    results_dir,
+):
+    found = {"seq": [Dna(sequence="ATGTCTTAA")]}
+    asked = []
+
+    @activity.defn(name="draft_inputs")
+    async def draft(inp: Stage) -> Out:
+        asked.append(inp.hyp.inputs)
+        return Out(inputs=found, sources={"seq": "NCBI J01636.1 CDS lacZ"}, tokens=9)
+
+    calls: dict = {}
+    fakes = _fakes(calls, [PLAN], [ResolveOut(dag=DAG)], [True])
+    bare = HYP.model_copy(update={"inputs": {}})
+    done = await _drive([draft, *fakes], hyp=bare)
+    assert asked == [{}] and done.state == "achieved"
+    assert done.inputs == found and done.input_sources == {
+        "seq": "NCBI J01636.1 CDS lacZ"
+    }
+    assert calls["plan"][0].hyp.inputs == found  # The builder is shown them.
+    assert done.usage["inputs"] == 9
+
+
+async def test_a_goal_whose_inputs_cannot_be_found_ends_the_run_as_failed():
+    @activity.defn(name="draft_inputs")
+    async def none_found(inp: Stage) -> Out:
+        return Out(error="no record for that gene", tokens=4)
+
+    bare = HYP.model_copy(update={"inputs": {}})
+    done = await _drive([none_found, *_fakes({}, [], [], [])], hyp=bare)
+    assert done.state == "failed"
+    assert "no inputs could be found" in (done.stopped_because or "")
+
+
 async def test_a_model_that_declines_ends_the_run_instead_of_being_asked_again():
     asked = []
     fakes = _fakes({}, [], [], [])

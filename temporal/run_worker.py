@@ -46,6 +46,7 @@ async def _main(address: str, step_delay: float) -> None:
     activities += [
         save_workflow,
         hyp.derive_criteria,
+        hyp.draft_inputs,
         hyp.plan_hypothesis,
         hyp.resolve_plan,
         hyp.verify_outcome,

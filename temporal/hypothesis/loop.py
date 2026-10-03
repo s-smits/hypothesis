@@ -33,6 +33,7 @@ with workflow.unsafe.imports_passed_through():
         Stage,
         critique_attempt,
         derive_criteria,
+        draft_inputs,
         plan_hypothesis,
         resolve_plan,
         save_requests,
@@ -178,6 +179,13 @@ class HypothesisLoop:
 
     async def _loop(self, inp: HypothesisInput) -> Hypothesis:
         await self._set()
+        if not self._hyp.inputs:  # The caller's inputs win: fetch only when none came.
+            out = await self._ask("inputs", draft_inputs, inp.build_model)
+            if not out.inputs:
+                return await self._stop(
+                    "failed", f"no inputs could be found for the goal: {out.error}"
+                )
+            await self._set(inputs=out.inputs, input_sources=out.sources)
         if not self._hyp.criteria:
             out = await self._ask("criteria", derive_criteria, inp.build_model)
             if not out.criteria:

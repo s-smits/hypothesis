@@ -13,7 +13,7 @@ from pydantic import (
 from pydantic_ai import Agent, ModelRetry, RunContext, Tool, ToolOutput
 from pydantic_ai.models import Model
 
-from node_dag import amass
+from node_dag import amass, entrez
 from node_dag.factory import MAPPING, NodeConfig
 from node_dag.nodes.base import BaseFilterConfig, BaseNodeConfig
 from node_dag.plan import (
@@ -28,7 +28,7 @@ from node_dag.plan import (
     repeated,
 )
 from node_dag.registry import Registry
-from node_dag.types import TYPES, Entity, Value
+from node_dag.types import TYPES, Dna, Entity, Value
 
 NODES = {c.model_fields["name"].default: c for c in MAPPING}
 # What a file from before the loop kept on the Hypothesis, and each Attempt keeps now.
@@ -46,7 +46,10 @@ class Hypothesis(BaseModel):
         id: Names the saved file. Generated if not given.
         goal: What the DAG must do, in plain English, e.g. "lower the atom count of the sequences".
         inputs: The list of entities to run on, keyed by DAG input name. Each list is
-            not empty and holds one kind.
+            not empty and holds one kind. Empty when the caller gave none: the loop
+            then fetches them from NCBI before round 1, and they stay as they are.
+        input_sources: Where each input the loop fetched came from, in a phrase, e.g.
+            the NCBI record a CDS was taken from.
         hypothesis: Your own idea of how to meet ``goal``, for the builder to take or leave.
         observations: What the builder found in the literature that bears on the
             current round's plan.
@@ -60,7 +63,8 @@ class Hypothesis(BaseModel):
 
     id: str = Field(default_factory=lambda: f"hypothesis-{uuid.uuid4()}")
     goal: str
-    inputs: dict[str, list[Value]]
+    inputs: dict[str, list[Value]] = {}
+    input_sources: dict[str, str] = {}
     hypothesis: str | None = None
     observations: list[Observation] = []
     criteria: list[Criterion] = []
@@ -466,7 +470,9 @@ def build_agent(
                     f"Assertion on unknown criterion {a.criterion!r}; criteria: {sorted(ids)}"
                 )
             if (cfg := configs.get(a.step)) is None:
-                raise ModelRetry(f"Assertion step {a.step!r} is not a step of the plan.")
+                raise ModelRetry(
+                    f"Assertion step {a.step!r} is not a step of the plan."
+                )
             if isinstance(cfg, BaseFilterConfig) == (a.branch == "produced"):
                 raise ModelRetry(
                     f"Assertion step {a.step!r}: use branch yes or no on a filter step, "
@@ -519,6 +525,164 @@ def verify_agent(model: Model | str) -> Agent[None, VerifyOpinion]:
 def critique_agent(model: Model | str) -> Agent[None, Critique]:
     """Return an agent that says why a round missed and what the next plan must change."""
     return Agent(model, instructions=CRITIQUE_INSTRUCTIONS, output_type=Critique)
+
+
+INPUTS_INSTRUCTIONS = """\
+Find the sequences a goal is about, so that a DAG can be planned on them.
+Where the goal names a gene, an organism or an accession rather than giving a sequence,
+find the record with search_sequences, fetch its coding sequences with fetch_sequences, and
+pass the handles to add_input. Only pass `sequences` to add_input for a sequence written out
+in the goal or the proposed hypothesis, copied exactly: never invent one, and never fill a
+gap with a plausible-looking sequence. Add every input the goal needs, name each for what it
+holds, and say where it came from in `source`. Stop when they are all added."""
+
+
+class FoundInputs(BaseModel):
+    """What the inputs agent added: the inputs, and where each came from."""
+
+    inputs: dict[str, list[Value]] = {}
+    sources: dict[str, str] = {}
+
+
+def inputs_agent(model: Model | str) -> tuple[Agent[None, str], FoundInputs]:
+    """Return an agent that finds a goal's input sequences in NCBI, and what it adds."""
+    found = FoundInputs()
+    # Every CDS the agent fetched, by handle, so that add_input can cite a record
+    # instead of the agent retyping a sequence it was shown.
+    fetched: dict[str, tuple[Value, str]] = {}
+    value_adapter: TypeAdapter[Value] = TypeAdapter(Value)
+
+    def search_sequences(
+        term: str, limit: int = 5
+    ) -> list[dict[str, Any]] | dict[str, str]:
+        """Search NCBI Nucleotide for records, to find an accession to fetch a gene from.
+
+        Args:
+            term: An Entrez query, e.g. ``lacZ[gene] AND "Escherichia coli"[orgn]``.
+            limit: How many records to return, at most.
+        """
+        try:
+            return entrez.search(term, limit)
+        except entrez.EntrezError as e:
+            return {"error": str(e)}
+
+    def fetch_sequences(
+        accession: str, gene: str | None = None, limit: int = 5
+    ) -> dict[str, Any]:
+        """Fetch the coding sequences of an NCBI Nucleotide record, by accession.
+
+        Each usable CDS comes back with a ``handle``. Give those handles to add_input:
+        that way the input holds the sequence as NCBI has it, with no chance of a
+        typo. A CDS that is not usable as coding DNA, e.g. a partial one or one with
+        ambiguity codes, is reported with its problems and has no handle.
+
+        Args:
+            accession: The record's accession, e.g. ``NC_000913.3`` or ``J01636.1``.
+            gene: Keep only the CDS of this gene. Name it when the record is a genome:
+                it has thousands.
+            limit: How many CDS to return, at most.
+        """
+        try:
+            records = entrez.fetch_cds(accession, gene)
+        except entrez.EntrezError as e:
+            return {"error": str(e)}
+        if not records:
+            return {
+                "error": f"{accession} has no CDS for gene {gene!r}. Call it again "
+                "without `gene` to see what the record annotates."
+            }
+        out = []
+        for i, r in enumerate(records[:limit]):
+            item = {k: r[k] for k in ("gene", "protein", "location", "length")}
+            if not r["usable"]:
+                out.append({**item, "usable": False, "problems": r["problems"]})
+                continue
+            handle = f"{accession}:{r['gene'] or i}"
+            where = f"NCBI {accession} CDS {r['gene'] or r['location']}"
+            fetched[handle] = (Dna(sequence=r["sequence"]), where)
+            # A whole CDS is long, and the handle is what add_input needs, so only
+            # enough of the sequence to recognise it is echoed back.
+            out.append(
+                {
+                    **item,
+                    "usable": True,
+                    "handle": handle,
+                    "sequence": r["sequence"]
+                    if r["length"] <= 1200
+                    else f"{r['sequence'][:600]}…{r['sequence'][-60:]} (truncated; "
+                    "add_input uses the full sequence)",
+                }
+            )
+        return {"accession": accession, "cds": out, "total": len(records)}
+
+    def add_input(
+        name: str,
+        source: str,
+        handles: list[str] | None = None,
+        sequences: list[str] | None = None,
+        kind: str = "dna",
+    ) -> dict[str, Any]:
+        """Give the DAG an input: a named, non-empty list of entities of one kind.
+
+        Use ``handles`` from fetch_sequences wherever you can. Use ``sequences`` only
+        for a sequence the goal or the proposed hypothesis gives you verbatim.
+
+        Args:
+            name: What the DAG calls this input, e.g. ``seq``. No dots.
+            source: Where these entities came from, in a phrase, e.g.
+                "NCBI NC_000913.3 CDS thrA" or "given in the goal". This is recorded.
+            handles: Handles from fetch_sequences.
+            sequences: Literal sequences, upper case.
+            kind: The kind of every entity given as ``sequences``. Handles are dna.
+        """
+        if "." in name or not name.strip():
+            raise ModelRetry(
+                f"Input name {name!r} must be a non-empty name with no dots."
+            )
+        if kind not in TYPES:
+            raise ModelRetry(f"Unknown kind {kind!r}. Known kinds: {sorted(TYPES)}.")
+        if unknown := sorted(set(handles or ()) - fetched.keys()):
+            raise ModelRetry(
+                f"No such handle: {unknown}. Handles come from fetch_sequences: "
+                f"{sorted(fetched)}"
+            )
+        if handles and sequences and kind != "dna":
+            raise ModelRetry(
+                f"Handles are dna, so {name!r} cannot also hold {kind} sequences. "
+                "Use two inputs, or give the sequences on their own."
+            )
+        items: list[Value] = [fetched[h][0] for h in handles or ()]
+        try:
+            items += [
+                value_adapter.validate_python(
+                    {"kind": kind, "sequence": s.strip().upper()}
+                )
+                for s in sequences or ()
+            ]
+        except ValidationError as e:
+            raise ModelRetry(f"Input {name!r} is not valid {kind}: {e}") from e
+        if not items:
+            raise ModelRetry(f"Input {name!r} needs at least one handle or sequence.")
+        found.inputs[name] = items
+        found.sources[name] = source
+        return {
+            "name": name,
+            "kind": items[0].kind,
+            "count": len(items),
+            "lengths": [len(i.sequence) for i in items],
+            "source": source,
+        }
+
+    agent = Agent(
+        model,
+        instructions=INPUTS_INSTRUCTIONS,
+        tools=[
+            Tool(search_sequences),
+            Tool(fetch_sequences),
+            Tool(add_input, max_retries=3),
+        ],
+    )
+    return agent, found
 
 
 def criteria_agent(model: Model | str) -> Agent[None, list[Criterion]]:

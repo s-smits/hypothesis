@@ -35,6 +35,7 @@
   .id { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); word-break: break-all; }
   .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
   .plan { white-space: pre-wrap; }
+  pre { margin: 0; white-space: pre-wrap; font: 12px ui-monospace, monospace; }
   .chips { display: flex; gap: 6px; flex-wrap: wrap; }
   .chip { font: 12px ui-monospace, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 1px 8px; }
   .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; }
@@ -98,6 +99,12 @@ const showValue = (v) => v == null ? "" : Array.isArray(v) ? `${v.length} × ${v
 const cur = (h) => h.attempts.find((a) => a.round === h.round);
 // The builder's plan once there is one, else the idea the user gave.
 const idea = (h) => cur(h)?.plan?.hypothesis ?? h.hypothesis;
+const noIdea = (status) => status === "building" ? "The builder agent is writing it…" : "No plan was written.";
+const STOPPED = new Set(["achieved", "not achieved", "abandoned", "failed"]);
+// The inputs, with where each came from when the agent fetched it, or why there are none yet.
+const inputChips = (h) => Object.keys(h.inputs).length
+  ? Object.entries(h.inputs).map(([k, v]) => `<span class="chip"${h.input_sources?.[k] ? ` title="${esc(h.input_sources[k])}"` : ""}>${esc(k)}: ${esc(showValue(v))}</span>`).join("")
+  : `<span class="meta">${STOPPED.has(h.state) ? "No inputs were found." : "The agent is fetching them…"}</span>`;
 const chips = (values) => Object.entries(values).map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(showValue(v))}</span>`).join("");
 
 const obsHref = (o) => `/observations?${new URLSearchParams({ core: o.core, id: o.amass_id })}`;
@@ -139,7 +146,7 @@ function tally(rs) {
 function goalsView() {
   const gs = goals();
   if (!gs.length) return `<div class="empty">No hypotheses yet. Run one with<br>
-    <code>uv run python -m temporal.run_hypothesis examples/score.json --model …</code></div>`;
+    <code>uv run python -m temporal.run_hypothesis examples/simple.json</code></div>`;
   return `
     <div class="counts"><span><b>${gs.length}</b> goals, <b>${rows.length}</b> hypotheses</span></div>
     <div class="rows">${gs.map((g) => `
@@ -170,9 +177,9 @@ function goalView(goal) {
       const h = r.hypothesis;
       return `
       <a class="row" href="${href({ id: h.id })}">
-        <div class="line">${badge(r.status)}<span class="summary">${idea(h) ? esc(idea(h)) : `<span class="meta">The builder agent is writing it…</span>`}</span></div>
+        <div class="line">${badge(r.status)}<span class="summary">${idea(h) ? esc(idea(h)) : `<span class="meta">${noIdea(r.status)}</span>`}</span></div>
         <div class="side"><span class="meta">${when(r.updated)}</span></div>
-        <div class="chips">${chips(h.inputs)}</div>
+        <div class="chips">${inputChips(h)}</div>
         <div class="side">${cur(h)?.verdict ? `<span class="meta">${cur(h).verdict.achieved ? "goal achieved" : "goal not achieved"}</span>` : ""}</div>
       </a>`;
     }).join("")}
@@ -227,15 +234,28 @@ function roundsView(h) {
     <td>${esc(a.critique?.fix ?? a.error ?? a.verdict?.reason ?? "")}</td></tr>`).join("")}</tbody></table></div>`;
 }
 
+// A requested node's contract, as the builder wrote it, and how to start writing it.
+function requestView(r) {
+  const fields = r.config_fields.map((f) => `
+    <tr><td><code>${esc(f.name)}</code></td><td><code>${esc(f.type)}</code></td><td>${f.required ? "yes" : "no"}</td><td>${esc(f.description)}</td></tr>`).join("");
+  return `<div><b>${esc(r.name)}</b> (${esc(r.node)}): ${esc(r.purpose)}
+    <div class="meta">takes <code>${esc(r.port)}</code>: ${esc(r.kind)}${r.output ? `, gives ${esc([r.output].flat().join(", "))}` : ""}</div>
+    ${fields ? `<div class="table"><table><thead><tr><th>Config field</th><th>Type</th><th>Required</th><th>What it controls</th></tr></thead><tbody>${fields}</tbody></table></div>` : ""}
+    <div class="label">Why it is needed</div>${esc(r.why_needed)}
+    <div class="label">Why it cannot be composed</div>${esc(r.why_not_composable)}
+    <div class="label">Example</div><pre>${esc(r.example)}</pre>
+    <div class="label">Scaffold it</div><pre>uv run python -m temporal.scaffold_node ${esc(r.name)}</pre></div>`;
+}
+
 function blockedView(h) {
   if (h.state !== "blocked") return "";
   const att = cur(h), pending = att?.requests ?? [], note = att?.error;
   const button = (signal, text) => `<button data-signal="${signal}" data-id="${esc(h.id)}">${text}</button>`;
   return `<div class="verdict no"><div class="label">Blocked: waiting for ${pending.map((r) => esc(r.name)).join(", ")}</div>
-    ${pending.map((r) => `<div><b>${esc(r.name)}</b> (${esc(r.node)}): ${esc(r.purpose)}</div>`).join("")}
+    ${pending.map(requestView).join("")}
     ${note ? `<div class="meta">${esc(note)}</div>` : ""}
-    <p>Write the node, restart the worker, then resume. The same plan is resolved again.</p>
-    ${button("tool_added", "Resume")} ${button("abandon", "Abandon")}</div>`;
+    <p>Write <code>run</code>, register the node in <code>factory.py</code> (the NodeConfig union and MAPPING), and <b>restart the worker</b>: the registry is read at import. Then resume, and the same plan is resolved again.</p>
+    ${button("tool_added", "Resume")} ${button("abandon", "Abandon")} <span class="meta" id="signal-error"></span></div>`;
 }
 
 function detailView(id) {
@@ -252,8 +272,8 @@ function detailView(id) {
         <span class="meta">updated ${when(row.updated)}</span>
       </div>
       <div class="id">${esc(h.id)}</div>
-      <div><div class="label">Inputs</div><div class="chips">${chips(h.inputs)}</div></div>
-      <div><div class="label">Hypothesis</div><div class="plan">${idea(h) ? esc(idea(h)) : `<span class="meta">The builder agent is writing it…</span>`}</div></div>
+      <div><div class="label">Inputs</div><div class="chips">${inputChips(h)}</div></div>
+      <div><div class="label">Hypothesis</div><div class="plan">${idea(h) ? esc(idea(h)) : `<span class="meta">${noIdea(row.status)}</span>`}</div></div>
       ${h.observations?.length ? `<div><div class="label">Observations from the literature</div>${observations(h.observations, false)}</div>` : ""}
       ${blockedView(h)}
       ${criteriaView(h)}
@@ -297,7 +317,12 @@ $("#view").addEventListener("click", async (e) => {
   const b = e.target.closest("button[data-signal]");
   if (b) {
     b.disabled = true;
-    await fetch(`/api/hypotheses/${encodeURIComponent(b.dataset.id)}/${b.dataset.signal}`, { method: "POST" });
+    const r = await fetch(`/api/hypotheses/${encodeURIComponent(b.dataset.id)}/${b.dataset.signal}`, { method: "POST" });
+    if (!r.ok) {
+      b.disabled = false;
+      const why = await r.json().then((d) => d.detail).catch(() => null);
+      $("#signal-error").textContent = `${b.textContent} failed: ${why ?? r.status}`;
+    }
     return;
   }
   // Follow links inside the page without a reload, so the back button still works.

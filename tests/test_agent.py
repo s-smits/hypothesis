@@ -6,12 +6,20 @@ from pydantic_ai.messages import (
     ModelMessage,
     ModelResponse,
     RetryPromptPart,
+    TextPart,
     ToolCallPart,
     ToolReturnPart,
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from node_dag.agent import Hypothesis, build_agent, criteria_agent
+from node_dag import entrez
+from node_dag.agent import (
+    FoundInputs,
+    Hypothesis,
+    build_agent,
+    criteria_agent,
+    inputs_agent,
+)
 from node_dag.nodes.filters.at_most.config import AtMostConfig
 from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
 from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
@@ -332,3 +340,64 @@ def test_search_nodes_finds_and_ranks_by_intent():
     # Translation
     trans_results = search_nodes(query="translate to protein")
     assert trans_results[0]["name"] == "dna_to_protein"
+
+
+LACZ = """\
+>lcl|J01636.1_cds_AAB59138.1_1 [gene=lacZ] [protein=beta-D-galactosidase] [location=1..15]
+ATGGCTCTGAAATAA
+"""
+
+
+async def _find(calls: list[tuple[str, dict]]) -> tuple[list[str], FoundInputs]:
+    """Run the inputs agent on a script of tool calls, and say what each call answered."""
+    seen: list[str] = []
+
+    def script(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        seen.extend(str(p.content) for p in _returns(messages))
+        turn = _turn(messages)
+        if turn < len(calls):
+            return _call(*calls[turn])
+        return ModelResponse(parts=[TextPart("done")])
+
+    agent, found = inputs_agent(FunctionModel(script))
+    await agent.run("Goal: translate the E. coli lacZ CDS")
+    return seen, found
+
+
+async def test_the_inputs_agent_finds_a_record_and_adds_its_cds(
+    results_dir, monkeypatch
+):
+    monkeypatch.setattr(entrez, "_get", lambda *a, **k: LACZ)
+    monkeypatch.setattr(entrez, "search", lambda *a, **k: [{"accession": "J01636.1"}])
+    add = {
+        "name": "seq",
+        "source": "NCBI J01636.1 CDS lacZ",
+        "handles": ["J01636.1:lacZ"],
+    }
+    seen, found = await _find(
+        [
+            ("search_sequences", {"term": "lacZ[gene]"}),
+            ("fetch_sequences", {"accession": "J01636.1", "gene": "lacZ"}),
+            ("add_input", add),
+        ]
+    )
+    assert found.inputs == {"seq": [Dna(sequence="ATGGCTCTGAAATAA")]}
+    assert found.sources == {"seq": "NCBI J01636.1 CDS lacZ"}
+    assert "J01636.1:lacZ" in seen[1] and "'count': 1" in seen[2]
+
+
+async def test_add_input_rejects_what_it_cannot_stand_behind(results_dir):
+    """A made-up sequence, a handle nobody fetched, a dotted name, and an empty input."""
+    seen, found = await _find(
+        [
+            ("add_input", {"name": "seq", "source": "memory", "sequences": ["ATGXYZ"]}),
+            ("add_input", {"name": "seq", "source": "a record", "handles": ["J01636.1"]}),
+            ("add_input", {"name": "a.b", "source": "goal", "sequences": ["ATG"]}),
+        ]
+    )
+    assert "not valid dna" in seen[0]
+    assert "No such handle: ['J01636.1']" in seen[1]
+    assert "no dots" in seen[2]
+    assert found.inputs == {} and found.sources == {}
+    empty, _ = await _find([("add_input", {"name": "seq", "source": "nothing"})])
+    assert "at least one handle or sequence" in empty[0]
