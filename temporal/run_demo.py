@@ -162,11 +162,33 @@ BLOCKED = PLAN.model_copy(
 _seen: dict[str, int] = {}
 
 
+def _rewire(plan: Plan, inputs: dict[str, str]) -> Plan:
+    """Point a canned plan at whatever the hypothesis actually called its input.
+
+    The real builder is told the input names and G0 rejects a plan that invents its
+    own. A stub has no such discipline, so a plan written against ``seq`` produced a
+    DAG the run could not be given its inputs for, which failed late and obscurely.
+    """
+    (want,) = list(inputs) or ["seq"]
+    (have,) = list(plan.inputs)
+    if want == have:
+        return plan
+    steps = {
+        k: s.model_copy(
+            update={
+                "inputs": {p: (want if src == have else src) for p, src in s.inputs.items()}
+            }
+        )
+        for k, s in plan.steps.items()
+    }
+    return plan.model_copy(update={"inputs": {want: plan.inputs[have]}, "steps": steps})
+
+
 @activity.defn(name="plan_hypothesis")
 async def stub_plan(inp: PlanInput) -> PlanOutput:
     """Hand back a canned plan that asks for a node nobody has written."""
     click.echo(f"  builder   plans for {inp.goal!r} ({len(inp.criteria)} criteria)")
-    return PlanOutput(plan=BLOCKED, tokens=1200)
+    return PlanOutput(plan=_rewire(BLOCKED, inp.input_kinds), tokens=1200)
 
 
 @activity.defn(name="resolve_plan")
@@ -184,11 +206,14 @@ def stub_resolve(inp: ResolveInput) -> ResolveOutput:
             missing=[inp.plan.requests["gc_in_range"]], registry_version="before"
         )
     click.echo("  resolve   gc_in_range is here now -> running the DAG")
+    # Same rewiring as the plan stub: the DAG has to declare the input name the
+    # hypothesis actually used, or it cannot be given its inputs.
+    runnable = _rewire(PLAN, inp.plan.inputs)
     return ResolveOutput(
         dag=Dag.model_validate(
             {
-                "inputs": PLAN.inputs,
-                "steps": {k: s.draft() for k, s in PLAN.steps.items()},
+                "inputs": runnable.inputs,
+                "steps": {k: s.draft() for k, s in runnable.steps.items()},
             }
         ),
         registry_version="after",

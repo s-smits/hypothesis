@@ -189,6 +189,7 @@ def resolve_plan(inp: ResolveInput) -> ResolveOutput:
 
     Args:
         inp: The plan to resolve against this worker's registry.
+        goal_inputs: The DAG input names the hypothesis actually has, with their kinds.
     """
     plan = inp.plan
     version = _registry_version()
@@ -231,6 +232,20 @@ def resolve_plan(inp: ResolveInput) -> ResolveOutput:
     except ValidationError as e:
         return ResolveOutput(
             available=available, registry_version=version, error=str(e)
+        )
+    # A Dag that declares inputs the hypothesis does not have cannot be run, and the
+    # workflow would only find out when DagInput rejected it mid-round, as a pydantic
+    # error about types rather than about the mistake. Say it here, where the critique
+    # can act on it: the builder named an input that was never offered.
+    if inp.goal_inputs and dag.inputs != inp.goal_inputs:
+        return ResolveOutput(
+            available=available,
+            registry_version=version,
+            error=(
+                f"the plan declares inputs {dag.inputs}, but this hypothesis has "
+                f"{inp.goal_inputs}. Wire the steps to the input names the goal "
+                "actually offers."
+            ),
         )
     return ResolveOutput(available=available, dag=dag, registry_version=version)
 

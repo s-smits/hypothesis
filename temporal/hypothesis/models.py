@@ -201,9 +201,13 @@ class ResolveInput(BaseModel):
 
     Args:
         plan: The plan to split into what this worker has and what it lacks.
+        goal_inputs: Each DAG input name the hypothesis has, to its kind. A plan whose
+            Dag declares anything else cannot be given its inputs, and saying so here
+            beats letting DagInput reject it mid-round.
     """
 
     plan: Plan
+    goal_inputs: dict[str, str] = {}
 
 
 class ResolveOutput(BaseModel):

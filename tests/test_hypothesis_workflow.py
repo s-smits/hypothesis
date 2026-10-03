@@ -530,3 +530,29 @@ async def test_a_worker_missing_an_activity_records_a_failure(env):
     )
     assert saved.state == "failed", saved.state
     assert saved.stopped_because and "could not continue" in saved.stopped_because
+
+
+async def test_a_plan_wired_to_the_wrong_input_name_says_so(env):
+    """The builder named an input the goal never offered.
+
+    This used to surface as a pydantic error about types, from DagInput, in the middle
+    of a round -- so the critique diagnosed the wrong thing and the loop burned both its
+    rounds on it. resolve_plan now catches it where the message can name the mistake.
+    """
+    hyp = Hypothesis(
+        goal="remove every TCG codon",
+        criteria=[NO_TCG],
+        inputs={"sequence": GENE},  # the plan below wires to "seq"
+    )
+    critiques: list[CritiqueInput] = []
+    done = await _run(
+        env,
+        [_planner([]), _verifier([_agrees()], []), _critic(critiques)],
+        hyp,
+        max_rounds=1,
+    )
+    assert done.attempts[0].error
+    assert "the plan declares inputs" in done.attempts[0].error
+    assert "sequence" in done.attempts[0].error
+    assert critiques, "the critic never saw the failure"
+    assert "declares inputs" in (critiques[0].view.error or "")

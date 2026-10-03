@@ -202,7 +202,9 @@ class HypothesisWorkflow:
         seen: set[str] = set()
         while True:
             res = await workflow.execute_activity(
-                resolve_plan, ResolveInput(plan=plan), **QUICK
+                resolve_plan,
+                ResolveInput(plan=plan, goal_inputs=self._hyp.input_kinds()),
+                **QUICK,
             )
             if res.error or not (res.missing or res.mismatched):
                 return res
