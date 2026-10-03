@@ -1,14 +1,17 @@
+import hashlib
+import json
 from abc import ABC, abstractmethod
 from enum import StrEnum
 from typing import Any, ClassVar
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from node_dag.types import Entity, Score
 
 
 class Category(StrEnum):
     """What a node does. Used for discovery and grouping."""
 
-    ARITHMETIC = "arithmetic"
     CONVERSION = "conversion"
     FILTER = "filter"
     SCORING = "scoring"
@@ -27,21 +30,43 @@ def _add_contract(schema: dict[str, Any], cls: type["BaseNodeConfig"]) -> None:
 class BaseNodeConfig(BaseModel):
     """Base for every node config.
 
-    A subclass sets a unique ``name`` literal, ``categories``, and ``inputs``: the
-    port names and types that the node's ``run`` takes as keyword arguments.
+    A node runs once on the whole list of entities that flows into its one input port.
+    A subclass sets a unique ``name`` literal, ``categories``, and ``inputs``: the port
+    name and entity type that the node's ``run`` takes, as a list, by keyword.
+
+    ``config_hash`` is a hash of the name, version and every other field. It is set when
+    the config is made, so it says what the node does. A config that arrives with a
+    wrong hash is rejected.
     """
 
     model_config = ConfigDict(
         extra="forbid", frozen=True, json_schema_extra=_add_contract
     )
     name: str
+    config_hash: str = Field(
+        default="", description="Set from the other fields. Leave it out."
+    )
     categories: ClassVar[tuple[Category, ...]] = ()
-    inputs: ClassVar[dict[str, type[BaseModel]]] = {}
-    # Part of the cache key. Raise it when a change to run() changes its results.
+    inputs: ClassVar[dict[str, type[Entity]]] = {}
+    # Part of the cache key and the config hash. Raise it when a change to run()
+    # changes its results.
     version: ClassVar[int] = 1
 
+    @model_validator(mode="after")
+    def _set_hash(self) -> "BaseNodeConfig":
+        fields = self.model_dump(mode="json", exclude={"config_hash"})
+        key = json.dumps({"version": self.version, **fields}, sort_keys=True)
+        digest = hashlib.sha256(key.encode()).hexdigest()[:8]
+        if self.config_hash not in ("", digest):
+            raise ValueError(
+                f"config_hash {self.config_hash!r} is not {digest!r}, the hash of "
+                "these fields. Leave config_hash out."
+            )
+        object.__setattr__(self, "config_hash", digest)  # The model is frozen.
+        return self
+
     @classmethod
-    def outputs(cls) -> dict[str, type[BaseModel]]:
+    def outputs(cls) -> dict[str, type[Entity]]:
         """The sources a step of this node produces, with ``<step>`` for its key."""
         raise NotImplementedError
 
@@ -54,30 +79,69 @@ class BaseNodeConfig(BaseModel):
             "outputs": {src: _kind(t) for src, t in cls.outputs().items()},
         }
 
+    @classmethod
+    def port(cls) -> tuple[str, type[Entity]]:
+        """The one input port and its entity type."""
+        ((port, t),) = cls.inputs.items()
+        return port, t
+
 
 class BaseToolConfig(BaseNodeConfig):
-    """A tool config. ``output`` is the type that ``run`` returns."""
+    """A tool config. ``output`` is the entity type of the list that ``run`` returns.
 
-    output: ClassVar[type[BaseModel]]
+    ``run`` returns one output entity per input, or any number. The step's table has
+    only these entities and no scores, since they are new entities.
+    """
+
+    output: ClassVar[type[Entity]]
 
     @classmethod
-    def outputs(cls) -> dict[str, type[BaseModel]]:
+    def outputs(cls) -> dict[str, type[Entity]]:
         """A tool step produces ``output`` under its own key."""
         return {"<step>": cls.output}
 
 
-class BaseDecisionConfig(BaseNodeConfig):
-    """A decision config. ``forwards`` names the input port the decision passes on.
+class BaseScoreConfig(BaseNodeConfig):
+    """A scoring config. ``output`` maps each score name to ``Score``.
 
-    A decision emits that input on ``<step>.yes`` or ``<step>.no``, never both.
+    ``run`` returns, for each input, a dict with a ``Score`` under each score name. The
+    entities pass through, and each score is added to the table as a column named
+    ``<name>__<config_hash>__<score name>``.
     """
 
-    forwards: ClassVar[str]
+    output: ClassVar[dict[str, type[Score]]]
 
     @classmethod
-    def outputs(cls) -> dict[str, type[BaseModel]]:
-        """A decision step forwards one input on ``.yes`` or ``.no``."""
-        t = cls.inputs[cls.forwards]
+    def outputs(cls) -> dict[str, type[Entity]]:
+        """A scoring step passes its input entities on under its own key."""
+        return {"<step>": cls.port()[1]}
+
+    @classmethod
+    def contract(cls) -> dict[str, Any]:
+        """The base contract, and ``scores``: each score name with its type."""
+        return {
+            **super().contract(),
+            "scores": {n: _kind(t) for n, t in cls.output.items()},
+        }
+
+    def columns(self) -> dict[str, str]:
+        """Maps each score name to its table column."""
+        return {s: f"{self.name}__{self.config_hash}__{s}" for s in self.output}
+
+
+class BaseFilterConfig(BaseNodeConfig):
+    """A filter config. ``column`` names the score column to filter on.
+
+    ``run`` gets the entities and that column's ``values``, aligned, and returns a bool
+    for each: True keeps it on ``<step>.yes``, False sends it to ``<step>.no``.
+    """
+
+    column: str
+
+    @classmethod
+    def outputs(cls) -> dict[str, type[Entity]]:
+        """A filter step passes its entities on, split into ``.yes`` and ``.no``."""
+        t = cls.port()[1]
         return {"<step>.yes": t, "<step>.no": t}
 
 
@@ -90,4 +154,4 @@ class BaseNode[C: BaseNodeConfig](ABC):
 
     @abstractmethod
     def run(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-        """Run on keyword inputs named as in ``config.inputs``."""
+        """Run on keyword inputs named as in ``config.inputs``, each a list."""

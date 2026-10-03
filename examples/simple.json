@@ -1,13 +1,69 @@
 {
   "dag": {
-    "inputs": {"x": "foo_bar", "y": "foo_bar"},
+    "inputs": {
+      "seqs": "dna"
+    },
     "steps": {
-      "add5":  {"config": {"name": "add", "amount": 5}, "inputs": {"value": "x"}},
-      "big":   {"config": {"name": "at_least", "threshold": 10}, "inputs": {"value": "add5"}},
-      "total": {"config": {"name": "sum", "scale": 2}, "inputs": {"a": "big.yes", "b": "y"}},
-      "label": {"config": {"name": "to_baz", "prefix": "total="}, "inputs": {"value": "total"}},
-      "sub1":  {"config": {"name": "add", "amount": -1}, "inputs": {"value": "big.no"}}
+      "mutated": {
+        "config": {
+          "name": "mutate_synonymous",
+          "seed": 1,
+          "count": 2
+        },
+        "inputs": {
+          "sequence": "seqs"
+        }
+      },
+      "scored": {
+        "config": {
+          "name": "dna_atom_score",
+          "config_hash": "3745d4af",
+          "reference": {
+            "kind": "dna",
+            "sequence": "ATGGCTCTGAAATAA",
+            "id": "1e142be77490"
+          }
+        },
+        "inputs": {
+          "sequence": "mutated"
+        }
+      },
+      "same_protein": {
+        "config": {
+          "name": "at_most",
+          "column": "dna_atom_score__3745d4af__amino_acid_changes",
+          "threshold": 0
+        },
+        "inputs": {
+          "items": "scored"
+        }
+      },
+      "smaller": {
+        "config": {
+          "name": "at_most",
+          "column": "dna_atom_score__3745d4af__atom_count",
+          "threshold": 494
+        },
+        "inputs": {
+          "items": "same_protein.yes"
+        }
+      }
     }
   },
-  "inputs": {"x": {"kind": "foo_bar", "count": 5}, "y": {"kind": "foo_bar", "count": 2}}
+  "inputs": {
+    "seqs": [
+      {
+        "kind": "dna",
+        "sequence": "ATGGCTCTGAAATAA"
+      },
+      {
+        "kind": "dna",
+        "sequence": "ATGGCGTTAAAGTAG"
+      },
+      {
+        "kind": "dna",
+        "sequence": "ATGGCCCTGAAATGA"
+      }
+    ]
+  }
 }

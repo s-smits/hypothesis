@@ -73,7 +73,7 @@
 <body>
 <header>
   <h1>node-dag</h1>
-  <nav><a href="/">Runs</a><a href="/hypotheses" class="here">Hypotheses</a><a href="/new">New</a></nav>
+  <nav><a href="/">Runs</a><a href="/hypotheses" class="here">Hypotheses</a><a href="/new">New</a><a href="/nodes">Nodes</a></nav>
   <span id="updated"></span>
 </header>
 <main id="view"><div class="empty">Loading…</div></main>
@@ -88,7 +88,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 const cls = (status) => `s-${status.replace(" ", "-")}`;
 const badge = (status) => `<span class="badge ${cls(status)}">${status}</span>`;
 const when = (t) => new Date(t).toLocaleString();
-const showValue = (v) => v == null ? "" : v.kind === "foo_bar" ? `count = ${v.count}` : v.kind === "baz" ? `label = "${v.label}"` : JSON.stringify(v);
+const showValue = (v) => v == null ? "" : Array.isArray(v) ? `${v.length} × ${v[0]?.kind ?? "empty"}` : v.items ? `${v.items.length} × ${v.items[0]?.kind ?? "empty"}${Object.keys(v.scores).length ? `, scores: ${Object.keys(v.scores).join(", ")}` : ""}` : JSON.stringify(v);
 const chips = (values) => Object.entries(values).map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(showValue(v))}</span>`).join("");
 
 // Where we are: all goals, one goal, or one hypothesis. Kept in the URL.
@@ -139,7 +139,7 @@ function goalView(goal) {
   return `
     ${crumbs(goal)}
     <h2>${esc(goal)}</h2>
-    <div class="counts"><span><b>${rs.length}</b> ${rs.length === 1 ? "hypothesis" : "hypotheses"}</span>${tally(rs)}</div>
+    <div class="counts"><span><b>${rs.length}</b> ${rs.length === 1 ? "hypothesis" : "hypotheses"}</span>${tally(rs)}<a href="/new?goal=${encodeURIComponent(goal)}">+ New hypothesis</a></div>
     <div class="rows">${rs.map((r) => {
       const h = r.hypothesis;
       return `

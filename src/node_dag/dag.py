@@ -4,18 +4,18 @@ from typing import Literal, Self
 from pydantic import BaseModel, model_validator
 
 from node_dag.factory import NodeConfig
-from node_dag.nodes.base import BaseDecisionConfig, BaseToolConfig
-from node_dag.types import TYPES, Value
+from node_dag.nodes.base import BaseFilterConfig, BaseScoreConfig, BaseToolConfig
+from node_dag.types import TYPES, Entity, Table, Value
 
 
 class Step(BaseModel):
-    """One node in a DAG and where each of its inputs comes from.
+    """One node in a DAG and where its input comes from.
 
     Args:
         config: The node to run.
-        inputs: Maps each input port in ``config.inputs`` to a source. A source is a
-            DAG input name, a tool step key, or ``<decision step>.yes`` / ``.no``.
-            A step runs only when every source has a value; else it is skipped.
+        inputs: Maps the node's one input port to a source. A source is a DAG input
+            name, a tool or scoring step key, or ``<filter step>.yes`` / ``.no``.
+            The node runs once on every entity that source holds.
     """
 
     config: NodeConfig
@@ -27,10 +27,12 @@ class Step(BaseModel):
 
 
 class Dag(BaseModel):
-    """A DAG of steps. Validation rejects cycles, unknown sources, and type mismatches.
+    """A DAG of steps. Validation rejects cycles, unknown sources, type mismatches and
+    filters on a score column that nothing upstream makes.
 
     Args:
-        inputs: Maps each DAG input name to its type, e.g. ``{"x": "foo_bar"}``.
+        inputs: Maps each DAG input name to the kind of the entities in its list, e.g.
+            ``{"seqs": "dna"}``.
         steps: The steps, keyed by name. Keys must not contain ``.`` or repeat an
             input name.
     """
@@ -50,8 +52,9 @@ class Dag(BaseModel):
             )
         if bad := {k: v for k, v in self.inputs.items() if v not in TYPES}:
             raise ValueError(f"Unknown input types {bad}; known: {sorted(TYPES)}")
-        # The type each source produces, filled in dependency order.
-        types = {k: TYPES[v] for k, v in self.inputs.items()}
+        # The entity type and the score columns each source holds, in dependency order.
+        types: dict[str, type[Entity]] = {k: TYPES[v] for k, v in self.inputs.items()}
+        columns: dict[str, set[str]] = {k: set() for k in self.inputs}
         try:
             order = list(self.order().static_order())
         except CycleError as e:
@@ -67,23 +70,32 @@ class Dag(BaseModel):
                     f"Step {key!r} ports {sorted(step.inputs)} != {config.name} ports "
                     f"{sorted(config.inputs)}"
                 )
-            for port, src in step.inputs.items():
-                if src not in types:
-                    raise ValueError(
-                        f"Step {key!r} port {port!r}: unknown source {src!r}. "
-                        "Read a decision's output as '<step>.yes' or '<step>.no'."
-                    )
-                if types[src] is not config.inputs[port]:
-                    raise ValueError(
-                        f"Step {key!r} port {port!r} takes {config.inputs[port].__name__}"
-                        f", but {src!r} gives {types[src].__name__}"
-                    )
+            ((port, src),) = step.inputs.items()
+            if src not in types:
+                raise ValueError(
+                    f"Step {key!r} port {port!r}: unknown source {src!r}. "
+                    "Read a filter's output as '<step>.yes' or '<step>.no'."
+                )
+            if not issubclass(types[src], config.inputs[port]):
+                raise ValueError(  # noqa: TRY004  A validator must raise ValueError.
+                    f"Step {key!r} port {port!r} takes {config.inputs[port].__name__}"
+                    f", but {src!r} gives {types[src].__name__}"
+                )
             if isinstance(config, BaseToolConfig):
-                types[key] = config.output
-            elif isinstance(config, BaseDecisionConfig):
-                types[f"{key}.yes"] = types[f"{key}.no"] = config.inputs[
-                    config.forwards
-                ]
+                # New entities, so none of the old scores apply.
+                types[key], columns[key] = config.output, set()
+            elif isinstance(config, BaseScoreConfig):
+                types[key] = types[src]
+                columns[key] = columns[src] | set(config.columns().values())
+            elif isinstance(config, BaseFilterConfig):
+                if config.column not in columns[src]:
+                    raise ValueError(
+                        f"Step {key!r} filters on {config.column!r}, but {src!r} has "
+                        f"score columns {sorted(columns[src])}"
+                    )
+                for branch in ("yes", "no"):
+                    types[f"{key}.{branch}"] = types[src]
+                    columns[f"{key}.{branch}"] = columns[src]
         return self
 
 
@@ -92,17 +104,17 @@ class DagInput(BaseModel):
 
     Args:
         dag: The steps to run.
-        inputs: A value for each name in ``dag.inputs``, of the type it declares.
+        inputs: A list of entities for each name in ``dag.inputs``, of the kind it declares.
     """
 
     dag: Dag
-    inputs: dict[str, Value]
+    inputs: dict[str, list[Value]]
 
     @model_validator(mode="after")
     def _check(self) -> Self:
         want = {k: TYPES[v] for k, v in self.dag.inputs.items()}
-        got = {k: type(v) for k, v in self.inputs.items()}
-        if want != got:
+        got = {k: {type(i) for i in v} for k, v in self.inputs.items()}
+        if want.keys() != got.keys() or any(got[k] - {t} for k, t in want.items()):
             raise ValueError(f"DAG wants inputs {want}, got {got}")
         return self
 
@@ -111,12 +123,14 @@ class DagOutput(BaseModel):
     """Result of DagWorkflow.
 
     Args:
-        values: Every value produced, keyed by source: inputs, tool step keys, and
-            the ``<decision>.yes`` / ``.no`` branch each decision took.
-        skipped: Steps that did not run because a source had no value.
+        values: The table each source ended with, keyed by source: inputs, tool and
+            scoring step keys, and ``<filter>.yes`` / ``.no``. A table's ``scores``
+            maps each column, ``<node name>__<config hash>__<score name>``, to the
+            score of every entity id.
+        skipped: Steps that did not run because no entities reached them.
     """
 
-    values: dict[str, Value]
+    values: dict[str, Table]
     skipped: list[str]
 
 
@@ -129,9 +143,9 @@ class DagProgress(BaseModel):
     Args:
         dag: The DAG being run.
         steps: The status of each step, keyed by step key.
-        values: Every value produced so far, keyed by source, as in DagOutput.
+        values: Every table produced so far, keyed by source, as in DagOutput.
     """
 
     dag: Dag
     steps: dict[str, StepStatus]
-    values: dict[str, Value]
+    values: dict[str, Table]

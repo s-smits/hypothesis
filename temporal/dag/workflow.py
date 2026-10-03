@@ -5,11 +5,13 @@ from temporalio import workflow
 
 with workflow.unsafe.imports_passed_through():
     from node_dag.dag import DagInput, DagOutput, DagProgress, StepStatus
-    from node_dag.nodes.base import BaseDecisionConfig
+    from node_dag.nodes.base import BaseFilterConfig, BaseScoreConfig
+    from node_dag.types import Table
     from temporal.dag.activities import (
         RunNodeInput,
         SaveWorkflowInput,
-        run_decision,
+        run_filter,
+        run_score,
         run_tool,
         save_workflow,
     )
@@ -19,17 +21,20 @@ TASK_QUEUE = "node-dag"
 
 @workflow.defn
 class DagWorkflow:
-    """Run every step once its inputs exist. Steps that are ready together run in parallel."""
+    """Run every step once its input exists, on all the entities that reach it.
+
+    Steps that are ready together run in parallel.
+    """
 
     @workflow.init
     def __init__(self, inp: DagInput) -> None:
         self._dag = inp.dag
-        self._values = dict(inp.inputs)
+        self._values = {k: Table.of(v) for k, v in inp.inputs.items()}
         self._steps: dict[str, StepStatus] = {k: "pending" for k in inp.dag.steps}
 
     @workflow.query
     def progress(self) -> DagProgress:
-        """The status of each step and the values produced so far."""
+        """The status of each step and the tables produced so far."""
         return DagProgress(dag=self._dag, steps=self._steps, values=self._values)
 
     @workflow.run
@@ -38,27 +43,54 @@ class DagWorkflow:
         dag, values, steps = self._dag, self._values, self._steps
 
         async def run_step(key: str) -> None:
-            step = dag.steps[key]
-            if any(src not in values for src in step.inputs.values()):
+            step, config = dag.steps[key], dag.steps[key].config
+            ((port, src),) = step.inputs.items()
+            table = values[src]
+            outs = (
+                [f"{key}.yes", f"{key}.no"]
+                if isinstance(config, BaseFilterConfig)
+                else [key]
+            )
+            if not table.items:  # Nothing reached this step, so nothing comes out.
+                values.update({out: Table() for out in outs})
                 steps[key] = "skipped"
                 return
-            node_inp = RunNodeInput(
-                config=step.config,
-                inputs={port: values[src] for port, src in step.inputs.items()},
-            )
+            node_inp = RunNodeInput(config=config, inputs={port: table.items})
             timeout = timedelta(minutes=5)
             steps[key] = "running"
             try:
-                if isinstance(step.config, BaseDecisionConfig):
-                    yes = await workflow.execute_activity(
-                        run_decision, node_inp, start_to_close_timeout=timeout
+                if isinstance(config, BaseScoreConfig):
+                    rows = await workflow.execute_activity(
+                        run_score, node_inp, start_to_close_timeout=timeout
                     )
-                    branch = f"{key}.{'yes' if yes else 'no'}"
-                    values[branch] = node_inp.inputs[step.config.forwards]
+                    new = {
+                        col: {i.id: r[name].value for i, r in zip(table.items, rows)}
+                        for name, col in config.columns().items()
+                    }
+                    values[key] = Table(
+                        items=table.items, scores={**table.scores, **new}
+                    )
+                elif isinstance(config, BaseFilterConfig):
+                    node_inp = node_inp.model_copy(
+                        update={
+                            "values": [
+                                table.scores[config.column][i.id] for i in table.items
+                            ]
+                        }
+                    )
+                    keep = await workflow.execute_activity(
+                        run_filter, node_inp, start_to_close_timeout=timeout
+                    )
+                    for out, want in zip(outs, (True, False)):
+                        values[out] = Table.of(
+                            [i for i, k in zip(table.items, keep) if k == want],
+                            table.scores,
+                        )
                 else:
-                    values[key] = await workflow.execute_activity(
+                    items = await workflow.execute_activity(
                         run_tool, node_inp, start_to_close_timeout=timeout
                     )
+                    values[key] = Table.of(items)
             except Exception:
                 steps[key] = "failed"
                 raise

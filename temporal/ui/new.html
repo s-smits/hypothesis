@@ -41,14 +41,16 @@
 <body>
 <header>
   <h1>node-dag</h1>
-  <nav><a href="/">Runs</a><a href="/hypotheses">Hypotheses</a><a href="/new" class="here">New</a></nav>
+  <nav><a href="/">Runs</a><a href="/hypotheses">Hypotheses</a><a href="/new" class="here">New</a><a href="/nodes">Nodes</a></nav>
 </header>
 <main>
   <form id="form">
     <h2>Start a hypothesis</h2>
     <div>
-      <label for="goal">Goal</label>
-      <textarea id="goal" rows="2" required placeholder="Double each input integer."></textarea>
+      <label for="goal-pick">Goal</label>
+      <select id="goal-pick" style="width: 100%"><option value="">New goal…</option></select>
+      <textarea id="goal" rows="2" required placeholder="Lower the atom count of the sequence without changing its protein." style="margin-top: 8px"></textarea>
+      <div class="hint" id="goal-hint"></div>
     </div>
     <div>
       <label for="hypothesis">Hypothesis (optional)</label>
@@ -67,20 +69,18 @@
 <script>
 // How to read each kind's value from one text box. Mirrors node_dag/types.py.
 const KINDS = {
-  foo_bar: { field: "count", placeholder: "3", parse: (s) => { if (!/^-?\d+$/.test(s)) throw new Error("must be a whole number"); return Number(s); } },
-  baz: { field: "label", placeholder: "text", parse: (s) => s },
-  dna: { field: "sequence", placeholder: "ATGGCC…", parse: (s) => s.toUpperCase() },
-  score: { field: "value", placeholder: "0.5", parse: (s) => { if (s.trim() === "" || isNaN(Number(s))) throw new Error("must be a number"); return Number(s); } },
+  dna: { field: "sequence", placeholder: "ATGGCC…", parse: (s) => s.trim().toUpperCase() },
+  amino_acid_sequence: { field: "sequence", placeholder: "MA…", parse: (s) => s.trim().toUpperCase() },
 };
 const $ = (sel) => document.querySelector(sel);
 
-function addInput(name = "", kind = "foo_bar", value = "") {
+function addInput(name = "", kind = "dna", value = "") {
   const row = document.createElement("div");
   row.className = "input";
   row.innerHTML = `
     <input name="name" placeholder="name" required>
     <select name="kind">${Object.keys(KINDS).map((k) => `<option>${k}</option>`).join("")}</select>
-    <input name="value" required>
+    <textarea name="value" rows="2" required></textarea>
     <button type="button" title="Remove">✕</button>`;
   const $k = row.querySelector("[name=kind]"), $v = row.querySelector("[name=value]");
   row.querySelector("[name=name]").value = name;
@@ -101,7 +101,10 @@ function readInputs() {
     const text = row.querySelector("[name=value]").value;
     if (name in inputs) throw new Error(`Input name "${name}" is used twice.`);
     try {
-      inputs[name] = { kind, [KINDS[kind].field]: KINDS[kind].parse(text) };
+      // One entity per line.
+      const lines = text.split("\n").filter((l) => l.trim() !== "");
+      if (!lines.length) throw new Error("needs at least one");
+      inputs[name] = lines.map((l) => ({ kind, [KINDS[kind].field]: KINDS[kind].parse(l) }));
     } catch (e) {
       throw new Error(`Input "${name}" (${kind}): ${e.message}`);
     }
@@ -112,13 +115,44 @@ function readInputs() {
 // The error body is FastAPI's: {detail: "…"} or {detail: [{loc, msg}, …]}.
 const explain = (d) => typeof d === "string" ? d : Array.isArray(d) ? d.map((e) => `${e.loc.slice(1).join(".")}: ${e.msg}`).join("\n") : JSON.stringify(d);
 
+let GOALS = [];
+
+// Picking a previous goal hides the text box and copies in that goal's latest inputs.
+function pickGoal() {
+  const g = GOALS[$("#goal-pick").value];
+  $("#goal").hidden = !!g;
+  $("#goal").required = !g;
+  $("#goal-hint").textContent = g ? `${g.hypotheses} hypothesis${g.hypotheses === 1 ? "" : "es"} so far. Inputs copied from the latest; edit them freely.` : "";
+  if (!g) return;
+  $("#inputs").replaceChildren();
+  for (const [name, items] of Object.entries(g.inputs)) addInput(name, items[0].kind, items.map((v) => String(v[KINDS[v.kind]?.field] ?? "")).join("\n"));
+}
+
+async function loadGoals() {
+  const r = await fetch("/api/goals");
+  if (!r.ok) return;
+  GOALS = await r.json();
+  $("#goal-pick").append(...GOALS.map((g, i) => {
+    const o = document.createElement("option");
+    o.value = i;
+    o.textContent = g.goal.length > 90 ? g.goal.slice(0, 90) + "…" : g.goal;
+    return o;
+  }));
+  const want = new URLSearchParams(location.search).get("goal");
+  const i = GOALS.findIndex((g) => g.goal === want);
+  if (i >= 0) { $("#goal-pick").value = i; pickGoal(); }
+}
+
+const goalText = () => GOALS[$("#goal-pick").value]?.goal ?? $("#goal").value;
+
+$("#goal-pick").addEventListener("change", pickGoal);
 $("#add").addEventListener("click", () => addInput());
 $("#form").addEventListener("submit", async (e) => {
   e.preventDefault();
   $("#error").textContent = "";
   $("#go").disabled = true;
   try {
-    const body = { goal: $("#goal").value, hypothesis: $("#hypothesis").value, inputs: readInputs() };
+    const body = { goal: goalText(), hypothesis: $("#hypothesis").value, inputs: readInputs() };
     const r = await fetch("/api/hypotheses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(explain(data.detail ?? `${r.status}`));
@@ -129,7 +163,8 @@ $("#form").addEventListener("submit", async (e) => {
   }
 });
 
-addInput("x");
+addInput("seq");
+loadGoals();
 </script>
 </body>
 </html>

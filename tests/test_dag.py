@@ -12,31 +12,56 @@ from temporalio.worker import Worker
 
 from node_dag.dag import Dag, DagInput, DagProgress
 from node_dag.factory import MAPPING
-from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
-from node_dag.types import Dna, AminoAcidSequence, Value
-from temporal.dag.activities import RunNodeInput, run_decision, run_tool, save_workflow
+from node_dag.nodes.base import BaseFilterConfig
+from node_dag.nodes.tools.dna_atom_score.config import DnaAtomScoreConfig
+from node_dag.nodes.tools.mutate_synonymous.config import MutateSynonymousConfig
+from node_dag.nodes.tools.mutate_synonymous.function import MutateSynonymous
+from node_dag.types import AminoAcidSequence, Dna, Table, Value
+from temporal.dag.activities import (
+    RunNodeInput,
+    run_filter,
+    run_score,
+    run_tool,
+    save_workflow,
+)
 from temporal.dag.workflow import DagWorkflow
 
-# Convert DNA sequence to protein, handling two paths
+REF = Dna(sequence="ATGGCTCTGAAATAA")  # M A L K *
+SEQS = [REF, Dna(sequence="ATGGCCCTGAAATAA"), Dna(sequence="ATGGCGTTAAAGTAG")]
+MUTATE = MutateSynonymousConfig(seed=3, count=2)
+MUTANTS = MutateSynonymous(MUTATE).run(sequence=SEQS)
+# Splits the mutants: at least one is at or under it, and at least one is over.
+LIMIT = min(m.atom_count() for m in MUTANTS)
+SCORE = DnaAtomScoreConfig(reference=REF)
+ATOMS = SCORE.columns()["atom_count"]
+CHANGES = SCORE.columns()["amino_acid_changes"]
+ACTIVITIES = [run_tool, run_score, run_filter, save_workflow]
+
+
+def _step(config: dict, source: str, port: str = "sequence") -> dict:
+    return {"config": config, "inputs": {port: source}}
+
+
+# Make 2 changes to each, score them, keep the synonymous ones, then the smaller ones.
 DAG: dict = {
-    "inputs": {"seq": "dna"},
+    "inputs": {"seqs": "dna"},
     "steps": {
-        "protein": {
-            "config": {"name": "dna_to_protein"},
-            "inputs": {"sequence": "seq"},
-        },
+        "mutated": _step(MUTATE.model_dump(mode="json"), "seqs"),
+        "scored": _step(SCORE.model_dump(mode="json"), "mutated"),
+        "same": _step(
+            {"name": "at_most", "column": CHANGES, "threshold": 0}, "scored", "items"
+        ),
+        "small": _step(
+            {"name": "at_most", "column": ATOMS, "threshold": LIMIT},
+            "same.yes",
+            "items",
+        ),
+        "protein": _step({"name": "dna_to_protein"}, "small.yes"),
     },
 }
 
 
-@pytest.mark.parametrize(
-    ("seq", "key", "expected_protein"),
-    [
-        ("ATGATGATG", "protein", "MMM"),
-        ("AAATTTGGG", "protein", "KFG"),
-    ],
-)
-async def test_workflow_runs_steps(seq, key, expected_protein, results_dir):
+async def _run(dag: dict, seqs: list[Dna], workflow_id: str = "run-1"):
     async with await WorkflowEnvironment.start_time_skipping(
         data_converter=pydantic_data_converter
     ) as env:
@@ -45,36 +70,108 @@ async def test_workflow_runs_steps(seq, key, expected_protein, results_dir):
                 env.client,
                 task_queue="t",
                 workflows=[DagWorkflow],
-                activities=[run_tool, run_decision, save_workflow],
+                activities=ACTIVITIES,
                 activity_executor=pool,
             ):
-                out = await env.client.execute_workflow(
+                return await env.client.execute_workflow(
                     DagWorkflow.run,
-                    DagInput(
-                        dag=Dag.model_validate(DAG),
-                        inputs={"seq": Dna(sequence=seq)},
-                    ),
-                    id="run-1",
+                    DagInput(dag=Dag.model_validate(dag), inputs={"seqs": seqs}),
+                    id=workflow_id,
                     task_queue="t",
                 )
-    assert out.values[key] == AminoAcidSequence(sequence=expected_protein)
-    assert out.skipped == []
+
+
+async def test_workflow_runs_every_entity_through_each_step(results_dir):
+    out = await _run(DAG, SEQS)
+
+    assert out.values["seqs"].items == SEQS
+    mutated, scored = out.values["mutated"], out.values["scored"]
+    assert mutated.items == MUTANTS
+    assert all(m.protein() == REF.protein() for m in mutated.items)
+    assert mutated.scores == {}  # New entities have no scores.
+    # Scoring keeps the entities and adds a column per score, named by node and hash.
+    assert scored.items == mutated.items
+    assert set(scored.scores) == {ATOMS, CHANGES}
+    assert scored.scores[ATOMS] == {i.id: i.atom_count() for i in scored.items}
+    assert set(scored.scores[CHANGES].values()) == {0}
+    # A filter splits the table and takes the columns of what it keeps.
+    yes, no = out.values["same.yes"], out.values["same.no"]
+    assert yes.items == scored.items
+    assert no.items == []
+    assert yes.scores == scored.scores
+    small = out.values["small.yes"]
+    assert small.items and all(i.atom_count() <= LIMIT for i in small.items)
+    assert any(i.atom_count() > LIMIT for i in yes.items) is bool(
+        out.values["small.no"].items
+    )
+    split = small.items + out.values["small.no"].items
+    assert sorted(i.id for i in split) == sorted(i.id for i in yes.items)
+    assert out.values["protein"].items == [AminoAcidSequence(sequence=REF.protein())]
+
     saved = DagProgress.model_validate_json(
         (results_dir / "workflows" / "run-1.json").read_text()
     )
     assert saved.values == out.values
-    assert sorted(k for k, s in saved.steps.items() if s == "skipped") == []
 
 
-def _step(name: str, inputs: dict, **config) -> dict:
-    return {"config": {"name": name, **config}, "inputs": inputs}
+async def test_a_step_with_nothing_to_run_on_is_skipped():
+    dag = {
+        **DAG,
+        "steps": {
+            **DAG["steps"],
+            "small": _step(
+                {"name": "at_most", "column": ATOMS, "threshold": 0},
+                "same.yes",
+                "items",
+            ),
+        },
+    }
+    out = await _run(dag, SEQS)
+    assert out.values["small.yes"] == Table()
+    assert len(out.values["small.no"].items) == len(SEQS)
+    assert out.values["protein"] == Table()
+    assert out.skipped == ["protein"]
+
+
+def _filter(column: str, source: str) -> dict:
+    return _step({"name": "at_most", "column": column, "threshold": 1}, source, "items")
 
 
 @pytest.mark.parametrize(
     ("patch", "match"),
     [
-        ({"protein": _step("dna_to_protein", {"sequence": "nope"})}, "Unknown source"),
-        ({"protein": _step("dna_to_protein", {"sequence": "protein"})}, "Cycle"),
+        ({"mutated": _step({"name": "dna_to_protein"}, "nope")}, "Unknown source"),
+        ({"mutated": _step({"name": "dna_to_protein"}, "mutated")}, "Cycle"),
+        (
+            {
+                "protein": _step({"name": "dna_to_protein"}, "protein2"),
+                "protein2": _step({"name": "dna_to_protein"}, "protein"),
+            },
+            "Cycle",
+        ),
+        # A protein is not DNA.
+        (
+            {
+                "p": _step({"name": "dna_to_protein"}, "seqs"),
+                "bad": _step({"name": "dna_to_protein"}, "p"),
+            },
+            "port 'sequence' takes Dna, but 'p' gives AminoAcidSequence",
+        ),
+        # Nothing has scored the sequences yet.
+        ({"early": _filter(ATOMS, "seqs")}, "score columns \\[\\]"),
+        # A mutation makes new entities, which drops the scores.
+        (
+            {
+                "remut": _step({"name": "mutate_synonymous", "seed": 1}, "scored"),
+                "late": _filter(ATOMS, "remut"),
+            },
+            "score columns \\[\\]",
+        ),
+        # The hash is part of the column, so the column of another config is unknown.
+        (
+            {"wrong": _filter(ATOMS.replace(SCORE.config_hash, "00000000"), "scored")},
+            f"score columns \\['{CHANGES}', '{ATOMS}'\\]",
+        ),
     ],
 )
 def test_dag_rejects_bad_graphs(patch, match):
@@ -82,21 +179,47 @@ def test_dag_rejects_bad_graphs(patch, match):
         Dag.model_validate({**DAG, "steps": {**DAG["steps"], **patch}})
 
 
+def test_dag_accepts_filters_on_columns_that_reach_them():
+    Dag.model_validate(
+        {**DAG, "steps": {**DAG["steps"], "ok": _filter(ATOMS, "same.no")}}
+    )
+
+
 def test_dag_input_must_match_declared_types():
+    dag = Dag.model_validate(DAG)
     with pytest.raises(ValidationError, match="DAG wants inputs"):
-        DagInput(
-            dag=Dag.model_validate(DAG),
-            inputs={"seq": AminoAcidSequence(sequence="MMM")},
-        )
+        DagInput(dag=dag, inputs={"seqs": [AminoAcidSequence(sequence="MMM")]})
+    with pytest.raises(ValidationError, match="DAG wants inputs"):
+        DagInput(dag=dag, inputs={"other": SEQS})
+
+
+def test_a_config_with_a_made_up_hash_is_rejected():
+    step = _step(
+        {**SCORE.model_dump(mode="json"), "config_hash": "feedface"}, "mutated"
+    )
+    with pytest.raises(ValidationError, match="config_hash"):
+        Dag.model_validate({**DAG, "steps": {**DAG["steps"], "scored": step}})
 
 
 @pytest.mark.parametrize("config", MAPPING)
 def test_config_declares_what_run_takes(config):
     """The DAG is checked against config.inputs, so it must match run's signature."""
     params = inspect.signature(MAPPING[config].run).parameters
-    assert {k: p.annotation for k, p in params.items() if k != "self"} == config.inputs
+    got = {k: p.annotation for k, p in params.items() if k != "self"}
+    want = {port: list[t] for port, t in config.inputs.items()}
+    if issubclass(config, BaseFilterConfig):
+        want["values"] = list[float]  # The score column.
+    assert got == want
+    assert len(config.inputs) == 1
     assert config.categories
     assert config.model_json_schema()["x-node"] == config.contract()
+
+
+def test_contract_shows_score_names_and_types():
+    assert DnaAtomScoreConfig.contract()["scores"] == {
+        "atom_count": "score",
+        "amino_acid_changes": "score",
+    }
 
 
 async def test_a_step_does_not_wait_for_an_unrelated_slow_step():
@@ -104,11 +227,8 @@ async def test_a_step_does_not_wait_for_an_unrelated_slow_step():
     ran: list[str] = []
 
     @activity.defn(name="run_tool")
-    async def timed_tool(inp: RunNodeInput) -> Value:
-        from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
-        assert isinstance(inp.config, DnaToProteinConfig)
-        # Mark slow/fast by checking the input sequence
-        is_slow = len(inp.inputs["sequence"].sequence) > 10
+    async def timed_tool(inp: RunNodeInput) -> list[Value]:
+        is_slow = len(inp.inputs["sequence"][0].sequence) > 10
         await asyncio.sleep(1 if is_slow else 0)
         ran.append("slow" if is_slow else "fast")
         return run_tool(inp)
@@ -116,8 +236,8 @@ async def test_a_step_does_not_wait_for_an_unrelated_slow_step():
     dag = {
         "inputs": {"fast_seq": "dna", "slow_seq": "dna"},
         "steps": {
-            "slow": {"config": {"name": "dna_to_protein"}, "inputs": {"sequence": "slow_seq"}},
-            "fast": {"config": {"name": "dna_to_protein"}, "inputs": {"sequence": "fast_seq"}},
+            "slow": _step({"name": "dna_to_protein"}, "slow_seq"),
+            "fast": _step({"name": "dna_to_protein"}, "fast_seq"),
         },
     }
     async with (
@@ -136,9 +256,9 @@ async def test_a_step_does_not_wait_for_an_unrelated_slow_step():
             DagInput(
                 dag=Dag.model_validate(dag),
                 inputs={
-                    "fast_seq": Dna(sequence="ATG"),
-                    "slow_seq": Dna(sequence="ATGATGATGATGATGATGATGATGATGATG")
-                }
+                    "fast_seq": [Dna(sequence="ATG")],
+                    "slow_seq": [Dna(sequence="ATGATGATGATGATGATGATGATGATGATG")],
+                },
             ),
             id=str(uuid.uuid4()),
             task_queue="t",
@@ -151,20 +271,16 @@ async def test_progress_reports_each_step_while_running():
     release = asyncio.Event()
 
     @activity.defn(name="run_tool")
-    async def gated_tool(inp: RunNodeInput) -> Value:
-        from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
-        assert isinstance(inp.config, DnaToProteinConfig)
-        # Mark slow based on sequence length
-        is_slow = len(inp.inputs["sequence"].sequence) > 10
-        if is_slow:
+    async def gated_tool(inp: RunNodeInput) -> list[Value]:
+        if len(inp.inputs["sequence"][0].sequence) > 10:
             await release.wait()
         return run_tool(inp)
 
     dag = {
         "inputs": {"fast_seq": "dna", "slow_seq": "dna"},
         "steps": {
-            "slow": {"config": {"name": "dna_to_protein"}, "inputs": {"sequence": "slow_seq"}},
-            "fast": {"config": {"name": "dna_to_protein"}, "inputs": {"sequence": "fast_seq"}},
+            "slow": _step({"name": "dna_to_protein"}, "slow_seq"),
+            "fast": _step({"name": "dna_to_protein"}, "fast_seq"),
         },
     }
     async with (
@@ -183,9 +299,9 @@ async def test_progress_reports_each_step_while_running():
             DagInput(
                 dag=Dag.model_validate(dag),
                 inputs={
-                    "fast_seq": Dna(sequence="ATG"),
-                    "slow_seq": Dna(sequence="ATGATGATGATGATGATGATGATGATGATG")
-                }
+                    "fast_seq": [Dna(sequence="ATG")],
+                    "slow_seq": [Dna(sequence="ATGATGATGATGATGATGATGATGATGATG")],
+                },
             ),
             id=str(uuid.uuid4()),
             task_queue="t",
@@ -197,7 +313,7 @@ async def test_progress_reports_each_step_while_running():
             await asyncio.sleep(0.05)
         assert progress.steps["fast"] == "done"
         assert progress.steps["slow"] == "running"
-        assert progress.values["fast"] == AminoAcidSequence(sequence="M")
+        assert progress.values["fast"].items == [AminoAcidSequence(sequence="M")]
         release.set()
         await handle.result()
         progress = await handle.query(DagWorkflow.progress)

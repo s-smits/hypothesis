@@ -2,11 +2,11 @@ import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from pydantic_ai.models import Model
 from temporalio.client import (
     Client,
@@ -18,16 +18,18 @@ from temporalio.service import RPCError
 
 from node_dag.agent import Hypothesis
 from node_dag.dag import DagProgress
+from node_dag.registry import Registry
 from temporal.dag.activities import SaveWorkflowInput
 from temporal.dag.workflow import DagWorkflow
 from node_dag.types import Value
-from temporal.run_hypothesis import hypotheses_dir, run_hypothesis
+from temporal.run_hypothesis import hypotheses_dir, registry_dir, run_hypothesis
 
 logger = logging.getLogger(__name__)
 
 INDEX = Path(__file__).with_name("index.html")
 NEW = Path(__file__).with_name("new.html")
 HYPOTHESES = Path(__file__).with_name("hypotheses.html")
+NODES = Path(__file__).with_name("nodes.html")
 
 HypothesisStatus = Literal[
     "building", "running", "failed", "verifying", "achieved", "not achieved"
@@ -106,6 +108,50 @@ def _hypothesis_row(path: Path) -> HypothesisRow:
     )
 
 
+class Goal(BaseModel):
+    """A goal that has hypotheses.
+
+    Args:
+        goal: The goal text.
+        hypotheses: How many hypotheses it has.
+        inputs: The inputs of its most recently saved hypothesis.
+        updated: When its most recent hypothesis was saved.
+    """
+
+    goal: str
+    hypotheses: int
+    inputs: dict[str, list[Value]]
+    updated: datetime
+
+
+def _saved_rows() -> list[HypothesisRow]:
+    """Every saved Hypothesis that still validates, newest first.
+
+    A file written before a schema change no longer loads. Skip it, so one stale
+    file does not take out the whole page.
+    """
+    rows = []
+    for path in hypotheses_dir().glob("*.json"):
+        try:
+            rows.append(_hypothesis_row(path))
+        except ValidationError as e:
+            logger.warning("Skipping unreadable hypothesis %s: %s", path.name, e)
+    return sorted(rows, key=lambda r: r.updated, reverse=True)
+
+
+def _goals(rows: list[HypothesisRow]) -> list[Goal]:
+    goals: dict[str, Goal] = {}
+    for r in sorted(rows, key=lambda r: r.updated, reverse=True):
+        h = r.hypothesis
+        if h.goal in goals:
+            goals[h.goal].hypotheses += 1
+        else:
+            goals[h.goal] = Goal(
+                goal=h.goal, hypotheses=1, inputs=h.inputs, updated=r.updated
+            )
+    return list(goals.values())
+
+
 def _run(ex: WorkflowExecution) -> Run:
     return Run(
         id=ex.id,
@@ -127,7 +173,7 @@ class NewHypothesis(BaseModel):
 
     goal: str = Field(min_length=1)
     hypothesis: str | None = None
-    inputs: dict[str, Value]
+    inputs: dict[str, list[Value]]
 
 
 def make_app(
@@ -183,11 +229,24 @@ def make_app(
     async def hypotheses_page() -> FileResponse:
         return FileResponse(HYPOTHESES)
 
+    @app.get("/nodes", include_in_schema=False)
+    async def nodes_page() -> FileResponse:
+        return FileResponse(NODES)
+
+    @app.get("/api/nodes")
+    async def nodes() -> list[dict[str, Any]]:
+        """Every registered node as the builder agent sees it, in id order."""
+        return [n.summary() for n in Registry(registry_dir()).all()]
+
     @app.get("/api/hypotheses")
     async def hypotheses() -> list[HypothesisRow]:
         """Every saved Hypothesis, the most recently saved first."""
-        rows = [_hypothesis_row(p) for p in hypotheses_dir().glob("*.json")]
-        return sorted(rows, key=lambda r: r.updated, reverse=True)
+        return _saved_rows()
+
+    @app.get("/api/goals")
+    async def goals() -> list[Goal]:
+        """Every goal with a saved Hypothesis, the most recently used first."""
+        return _goals(_saved_rows())
 
     @app.get("/api/runs")
     async def runs(limit: int = 50) -> list[Run]:

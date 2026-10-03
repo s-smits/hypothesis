@@ -1,4 +1,0 @@
-{
-  "goal": "Double each input integer.",
-  "inputs": {"x": {"kind": "foo_bar", "count": 3}, "y": {"kind": "foo_bar", "count": 7}}
-}

@@ -72,7 +72,7 @@
 <body>
 <header>
   <h1>node-dag</h1>
-  <nav><a href="/" class="here">Runs</a><a href="/hypotheses">Hypotheses</a><a href="/new">New</a></nav>
+  <nav><a href="/" class="here">Runs</a><a href="/hypotheses">Hypotheses</a><a href="/new">New</a><a href="/nodes">Nodes</a></nav>
   <span id="updated"></span>
 </header>
 <main>
@@ -96,7 +96,7 @@ const ago = (t) => {
   const s = Math.round((Date.now() - new Date(t)) / 1000);
   return s < 60 ? `${s}s ago` : s < 3600 ? `${Math.round(s / 60)}m ago` : s < 86400 ? `${Math.round(s / 3600)}h ago` : new Date(t).toLocaleString();
 };
-const showValue = (v) => v == null ? "" : v.kind === "foo_bar" ? `count = ${v.count}` : v.kind === "baz" ? `label = "${v.label}"` : JSON.stringify(v);
+const showValue = (v) => v == null ? "" : Array.isArray(v) ? `${v.length} × ${v[0]?.kind ?? "empty"}` : v.items ? `${v.items.length} × ${v.items[0]?.kind ?? "empty"}${Object.keys(v.scores).length ? `, scores: ${Object.keys(v.scores).join(", ")}` : ""}` : JSON.stringify(v);
 
 async function getJSON(url) {
   const r = await fetch(url);

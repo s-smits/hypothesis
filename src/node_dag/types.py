@@ -1,11 +1,32 @@
-from typing import Annotated, Literal
+import hashlib
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, Discriminator, field_validator
+from pydantic import BaseModel, Discriminator, computed_field, field_validator
 
 from node_dag.dna import ATOMS_PER_BASE, CODON_TABLE
 
 
-class AminoAcidSequence(BaseModel):
+class Entity(BaseModel):
+    """Something a DAG passes around in lists: a sequence with a unique ``id``.
+
+    The id is a hash of the kind and the sequence, so the same sequence always has the
+    same id. That keeps results cacheable, and identical entities merge into one.
+
+    Args:
+        sequence: The residues, 5' to 3' for DNA.
+    """
+
+    kind: str = "entity"
+    sequence: str
+
+    @computed_field
+    @property
+    def id(self) -> str:
+        """A short, stable hash of the kind and the sequence."""
+        return hashlib.sha256(f"{self.kind}:{self.sequence}".encode()).hexdigest()[:12]
+
+
+class AminoAcidSequence(Entity):
     """A protein sequence: one-letter amino acid codes.
 
     Args:
@@ -13,7 +34,6 @@ class AminoAcidSequence(BaseModel):
     """
 
     kind: Literal["amino_acid_sequence"] = "amino_acid_sequence"
-    sequence: str
 
     @field_validator("sequence")
     @classmethod
@@ -36,7 +56,7 @@ class Codon(BaseModel):
     amino_acid: str
 
 
-class Dna(BaseModel):
+class Dna(Entity):
     """A coding DNA sequence: upper-case A, C, G, T, a whole number of codons.
 
     Args:
@@ -44,7 +64,6 @@ class Dna(BaseModel):
     """
 
     kind: Literal["dna"] = "dna"
-    sequence: str
 
     @field_validator("sequence")
     @classmethod
@@ -70,7 +89,7 @@ class Dna(BaseModel):
 
 
 class Score(BaseModel):
-    """A number that rates something.
+    """A number that rates an entity. A scoring node returns one per score name.
 
     Args:
         value: The score.
@@ -80,9 +99,35 @@ class Score(BaseModel):
     value: float
 
 
-Value = Annotated[Dna | AminoAcidSequence | Score, Discriminator("kind")]
-TYPES: dict[str, type[BaseModel]] = {
-    "dna": Dna,
-    "amino_acid_sequence": AminoAcidSequence,
-    "score": Score,
-}
+# Add a new entity type to both.
+Value = Annotated[Dna | AminoAcidSequence, Discriminator("kind")]
+TYPES: dict[str, type[Entity]] = {"dna": Dna, "amino_acid_sequence": AminoAcidSequence}
+
+
+class Table(BaseModel):
+    """What flows along a DAG edge: entities and the scores they have so far.
+
+    Args:
+        items: The entities, in order, with no two sharing an id.
+        scores: Maps a score column, ``<node name>__<config hash>__<score name>``, to
+            the score of each entity id.
+    """
+
+    items: list[Value] = []
+    scores: dict[str, dict[str, float]] = {}
+
+    @classmethod
+    def of(
+        cls, items: list[Value], scores: dict[str, dict[str, float]] | None = None
+    ) -> Self:
+        """A table of ``items`` without repeats, keeping only their scores.
+
+        A table with no items has no score columns.
+        """
+        unique = list({i.id: i for i in items}.values())
+        ids = {i.id for i in unique}
+        kept = {
+            col: {k: v for k, v in by_id.items() if k in ids}
+            for col, by_id in (scores or {}).items()
+        }
+        return cls(items=unique, scores={c: s for c, s in kept.items() if s})

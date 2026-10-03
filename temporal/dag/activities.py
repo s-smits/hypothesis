@@ -1,7 +1,6 @@
 import hashlib
 import json
 import os
-import uuid
 from collections.abc import Callable
 from pathlib import Path
 
@@ -11,7 +10,9 @@ from temporalio import activity
 from node_dag import factory
 from node_dag.dag import DagProgress
 from node_dag.factory import NodeConfig
-from node_dag.types import Value
+from node_dag.nodes.base import BaseScoreConfig
+from node_dag.storage import write_atomic
+from node_dag.types import Score, Value
 
 
 def results_root() -> Path:
@@ -21,30 +22,23 @@ def results_root() -> Path:
     return Path(os.environ.get("NODE_DAG_RESULTS", "results"))
 
 
-def write_atomic(path: Path, data: bytes) -> None:
-    """Write ``data`` to ``path``, making its directory if needed."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # Write then rename, so a reader never sees half a file.
-    tmp = path.with_suffix(f".{uuid.uuid4().hex}.tmp")
-    tmp.write_bytes(data)
-    tmp.replace(path)
-
-
 class RunNodeInput(BaseModel):
     """Input to the node activities.
 
     Args:
         config: The node to run.
-        inputs: The values for the node's input ports.
+        inputs: The list of entities for the node's input port.
+        values: For a filter, the score of each entity, in order.
     """
 
     config: NodeConfig
-    inputs: dict[str, Value]
+    inputs: dict[str, list[Value]]
+    values: list[float] | None = None
 
     def cache_path(self) -> Path:
         """``$NODE_DAG_RESULTS/nodes/<node name>/<hash>.json``. The root defaults to ``results``.
 
-        The hash covers the config, the input values and the config's ``version``.
+        The hash covers the config, the inputs and the config's ``version``.
         """
         key = {**self.model_dump(mode="json"), "version": self.config.version}
         digest = hashlib.sha256(json.dumps(key, sort_keys=True).encode()).hexdigest()
@@ -60,20 +54,56 @@ def _cached[T](inp: RunNodeInput, adapter: TypeAdapter[T], run: Callable[[], T])
     return out
 
 
-_VALUE: TypeAdapter[Value] = TypeAdapter(Value)
-_BOOL = TypeAdapter(bool)
+_ENTITIES: TypeAdapter[list[Value]] = TypeAdapter(list[Value])
+_SCORES = TypeAdapter(list[dict[str, Score]])
+_KEEP = TypeAdapter(list[bool])
+
+
+def _run_aligned(inp: RunNodeInput, **extra: object) -> list:
+    """Run the node, which must return one result for each entity, in order."""
+    out = factory.build(inp.config).run(**inp.inputs, **extra)
+    (items,) = inp.inputs.values()
+    if len(out) != len(items):
+        raise ValueError(
+            f"{inp.config.name} gave {len(out)} results for {len(items)} entities"
+        )
+    return out
 
 
 @activity.defn
-def run_tool(inp: RunNodeInput) -> Value:
-    """Run one tool node through the factory, or load its cached result."""
-    return _cached(inp, _VALUE, lambda: factory.build(inp.config).run(**inp.inputs))
+def run_tool(inp: RunNodeInput) -> list[Value]:
+    """Run a tool node on its whole list through the factory, or load its cached result."""
+    return _cached(inp, _ENTITIES, lambda: factory.build(inp.config).run(**inp.inputs))
 
 
 @activity.defn
-def run_decision(inp: RunNodeInput) -> bool:
-    """Run one decision node through the factory, or load its cached result."""
-    return _cached(inp, _BOOL, lambda: factory.build(inp.config).run(**inp.inputs))
+def run_score(inp: RunNodeInput) -> list[dict[str, Score]]:
+    """Run a scoring node on its whole list, or load its cached result.
+
+    Returns one dict of scores per entity, in order.
+    """
+    config = inp.config
+    assert isinstance(config, BaseScoreConfig)
+
+    def run() -> list[dict[str, Score]]:
+        out = _run_aligned(inp)
+        names = set(config.output)
+        if bad := [r for r in out if r.keys() != names]:
+            raise ValueError(
+                f"{config.name} must score {sorted(names)}, got {sorted(bad[0])}"
+            )
+        return out
+
+    return _cached(inp, _SCORES, run)
+
+
+@activity.defn
+def run_filter(inp: RunNodeInput) -> list[bool]:
+    """Run a filter node on its list and score values, or load its cached result.
+
+    Returns whether to keep each entity, in order.
+    """
+    return _cached(inp, _KEEP, lambda: _run_aligned(inp, values=inp.values))
 
 
 class SaveWorkflowInput(BaseModel):

@@ -1,0 +1,19 @@
+{
+  "goal": "Lower the atom count of the DNA sequences without changing their proteins. Keep the ones with fewer atoms than the first sequence.",
+  "inputs": {
+    "seqs": [
+      {
+        "kind": "dna",
+        "sequence": "ATGGCTCTGAAATAA"
+      },
+      {
+        "kind": "dna",
+        "sequence": "ATGGCGTTAAAGTAG"
+      },
+      {
+        "kind": "dna",
+        "sequence": "ATGGCCCTGAAATGA"
+      }
+    ]
+  }
+}

@@ -1,11 +1,11 @@
 from node_dag.nodes.base import BaseNode
 from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
-from node_dag.types import Dna, AminoAcidSequence
+from node_dag.types import AminoAcidSequence, Dna
 
 
 class DnaToProtein(BaseNode[DnaToProteinConfig]):
-    """Convert a DNA sequence to its amino acid representation."""
+    """Translate each DNA sequence to the amino acids it encodes."""
 
-    def run(self, sequence: Dna) -> AminoAcidSequence:
-        """Return the amino acid sequence encoded by the DNA."""
-        return AminoAcidSequence(sequence=sequence.protein())
+    def run(self, sequence: list[Dna]) -> list[AminoAcidSequence]:
+        """Return one amino acid sequence per DNA sequence."""
+        return [AminoAcidSequence(sequence=s.protein()) for s in sequence]

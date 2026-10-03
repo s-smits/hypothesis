@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from temporalio.contrib.pydantic import pydantic_data_converter
 
 from node_dag.agent import Hypothesis, build_agent, verify_agent
 from node_dag.dag import DagInput
+from node_dag.registry import Registry
 from temporal.dag.activities import results_root, write_atomic
 from temporal.dag.workflow import TASK_QUEUE, DagWorkflow
 
@@ -22,6 +24,11 @@ logger = logging.getLogger(__name__)
 def hypotheses_dir() -> Path:
     """``$NODE_DAG_RESULTS/hypotheses``: one ``<hypothesis id>.json`` per Hypothesis."""
     return results_root() / "hypotheses"
+
+
+def registry_dir() -> Path:
+    """``$NODE_DAG_RESULTS/registry``: one ``<node id>.json`` per registered node."""
+    return results_root() / "registry"
 
 
 def save_hypothesis(hyp: Hypothesis) -> Hypothesis:
@@ -45,13 +52,18 @@ async def run_hypothesis(
     try:
         logger.info("Building hypothesis %s: %s", hyp.id, hyp.goal)
         save_hypothesis(hyp)
-        prompt = f"Goal: {hyp.goal}\nInputs (name: kind): {hyp.input_kinds()}"
-        if hyp.hypothesis:  # One the user proposed. The builder replaces it with its own.
+        prompt = f"Goal: {hyp.goal}\nInputs: {json.dumps(hyp.describe_inputs())}"
+        if (
+            hyp.hypothesis
+        ):  # One the user proposed. The builder replaces it with its own.
             prompt += f"\nProposed hypothesis: {hyp.hypothesis}"
         logger.info("Calling builder agent for %s", hyp.id)
-        hyp = (await build_agent(build_model).run(prompt, deps=hyp)).output
+        agent = build_agent(build_model, Registry(registry_dir()))
+        hyp = (await agent.run(prompt, deps=hyp)).output
         assert hyp.dag is not None
-        logger.info("Builder finished for %s, DAG has %d steps", hyp.id, len(hyp.dag.steps))
+        logger.info(
+            "Builder finished for %s, DAG has %d steps", hyp.id, len(hyp.dag.steps)
+        )
         hyp = save_hypothesis(hyp.model_copy(update={"workflow_id": hyp.id}))
 
         logger.info("Running DAG workflow %s", hyp.id)
@@ -68,7 +80,9 @@ async def run_hypothesis(
         verdict = await verify_agent(verify_model).run(
             hyp.model_dump_json(exclude={"verdict"})
         )
-        logger.info("Verifier finished for %s: achieved=%s", hyp.id, verdict.output.achieved)
+        logger.info(
+            "Verifier finished for %s: achieved=%s", hyp.id, verdict.output.achieved
+        )
         return save_hypothesis(hyp.model_copy(update={"verdict": verdict.output}))
     except Exception as e:
         logger.exception("Hypothesis %s failed", hyp.id)
