@@ -45,6 +45,13 @@ class BaseNodeConfig(BaseModel):
     # One concrete input, the config that was used, and the output it gives. Rides in
     # ``contract()`` -> ``x-node``, so it reaches the agent through ``describe_node``.
     example: ClassVar[str] = ""
+    # Discovery metadata. ``intents`` are short phrases naming the jobs this node does,
+    # in the words someone would state a goal in; the two ``when_`` strings say when it
+    # is and is not the right choice. All three ride in ``contract()``, so search_nodes
+    # can rank on them and describe_node shows them.
+    intents: ClassVar[tuple[str, ...]] = ()
+    when_to_use: ClassVar[str] = ""
+    when_not_to_use: ClassVar[str] = ""
     # Part of the cache key. Raise it when a change to run() changes its results.
     version: ClassVar[int] = 1
 
@@ -55,12 +62,15 @@ class BaseNodeConfig(BaseModel):
 
     @classmethod
     def contract(cls) -> dict[str, Any]:
-        """Categories, a worked example, input ports and outputs as ``kind`` names."""
+        """Categories, a worked example, ports and outputs, and when to pick this node."""
         return {
             "categories": [c.value for c in cls.categories],
             "example": cls.example,
             "inputs": {port: _kind(t) for port, t in cls.inputs.items()},
             "outputs": {src: _kind(t) for src, t in cls.outputs().items()},
+            "intents": list(cls.intents),
+            "when_to_use": cls.when_to_use,
+            "when_not_to_use": cls.when_not_to_use,
         }
 
 

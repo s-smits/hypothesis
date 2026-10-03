@@ -25,6 +25,22 @@ class DnaReverseComplementConfig(BaseToolConfig):
     example: ClassVar = (
         "sequence=ATGTCGTAA -> TTACGACAT: the complement TACAGCATT read backwards"
     )
+    intents: ClassVar = (
+        "reverse complement a DNA sequence",
+        "get the opposite, antisense or template strand read 5' to 3'",
+        "read a gene that is encoded on the minus strand",
+        "flip a sequence onto the other strand",
+    )
+    when_to_use: ClassVar = (
+        "Use when the goal asks for the reverse complement, or for the opposite, "
+        "antisense or template strand, or when a coding sequence has to be recovered "
+        "from the template strand before translating or transcribing it."
+    )
+    when_not_to_use: ClassVar = (
+        "Do not use when the goal asks only for the complement in the same direction; "
+        "that is dna_complement. The reverse complement is a different reading frame, "
+        "so do not use it when the protein must be preserved."
+    )
     # Part of the node result cache key, with the config and the inputs. Bump it after
     # any change to run(), or the cached result of the old code is served forever.
     version: ClassVar[int] = 1

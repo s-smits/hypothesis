@@ -21,6 +21,7 @@ from pydantic_ai.models import Model
 
 from node_dag.dag import Dag
 from node_dag.factory import MAPPING
+from node_dag.nodes.base import BaseNodeConfig
 from node_dag.plan import (
     Assertion,
     Criterion,
@@ -52,6 +53,7 @@ __all__ = [
     "describe_node",
     "list_nodes",
     "plan_agent",
+    "search_nodes",
     "submit_plan",
     "verdict_agent",
 ]
@@ -59,11 +61,83 @@ __all__ = [
 
 def list_nodes() -> str:
     """List every node: name, categories, input ports, outputs and a summary."""
-    # ponytail: lists every node. Add a category filter when the list is too long.
-    return "\n".join(
-        f"{name} {json.dumps(c.contract())}: {(c.__doc__ or '').splitlines()[0]}"
-        for name, c in NODES.items()
-    )
+    # ponytail: lists every node. search_nodes ranks them when the list is too long.
+    return "\n".join(_describe(name, c) for name, c in NODES.items())
+
+
+NO_MATCH = (
+    "No node matches that query. Call list_nodes to read the whole catalogue, or search "
+    "for the job you want done rather than a node name."
+)
+
+# How much a token hit in each field is worth. An intent is written in the words a goal
+# is stated in, so a hit there says more than one in prose or in a name.
+_WEIGHTS = {"intents": 3, "when_to_use": 2, "doc": 1, "name": 1}
+
+# Words that carry no intent. Without this every query matches every node, because
+# "the" and "a" appear in every docstring, and a search that returns everything is the
+# flat list the search was meant to replace.
+_STOP = frozenset({
+    "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "has", "have",
+    "in", "into", "is", "it", "its", "of", "on", "or", "that", "the", "then", "this",
+    "to", "use", "used", "uses", "using", "what", "when", "which", "with", "without",
+    "you", "your",
+})  # fmt: skip
+
+
+def _tokens(query: str) -> list[str]:
+    """The words of ``query`` worth matching on: no punctuation, no stop words.
+
+    Args:
+        query: The search query, in the user's words.
+    """
+    words = ("".join(c if c.isalnum() else " " for c in query.lower())).split()
+    return [w for w in words if len(w) > 2 and w not in _STOP]
+
+
+def _describe(name: str, cfg: type[BaseNodeConfig]) -> str:
+    """One catalogue line: the node's name, contract and first line of docstring.
+
+    Args:
+        name: The node's name.
+        cfg: Its config class.
+    """
+    return f"{name} {json.dumps(cfg.contract())}: {(cfg.__doc__ or '').splitlines()[0]}"
+
+
+def search_nodes(query: str) -> str:
+    """Find nodes by what you want done. Ranked, best first. Prefer this to list_nodes.
+
+    Score a node by how many of the query's words appear in its intents, in when_to_use,
+    in its docstring and in its name. Search for the job ("remove a specific codon",
+    "score expression") rather than for a node name.
+
+    Args:
+        query: The job you want done, in your own words. Empty lists every node.
+    """
+    if not (tokens := _tokens(query)):
+        return list_nodes()
+    ranked: list[tuple[int, str, str]] = []
+    for name, cfg in NODES.items():
+        contract = cfg.contract()
+        fields = {
+            "intents": " ".join(contract["intents"]).lower(),
+            "when_to_use": contract["when_to_use"].lower(),
+            "doc": (cfg.__doc__ or "").lower(),
+            "name": name.lower().replace("_", " "),
+        }
+        score = sum(
+            weight
+            for field, weight in _WEIGHTS.items()
+            for token in tokens
+            if token in fields[field]
+        )
+        if score:
+            ranked.append((-score, name, _describe(name, cfg)))
+    if not ranked:
+        return NO_MATCH
+    ranked.sort()
+    return "\n".join(line for _, _, line in ranked)
 
 
 def describe_node(name: str) -> dict[str, Any]:
@@ -218,10 +292,12 @@ def submit_plan(
     }
 
     # G1: you cannot know a tool is missing without having read the catalogue.
-    if requests and not any(p.tool_name == "list_nodes" for p in called):
+    # Searching the catalogue reads it as surely as dumping it does.
+    read_catalogue = {"list_nodes", "search_nodes"}
+    if requests and not any(p.tool_name in read_catalogue for p in called):
         raise ModelRetry(
-            "Call list_nodes before asking for a new tool. You cannot know a tool is "
-            "missing without reading the catalogue."
+            "Call list_nodes or search_nodes before asking for a new tool. You cannot "
+            "know a tool is missing without reading the catalogue."
         )
     if requests and not described:
         raise ModelRetry(
@@ -365,7 +441,10 @@ def submit_plan(
 PLAN_INSTRUCTIONS = f"""\
 Plan a DAG of nodes that meets the user's goal.
 
-1. Call list_nodes, then describe_node for every node you are considering.
+1. Call search_nodes with the job you want done, in your own words, to find nodes by
+   intent ("remove a specific codon", "score expression"): it ranks the catalogue and
+   shows what each node is and is not for. Call list_nodes to read the whole catalogue
+   instead. Either way, call describe_node for every node you are considering.
 2. Design the best plan for the goal. If the best plan needs a node that does not exist,
    name it in a step anyway and submit a full ToolRequest for it. Do NOT settle for a
    worse plan that only uses the nodes on the shelf: a missing tool is a request for a
@@ -439,7 +518,7 @@ def plan_agent(model: Model | str) -> Agent[PlanDeps, Plan]:
         model,
         deps_type=PlanDeps,
         instructions=PLAN_INSTRUCTIONS,
-        tools=[Tool(list_nodes), Tool(describe_node)],
+        tools=[Tool(list_nodes), Tool(search_nodes), Tool(describe_node)],
         output_type=submit_plan,
         retries={"output": 3},
     )

@@ -47,6 +47,25 @@ class OstirExpressionConfig(BaseToolConfig):
         "initiation rate for that start codon. A sequence whose first codon is not a "
         "start codon scores 0. Compare two recodings of the same gene by scoring each."
     )
+    intents: ClassVar = (
+        "score a sequence by expression",
+        "measure the translation rate of a coding sequence",
+        "calculate the translation initiation rate with OSTIR",
+        "measure ribosome binding site (RBS) strength",
+        "check that a recoded gene still translates as well as the original",
+    )
+    when_to_use: ClassVar = (
+        "Use when the goal asks about expression, translation rate, translation "
+        "initiation or RBS strength: to measure it, to compare two recodings of the "
+        "same gene, or to search for a sequence that expresses more. Higher is more "
+        "protein from the same mRNA, so select on it with at_least."
+    )
+    when_not_to_use: ClassVar = (
+        "Do not use to count atoms (dna_atom_score) or to check which codons a "
+        "sequence carries (codons_absent). It needs a 5' UTR and a start codon right "
+        "after it, so it is meaningless on a non-coding sequence or a fragment that "
+        "does not begin at the start codon: such a sequence simply scores 0."
+    )
     # Part of the node result cache key, with the config and the inputs. Bump it after
     # any change to run(), or the cached result of the old code is served forever.
     version: ClassVar[int] = 1

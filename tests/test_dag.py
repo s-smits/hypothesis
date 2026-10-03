@@ -100,6 +100,10 @@ def test_config_declares_what_run_takes(config):
     # a node that does exist must supply one too, or the agent reasons better about
     # hypothetical tools than about real ones.
     assert config.example
+    # And, for the same reason, what the node is for: search_nodes ranks on intents and
+    # when_to_use, so a node that declares neither is invisible to a search for its job.
+    assert config.intents
+    assert config.when_to_use
     assert config.model_json_schema()["x-node"] == config.contract()
 
 

@@ -69,6 +69,8 @@ A config declares the node's contract as ClassVars:
 - `forwards` (decisions): the input port the decision passes on, on `<step>.yes` or `<step>.no`.
 - `categories`: what the node does.
 - `example`: one worked example, with concrete inputs, the config used and the output.
+- `intents`, `when_to_use`, `when_not_to_use`: when this node is the right choice,
+  and when it is not. All three ride in `contract()` and so reach the agent.
 
 `example` is required on every config. A `ToolRequest` for a node that does not exist
 yet must carry a worked example, so the nodes that do exist have to as well — otherwise
@@ -77,6 +79,24 @@ actually use. It reaches the agent through `contract()`, which rides in the conf
 schema under `x-node` and so is surfaced by `describe_node`.
 
 A test checks that `inputs` matches `run`'s signature and that `categories` is set.
+
+`amino_acid_changes` exists so that "the protein is unchanged" can be *asserted*.
+`dna_atom_score` raises on a non-synonymous change, and an exception fails a step rather
+than producing evidence — an `Assertion` cannot name one. Score the candidate against the
+original, pass it to `at_most` with a threshold of 0, and the branch that decision takes
+is the proof, exactly as `codons_absent` proves a codon is gone.
+
+### Finding a node
+
+`list_nodes` dumps the catalogue, which is fine at thirteen nodes and will not be at
+fifty. `search_nodes` ranks them against a goal in the words someone would write it,
+scoring hits in `intents` above `when_to_use` above the docstring. It is what keeps the
+builder from reaching for `mutate_synonymous` — which picks codons at random — when the
+goal names the codon to remove, so `recode_codons` is what it wants.
+
+The metadata counts words and cannot see direction, which is worth knowing when you write
+it: `rna_back_transcribe` once won "turn DNA into RNA" because it named DNA in every
+intent. Each conversion node is now phrased from its own input side, and a test pins it.
 
 ### What is on the shelf
 
@@ -90,6 +110,7 @@ A test checks that `inputs` matches `run`'s signature and that `categories` is s
 | `rna_back_transcribe` | rna -> dna | U becomes T |
 | `dna_to_protein` | dna -> amino_acid_sequence | translate |
 | `dna_atom_score` | dna, dna -> score | atom count; raises when the protein differs from the reference |
+| `amino_acid_changes` | dna, dna -> score | how many amino acids differ; 0 means the change was synonymous |
 | `ostir_expression` | dna -> score | translation initiation rate, via OSTIR and ViennaRNA |
 | `codons_absent` | dna -> yes/no | none of the named codons appear, in frame |
 | `at_least` / `at_most` | score -> yes/no | threshold filters |

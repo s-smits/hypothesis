@@ -9,6 +9,8 @@ from node_dag.nodes.decisions.at_most.config import AtMostConfig
 from node_dag.nodes.decisions.at_most.function import AtMost
 from node_dag.nodes.decisions.codons_absent.config import CodonsAbsentConfig
 from node_dag.nodes.decisions.codons_absent.function import CodonsAbsent
+from node_dag.nodes.tools.amino_acid_changes.config import AminoAcidChangesConfig
+from node_dag.nodes.tools.amino_acid_changes.function import AminoAcidChanges
 from node_dag.nodes.tools.dna_atom_score.config import DnaAtomScoreConfig
 from node_dag.nodes.tools.dna_atom_score.function import DnaAtomScore
 from node_dag.nodes.tools.dna_complement.config import DnaComplementConfig
@@ -34,6 +36,7 @@ NodeConfig = Annotated[
     AtLeastConfig
     | AtMostConfig
     | CodonsAbsentConfig
+    | AminoAcidChangesConfig
     | DnaAtomScoreConfig
     | DnaComplementConfig
     | DnaReverseComplementConfig
@@ -50,6 +53,7 @@ MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
     AtLeastConfig: AtLeast,
     AtMostConfig: AtMost,
     CodonsAbsentConfig: CodonsAbsent,
+    AminoAcidChangesConfig: AminoAcidChanges,
     DnaAtomScoreConfig: DnaAtomScore,
     DnaComplementConfig: DnaComplement,
     DnaReverseComplementConfig: DnaReverseComplement,

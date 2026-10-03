@@ -33,6 +33,27 @@ class RecodeCodonsConfig(BaseToolConfig):
         "sequence=ATGTCGTAA with targets=('TCG',) -> ATGTCTTAA: the TCG codon becomes "
         "TCT, the first synonym of S that is not a target, and the protein stays MS*"
     )
+    intents: ClassVar = (
+        "remove or replace specific named codons, keeping the protein",
+        "remove a specific codon from a DNA sequence",
+        "recode a gene so a given codon no longer appears",
+        "reassign or free up a codon for genetic code expansion",
+        "swap targeted codons for synonyms deterministically",
+    )
+    when_to_use: ClassVar = (
+        "Use to remove or replace specific named codons, keeping the protein. This is "
+        "the node whenever the goal names the codons: remove every TCG, leave no TAG, "
+        "free up a codon. Every in-frame occurrence is swapped for a synonym that is "
+        "not itself a target, so the result is deterministic and no target codon "
+        "remains."
+    )
+    when_not_to_use: ClassVar = (
+        "Do not use when the goal names no codon and only asks for a sequence that "
+        "scores better; mutate_synonymous searches codon space at random for that. Do "
+        "not use it to check whether a codon is absent: it changes the sequence rather "
+        "than deciding about it, so pair it with codons_absent for the evidence. "
+        "Targeting ATG or TGG always fails: each is the only codon for its amino acid."
+    )
 
     @field_validator("targets")
     @classmethod

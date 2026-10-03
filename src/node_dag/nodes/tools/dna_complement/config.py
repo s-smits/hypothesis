@@ -23,6 +23,22 @@ class DnaComplementConfig(BaseToolConfig):
     inputs: ClassVar = {"sequence": Dna}
     output: ClassVar = Dna
     example: ClassVar = "sequence=ATGTCGTAA -> TACAGCATT, base for base in order"
+    intents: ClassVar = (
+        "complement a DNA sequence",
+        "pair each base with its Watson-Crick partner, in order",
+        "get the complementary strand without reversing it",
+    )
+    when_to_use: ClassVar = (
+        "Use only when the goal asks for the complement read in the same direction as "
+        "the input, position for position."
+    )
+    when_not_to_use: ClassVar = (
+        "Do not use when the goal asks for the reverse complement, or the opposite, "
+        "antisense or template strand read 5' to 3': a strand is read 5' to 3', so the "
+        "opposite strand is this complement reversed. Use dna_reverse_complement. The "
+        "output keeps its length but not the input's protein, so do not use it to "
+        "transform a coding sequence."
+    )
     # Part of the node result cache key, with the config and the inputs. Bump it after
     # any change to run(), or the cached result of the old code is served forever.
     version: ClassVar[int] = 1

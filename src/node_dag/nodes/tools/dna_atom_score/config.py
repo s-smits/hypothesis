@@ -19,3 +19,21 @@ class DnaAtomScoreConfig(BaseToolConfig):
         "sequence=ATGTCGTAA, reference=ATGAGCTAA -> score 297 "
         "(both code for MS*); reference=ATGGGGTAA raises, MG* is a different protein"
     )
+    intents: ClassVar = (
+        "score a DNA sequence by its atom count",
+        "count the atoms in a DNA sequence",
+        "find a sequence with fewer or more atoms than a reference",
+        "check that a recoding kept the protein of a reference sequence",
+    )
+    when_to_use: ClassVar = (
+        "Use when the goal asks to count atoms, or to lower or raise the atom count of "
+        "a sequence. It needs a reference to compare against, so it doubles as the "
+        "check that a candidate still codes for the reference's protein: a "
+        "non-synonymous candidate raises rather than scoring."
+    )
+    when_not_to_use: ClassVar = (
+        "Do not use to score expression or translation rate; that is "
+        "ostir_expression. Do not use it as the only check that a named codon is gone: "
+        "atom count says nothing about which codons a sequence carries, so use "
+        "codons_absent for that."
+    )

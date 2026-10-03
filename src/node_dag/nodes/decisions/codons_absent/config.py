@@ -33,6 +33,24 @@ class CodonsAbsentConfig(BaseDecisionConfig):
         "<step>.yes; sequence=ATGTCGTAA -> no. sequence=AAATGGCCC with "
         "codons=('ATG',) -> yes: its codons are AAA, TGG, CCC"
     )
+    intents: ClassVar = (
+        "decide whether a named codon is absent from a sequence",
+        "check that no TAG, TCG or other named codon remains",
+        "prove that a recoding removed the codons it targeted",
+        "verify a claim about which codons a sequence still carries",
+    )
+    when_to_use: ClassVar = (
+        "Use to settle a claim about which codons a sequence carries, in frame: the "
+        "evidence that a recoding worked. This is the only node whose branch can prove "
+        "a named codon is gone, so a criterion of the form 'no X codon remains' needs "
+        "it."
+    )
+    when_not_to_use: ClassVar = (
+        "Do not use to remove the codons: it only decides, and changes nothing. "
+        "recode_codons is what removes them, and this checks the result. It does not "
+        "look at the protein or at any score, and it counts whole in-frame codons "
+        "only, so the three letters appearing out of frame do not make it say no."
+    )
 
     @field_validator("codons")
     @classmethod
