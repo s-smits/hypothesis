@@ -3,4 +3,6 @@ __pycache__/
 *.egg-info/
 results/
 results-demo/
+results-real/
+results-check/
 .env
