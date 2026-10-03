@@ -15,6 +15,8 @@ from node_dag.nodes.tools.codon_optimise.config import CodonOptimiseConfig
 from node_dag.nodes.tools.codon_optimise.function import CodonOptimise
 from node_dag.nodes.tools.codon_pair_score.config import CodonPairScoreConfig
 from node_dag.nodes.tools.codon_pair_score.function import CodonPairScore
+from node_dag.nodes.tools.constraint_check.config import ConstraintCheckConfig
+from node_dag.nodes.tools.constraint_check.function import ConstraintCheck
 from node_dag.nodes.tools.dna_complement.config import DnaComplementConfig
 from node_dag.nodes.tools.dna_complement.function import DnaComplement
 from node_dag.nodes.tools.dna_reverse_complement.config import (
@@ -41,10 +43,12 @@ from node_dag.nodes.tools.mutate_synonymous.config import MutateSynonymousConfig
 from node_dag.nodes.tools.mutate_synonymous.function import MutateSynonymous
 from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
 from node_dag.nodes.tools.ostir_expression.function import OstirExpression
-from node_dag.nodes.tools.protlib_design.config import ProtlibDesignConfig
-from node_dag.nodes.tools.protlib_design.function import ProtlibDesign
 from node_dag.nodes.tools.pdbfixer_fix.config import PdbfixerFixConfig
 from node_dag.nodes.tools.pdbfixer_fix.function import PdbfixerFix
+from node_dag.nodes.tools.protlib_design.config import ProtlibDesignConfig
+from node_dag.nodes.tools.protlib_design.function import ProtlibDesign
+from node_dag.nodes.tools.recode_targeted.config import RecodeTargetedConfig
+from node_dag.nodes.tools.recode_targeted.function import RecodeTargeted
 from node_dag.nodes.tools.resample_synonymous.config import ResampleSynonymousConfig
 from node_dag.nodes.tools.resample_synonymous.function import ResampleSynonymous
 from node_dag.nodes.tools.rna_back_transcribe.config import RnaBackTranscribeConfig
@@ -57,6 +61,7 @@ NodeConfig = Annotated[
     | CodonAdaptationConfig
     | CodonOptimiseConfig
     | CodonPairScoreConfig
+    | ConstraintCheckConfig
     | DnaComplementConfig
     | DnaReverseComplementConfig
     | DnaToProteinConfig
@@ -71,6 +76,7 @@ NodeConfig = Annotated[
     | OstirExpressionConfig
     | ProtlibDesignConfig
     | PdbfixerFixConfig
+    | RecodeTargetedConfig
     | ResampleSynonymousConfig
     | RnaBackTranscribeConfig,
     Discriminator("name"),
@@ -83,6 +89,7 @@ MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
     CodonAdaptationConfig: CodonAdaptation,
     CodonOptimiseConfig: CodonOptimise,
     CodonPairScoreConfig: CodonPairScore,
+    ConstraintCheckConfig: ConstraintCheck,
     DnaComplementConfig: DnaComplement,
     DnaReverseComplementConfig: DnaReverseComplement,
     DnaToProteinConfig: DnaToProtein,
@@ -97,6 +104,7 @@ MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
     OstirExpressionConfig: OstirExpression,
     ProtlibDesignConfig: ProtlibDesign,
     PdbfixerFixConfig: PdbfixerFix,
+    RecodeTargetedConfig: RecodeTargeted,
     ResampleSynonymousConfig: ResampleSynonymous,
     RnaBackTranscribeConfig: RnaBackTranscribe,
 }

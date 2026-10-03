@@ -443,6 +443,7 @@ def test_search_nodes_finds_and_ranks_by_intent():
         "gc_target_recode",
         "mutate_synonymous",
         "protlib_design",
+        "recode_targeted",
         "resample_synonymous",
     ]
 
