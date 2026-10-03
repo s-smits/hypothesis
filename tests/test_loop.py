@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pydantic_core import to_json
 from temporalio import activity
 from temporalio.contrib.pydantic import pydantic_data_converter
+from temporalio.exceptions import ApplicationError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 from test_guards import ASK, COLUMN, _plan
@@ -27,6 +28,7 @@ from temporal.hypothesis.activities import (
     save_state,
 )
 from temporal.hypothesis.loop import HypothesisInput, HypothesisLoop
+from temporal.ledger import ledger_path, read, record_ledger
 
 HYP = GUARD_HYP.model_copy(
     update={"inputs": {"seq": [Dna(sequence="ATGTCTTAA")]}}
@@ -90,7 +92,9 @@ def _fakes(calls: dict, plans: list, resolves: list, agrees: list[bool]) -> list
     return [plan, resolve, verify, critique]
 
 
-async def _drive(fakes: list, hyp: Hypothesis = HYP, steer=None, **cfg) -> Hypothesis:
+async def _drive(
+    fakes: list, hyp: Hypothesis = HYP, steer=None, ledger=record_ledger, **cfg
+) -> Hypothesis:
     async with await WorkflowEnvironment.start_time_skipping(
         data_converter=pydantic_data_converter
     ) as env:
@@ -102,6 +106,7 @@ async def _drive(fakes: list, hyp: Hypothesis = HYP, steer=None, **cfg) -> Hypot
                 save_workflow,
                 save_state,
                 save_requests,
+                ledger,
                 *fakes,
             ]
             async with Worker(
@@ -251,3 +256,28 @@ async def test_a_resume_sent_while_the_plan_resolves_again_is_not_lost():
         _drive([fakes[0], resolve, *fakes[2:]], steer=resume), 30
     )
     assert done.state == "achieved" and not resolves
+
+
+async def test_every_finished_run_leaves_a_line_in_the_ledger_whatever_its_end():
+    achieved = await _drive(_fakes({}, [PLAN], [ResolveOut(dag=DAG)], [True]))
+    abandon = lambda h: h.signal(HypothesisLoop.abandon)
+    asking = Plan.model_validate(_plan(requests={"gc_count": REQUEST.model_dump()}))
+    await _drive(
+        _fakes({}, [asking], [ResolveOut(missing=[REQUEST])], []), steer=abandon
+    )
+    first, second = read(ledger_path())[0]
+    assert (first.state, first.rounds, first.held) == ("achieved", 1, ["1/1"])
+    assert first.hypothesis == achieved.id and first.tokens == 15
+    assert (second.state, second.asked) == ("abandoned", ["gc_count"])
+    assert first.run != second.run
+
+
+async def test_a_ledger_that_cannot_be_written_does_not_change_how_the_run_ended():
+    @activity.defn(name="record_ledger")
+    def broken(hyp_id: str) -> None:
+        raise ApplicationError("disk full", non_retryable=True)
+
+    done = await _drive(
+        _fakes({}, [PLAN], [ResolveOut(dag=DAG)], [True]), ledger=broken
+    )
+    assert done.state == "achieved" and not ledger_path().exists()

@@ -24,6 +24,7 @@ from temporal.dag.activities import (
 from temporal.dag.workflow import TASK_QUEUE, DagWorkflow
 from temporal.hypothesis import activities as hyp
 from temporal.hypothesis.loop import HypothesisLoop
+from temporal.ledger import record_ledger
 
 
 def _delayed(fn: FunctionType, seconds: float) -> FunctionType:
@@ -51,6 +52,7 @@ async def _main(address: str, step_delay: float) -> None:
         hyp.critique_attempt,
         hyp.save_state,
         hyp.save_requests,
+        record_ledger,
     ]
     with ThreadPoolExecutor() as pool:
         await Worker(

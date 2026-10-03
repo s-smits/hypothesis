@@ -139,14 +139,21 @@ class HypothesisLoop:
     async def run(self, inp: HypothesisInput) -> Hypothesis:
         """Loop until the goal is met, the rounds run out, or a person stops it."""
         try:
-            return await self._loop(inp)
+            final = await self._loop(inp)
         except ActivityError as e:
             # Out of retries on an error that is not the model's answer, such as an API
             # error. End as failed, or the saved Hypothesis stays "building" for good.
             cause: BaseException = e
             while cause.__cause__:  # The activity's own error is at the bottom.
                 cause = cause.__cause__
-            return await self._stop("failed", f"{e.activity_type} failed: {cause}")
+            final = await self._stop("failed", f"{e.activity_type} failed: {cause}")
+        # By name: ``temporal.ledger`` reads the run as pulse does, and pulse imports this.
+        # A ledger that cannot be written never changes how the run ended.
+        try:
+            await workflow.execute_activity("record_ledger", final.id, **QUICK)
+        except ActivityError as e:
+            workflow.logger.warning("The ledger line was not written: %s", e)
+        return final
 
     async def _loop(self, inp: HypothesisInput) -> Hypothesis:
         await self._set()

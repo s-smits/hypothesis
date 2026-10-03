@@ -56,6 +56,7 @@ temporal/
   run_ui.py                    serve the web pages
   scaffold_node.py             write a requested node's package, all but run()
   pulse.py                     what changed in the open runs since the last look
+  ledger.py                    one line per finished run, read the way pulse reads it
 ```
 
 ## Nodes
@@ -239,6 +240,12 @@ for), a plan that wires the same DAG as an earlier round, rounds that come no cl
 run with no worker, and a budget nearly spent. For a blocked run it says what each requested node
 still needs. It only reads files and the process table; `--every 30` keeps looking, and `--json`
 prints the look for another program; `--no-host` skips the process table for a worker started inside another process. Readings are kept in `results/pulse.json`. `AGENTS.md` says what each alert means and what to do.
+
+**Ledger.** Every run that ends adds one line to `results/ledger.jsonl`: its goal, how and why it
+ended, the rounds and what held in each, tokens and seconds, guard retries, errors and repeated
+wirings, the nodes it used and asked for, and the model per stage. The values are read from the
+saved files the way `pulse` reads them, with no model involved. List it with
+`jq -r '[.ended[:16], .hypothesis, .state, .rounds, .tokens, .summary] | @tsv' results/ledger.jsonl`.
 
 **Cache warning.** Node results are cached by config and inputs. If you change what a
 node does, bump its `version` (`scaffold_node <name> --bump`), or old results are served.

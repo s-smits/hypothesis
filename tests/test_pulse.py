@@ -443,6 +443,7 @@ def test_a_blocked_run_is_read_from_its_hypothesis_its_requests_and_its_transcri
         False,
     )
     assert r.criteria == ["no_tcg"] and r.pending == {"gc_count": "missing"}
+    assert r.rounds[0].nodes == ["at_most", "codon_count"] and r.rounds[0].asked == []
     assert (
         r.rounds[0].requests == ["gc_count"]
         and r.rounds[0].steps == 2

@@ -107,6 +107,8 @@ class Round(BaseModel):
     number: int
     steps: int | None = None
     wiring: str | None = None
+    nodes: list[str] = []
+    asked: list[str] = []
     requests: list[str] = []
     held: dict[str, bool] = {}
     achieved: bool | None = None
@@ -265,6 +267,8 @@ def read_round(a: Attempt) -> Round:
         number=a.round,
         steps=len(plan.steps) if plan else None,
         wiring=plan.fingerprint()[:8] if plan else None,
+        nodes=sorted({s.node for s in plan.steps.values()}) if plan else [],
+        asked=sorted(plan.requests) if plan else [],
         requests=[r.name for r in a.requests],
         held=a.held,
         achieved=verdict.achieved if verdict else None,

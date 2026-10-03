@@ -86,6 +86,7 @@ against the chosen provider. `temporal/run_hypothesis.py` loads the repository's
 | Builder, verifier and persistence | `src/node_dag/agent.py`, `temporal/run_hypothesis.py` | `tests/test_agent.py` |
 | Hypothesis loop, plan checks, node scaffolding | `temporal/hypothesis/`, `src/node_dag/plan.py`, `temporal/scaffold_node.py` | `tests/test_loop.py`, `test_plan.py`, `test_guards.py`, `test_scaffold.py` |
 | Watching runs | `temporal/pulse.py` | `tests/test_pulse.py` |
+| Run ledger | `temporal/ledger.py` | `tests/test_ledger.py`, `test_loop.py` |
 | UI and API | `temporal/ui/app.py`, adjacent HTML, `temporal/run_ui.py` | `tests/test_ui.py`, UI cases in `test_agent.py` |
 | Translation initiation prediction | `nodes/tools/ostir_expression/` under `src/node_dag/` | `tests/test_ostir.py` |
 
@@ -150,6 +151,20 @@ The header names any file it could not read as a Hypothesis, with the reason. Us
 file predates a change to a node's config and its `config_hash` no longer matches. That is
 not a fault in a run; leave it, and do not edit the hash to make it load. If the look finds no
 run, the header says which results directory it searched; check `NODE_DAG_RESULTS`.
+
+## The run ledger
+
+Every run that ends, achieved or not, abandoned or failed, adds one line to
+`$NODE_DAG_RESULTS/ledger.jsonl`. `HypothesisLoop` calls the `record_ledger` activity by name
+as its last step, and `temporal/ledger.py` builds the line from pulse's reading of the run, so
+the ledger and `pulse` always agree on what a run did. Nothing in it is judged by a model: each
+value is read from the saved Hypothesis and the saved model calls. A line has the run, its goal,
+how it ended and why, the rounds and what held in each, the tokens and seconds spent, the guard
+retries, errors and repeated wirings, the nodes used and the ones it asked for, the model per
+stage, and a one-line summary. A ledger that cannot be written never changes how a run ended. A
+worker that predates the activity must be restarted before runs it starts will be recorded.
+
+To read it: `jq -r '[.ended[:16], .hypothesis, .state, .rounds, .tokens, .summary] | @tsv' results/ledger.jsonl`.
 
 ## Contracts to preserve
 
