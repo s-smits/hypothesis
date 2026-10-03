@@ -80,10 +80,11 @@ and `anthropic:claude-haiku-4-5`; a proposed model string must be checked agains
 | Area | Files to read first | Related tests |
 | --- | --- | --- |
 | Entities, DNA and tables | `src/node_dag/types.py`, `dna.py` | `tests/test_dna.py` |
+| Sequence lookup for inputs | `src/node_dag/entrez.py` | `tests/test_entrez.py` |
 | Node contracts and registration | `nodes/base.py`, `factory.py`, `registry.py` under `src/node_dag/` | `tests/test_dag.py`, `test_registry.py` |
 | DAG validation | `src/node_dag/dag.py` | `tests/test_dag.py` |
 | Execution, cache and progress | `temporal/dag/activities.py`, `workflow.py`, `src/node_dag/storage.py` | `tests/test_cache.py`, `test_dag.py` |
-| Builder, verifier and persistence | `src/node_dag/agent.py`, `temporal/run_hypothesis.py` | `tests/test_agent.py` |
+| Builder, verifier and persistence | `src/node_dag/agent.py`, `temporal/hypothesis/activities.py`, `temporal/run_hypothesis.py` | `tests/test_agent.py` |
 | Hypothesis loop, plan checks, node scaffolding | `temporal/hypothesis/`, `src/node_dag/plan.py`, `temporal/scaffold_node.py` | `tests/test_loop.py`, `test_plan.py`, `test_guards.py`, `test_scaffold.py` |
 | Watching runs | `temporal/pulse.py` | `tests/test_pulse.py` |
 | Run ledger | `temporal/ledger.py` | `tests/test_ledger.py`, `test_loop.py` |
@@ -111,7 +112,8 @@ While a hypothesis run is open, make the last action of each reply a look:
 uv run python -m temporal.pulse
 ```
 
-It reads the saved hypotheses, trajectories and requests under `$NODE_DAG_RESULTS`. It never
+It reads the saved hypotheses and trajectories under `$NODE_DAG_RESULTS`, and the node sources
+and `factory.py` to see which requested nodes now exist. It never
 calls a model, a worker or the API, so it is safe to run at any time.
 It keeps what it saw in `<results>/pulse.json`, so each look says only what moved since the
 last one. The first look has nothing to differ from and prints status lines only. Do not
@@ -198,7 +200,8 @@ To read it: `jq -r '[.ended[:16], .hypothesis, .state, .rounds, .tokens, .summar
 - Temporal workflow orchestration must remain replay-safe; filesystem writes,
   model calls and computational work belong outside workflow replay. Persist with
   `storage.write_atomic`. `$NODE_DAG_RESULTS` defaults to `results/`, containing
-  `nodes/`, `workflows/`, `registry/` and `hypotheses/`. It is local disk, so workers
+  `nodes/`, `workflows/`, `registry/`, `hypotheses/`, `requests/` and `trajectories/`,
+  plus `ledger.jsonl` and `pulse.json`. It is local disk, so workers
   on different machines do not automatically share a cache.
 
 ## Adding a node or changing a model-facing surface

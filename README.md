@@ -44,7 +44,7 @@ src/node_dag/
   factory.py                   NodeConfig union + config -> node class mapping
   dag.py                       Dag / Step; rejects cycles, unknown sources, type and score column mismatches
   plan.py                      Plan, ToolRequest, Assertion, accepted(): the acceptance rule
-  agent.py                     Hypothesis; the builder, verifier, critique and criteria agents
+  agent.py                     Hypothesis; the inputs, criteria, builder, verifier and critique agents
 temporal/
   dag/workflow.py              DagWorkflow: runs each step on its whole table once it exists
   dag/activities.py            run_tool, run_score, run_filter (call the factory), save_workflow
@@ -124,7 +124,7 @@ Results go under `$NODE_DAG_RESULTS` (default `results/`):
   score columns), written when the run finishes or fails.
 - `registry/<node id>.json`: each node a builder agent made, with its description.
 - `hypotheses/<hypothesis id>.json`: each Hypothesis, saved after each stage of the loop.
-  The workflow ID is the hypothesis ID.
+  The loop's workflow ID is the hypothesis ID; each round's DAG runs as `<hypothesis id>-r<round>`.
 - `requests/<node name>.json`: each node a plan asked for that does not exist yet.
 
 ```bash
@@ -175,10 +175,14 @@ starts the loop in the background, and the page jumps to the hypothesis so you c
 its rounds. This needs a worker running. `--model` and `--verify-model` on `run_ui`
 default to `anthropic:claude-sonnet-5-5` to build and `anthropic:claude-haiku-4-5` to verify.
 
+Sequences are fetched through `src/node_dag/entrez.py`, which queries NCBI Nucleotide through the
+E-utilities API and caches every reply under `results/entrez/`. Set `NCBI_EMAIL` to identify yourself
+to NCBI, as it asks callers to do, and `NCBI_API_KEY` for a higher rate limit.
+
 http://127.0.0.1:8000/nodes lists every node in the registry, as the builder agent sees
 it: its description, input port, outputs, the full name of each score column a scorer
-adds, the column a filter reads, and its config. Below them, the nodes that plans have requested
-and the runs waiting on each. It has a search box, and reads the
+adds, the column a filter reads, and its config. Above them, the nodes that plans have requested
+and how many runs are blocked on each. It has a search box, and reads the
 files under `results/registry/`, so it needs no worker and updates as agents register
 nodes.
 
@@ -231,7 +235,7 @@ workflow. Only the model calls are non-deterministic, and each is an activity:
    names through `entrez` and freezes them on the Hypothesis, with where each came from.
    Inputs you give are used as they are, and are never changed mid-run.
 2. **Criteria.** If you gave none, an agent derives them from the goal. They are frozen.
-   Each is an `id`, a `claim` and a `source`: `human` if you wrote or edited it, else `derived`.
+   Each is an `id`, a `claim` and a `source`: `human` if it came from you (the new-hypothesis page sends every criterion as `human`), else `derived`.
 3. **Plan.** The builder agent makes the nodes it needs (`create_node`), reuses
    registered ones, and submits a `Plan`: the wiring, plus one assertion per criterion
    saying what its step settles: on a filter, `yes` (every entity passed) or `no` (every
@@ -248,7 +252,7 @@ workflow. Only the model calls are non-deterministic, and each is an activity:
 6. **Critique.** If the round failed, a third agent says why. The next plan must address it.
 
 Each model call writes its full message history, failed calls included, to
-`results/trajectories/<hypothesis id>-r<round>-<stage>.json` (`criteria` is round 0). That is
+`results/trajectories/<hypothesis id>-r<round>-<stage>.json` (`criteria` and `inputs` are round 0). That is
 where to look for which nodes the builder read and which guard it bounced off.
 
 Rounds stop at `max_rounds` (default 3; `--max-rounds` on `run_hypothesis`) or 500,000 tokens. The stop reason is
@@ -271,7 +275,7 @@ the plan was checked against, and prints the `factory.py` edits. Write `run()`, 
 edits, restart the worker, and click Resume on the nodes page (or POST
 `/api/hypotheses/<id>/tool_added`); the same plan is resolved again without a new model
 call. `abandon` ends it. `examples/recode_acg_mock.json` is a synthetic gene with two ORFs in
-different frames, which no registered node can recode in both, so it blocks in round 1.
+different frames, which no registered node can recode in both, so it is meant to block in round 1.
 
 **Watching runs.** `uv run python -m temporal.pulse` prints a status line per open run, and on
 every later look what moved since the last: criteria fixed, a round opened, a plan accepted,
