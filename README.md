@@ -218,6 +218,16 @@ where to look for which nodes the builder read and which guard it bounced off.
 Rounds stop at `max_rounds` (default 3; `--max-rounds` on `run_hypothesis`) or 500,000 tokens. The stop reason is
 `stopped_because`, and every round is kept in `attempts`.
 
+A model call whose request grows past 150,000 input tokens (the largest seen is 27,000) has
+Anthropic summarise its context server-side, so the call carries on from the summary. This
+applies to every stage of the loop whose model can compact (Sonnet 4.6 and 5, Opus 4.6 to 5,
+and so on, not `claude-haiku-4-5`, which the API refuses it on) and to nothing outside the loop.
+The summary is kept in the call's transcript as a `compaction` part, `pulse` flags the call, and
+the tokens spent writing it count towards the budget. Below the window it changes nothing but
+adds about 42 input tokens to each request, which the API puts there once compaction is enabled.
+Set `NODE_DAG_COMPACT_WINDOW` for the worker to change the window (at least 50,000) or to `0`
+to turn it off.
+
 **Acceptance is code, not a model.** `accepted()` in `plan.py` passes a round only if
 every criterion has an assertion, every assertion holds on the outcome, and the verifier
 agrees. A model cannot grant that, only veto it.

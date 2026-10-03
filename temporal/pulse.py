@@ -33,6 +33,7 @@ from typing import Literal
 import click
 from pydantic import BaseModel, ValidationError
 from pydantic_ai.messages import (
+    CompactionPart,
     ModelMessage,
     ModelMessagesTypeAdapter,
     ModelResponse,
@@ -94,6 +95,7 @@ class Call(BaseModel):
     model: str | None = None
     tools: dict[str, int] = {}
     retries: list[str] = []
+    compactions: int = 0
     tokens: int = 0
     began: float
     took: float
@@ -192,10 +194,11 @@ def read_call(
     tools: Counter[str] = Counter()
     retries: list[str] = []
     stamps: list[float] = []
-    tokens, model = 0, None
+    tokens, compactions, model = 0, 0, None
     for m in messages:
         if isinstance(m, ModelResponse):
             tokens += m.usage.total_tokens
+            compactions += sum(isinstance(p, CompactionPart) for p in m.parts)
             model = m.model_name or model
             stamps.append(m.timestamp.timestamp())
             tools.update(
@@ -226,6 +229,7 @@ def read_call(
         model=model,
         tools=dict(tools),
         retries=retries,
+        compactions=compactions,
         tokens=tokens,
         began=began,
         took=max(stamps, default=began) - began,
@@ -536,8 +540,10 @@ def events(before: Reading | None, after: Reading) -> list[Event]:
             text += "; it did not finish"
         if noisy and c.retries:
             text += f"; sent back for: {'; '.join(c.retries[:3])}"
+        if c.compactions:  # Its context passed the window and was summarised.
+            text += f"; context compacted ×{c.compactions}"
         say(
-            "⚠" if noisy else "·",
+            "⚠" if noisy or c.compactions else "·",
             text,
             f"trajectories/{after.id}-r{c.round}-{c.stage}.json",
         )

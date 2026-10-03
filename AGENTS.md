@@ -136,6 +136,7 @@ does not mean it is fixed. The status line keeps showing the state.
 | `the worker is not running` | A working run has no worker to move it. | Start `uv run python -m temporal.run_worker` (and `temporal server start-dev` if the server is `DOWN` too). `?` means unknown, not down. |
 | `no save for 12m` | Nothing was written for longer than a call takes. | Read the run's newest file in `trajectories/`; check the Temporal UI before restarting anything. |
 | a call `sent back for: …` | A model call was rejected three or more times. | Read the reasons. The same one repeating means a guard message or schema is unclear; fix that, not the run. |
+| a call `context compacted ×1` | Its context passed the compaction window (150k input tokens) and Anthropic summarised it. | Read the `compaction` part in the transcript for what the summary kept. A call that gets here is far larger than any seen; find out why. |
 | `wires the same DAG as r1` | The plan repeats an earlier round's wiring. | Check whether only the assertions changed; the repeat guard compares wiring only. |
 | `stall: the 2 rounds since r1 …` | Rounds came no closer than the best one. | Abandon, or revise the goal or criteria. More rounds spend the budget for nothing. |
 | `blocked 30m00s on …` | A person has to write a node. | Follow the `↳ waiting on` line (below). |

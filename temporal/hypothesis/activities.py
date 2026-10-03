@@ -5,12 +5,14 @@ crashes the run. Each returns its ``tokens``, so the workflow can account for ev
 """
 
 import json
+import os
 from typing import Any, cast
 
 from pydantic import BaseModel, ValidationError
 from pydantic_ai import RunUsage, capture_run_messages
 from pydantic_ai.exceptions import UnexpectedModelBehavior
 from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
+from pydantic_ai.models.anthropic import AnthropicCompaction
 from pydantic_core import to_json
 from temporalio import activity
 
@@ -67,6 +69,38 @@ class ResolveOut(BaseModel):
     error: str | None = None
 
 
+# Input tokens in one request at which Anthropic summarises a call's context. The largest
+# request in the saved calls is 27k and a run stops at 500k tokens in all, so this sits far
+# above the one and well under the other. The API takes no less than 50_000.
+COMPACT_WINDOW = 150_000
+# The models that take compaction. The API refuses it on any other, claude-haiku-4-5 included.
+COMPACTS = (
+    "claude-sonnet-5",
+    "claude-sonnet-4-6",
+    "claude-opus-5",
+    "claude-opus-4-6",
+    "claude-opus-4-7",
+    "claude-opus-4-8",
+    "claude-fable-5",
+    "claude-mythos-5",
+    "claude-mythos-preview",
+)
+
+
+def compaction(model: str) -> list[AnthropicCompaction[Any]]:
+    """What has Anthropic summarise a call's context past ``COMPACT_WINDOW``, for ``model``.
+
+    The summary stays in the call's messages as a ``CompactionPart``, so the saved
+    transcript shows where the context was cut. Nothing for a model that cannot compact,
+    or when ``NODE_DAG_COMPACT_WINDOW`` is 0 or less, which turns it off.
+    """
+    window = int(os.environ.get("NODE_DAG_COMPACT_WINDOW", COMPACT_WINDOW))
+    provider, _, name = model.partition(":")
+    if window <= 0 or provider != "anthropic" or not name.startswith(COMPACTS):
+        return []
+    return [AnthropicCompaction(token_threshold=max(window, 50_000))]
+
+
 async def _ask(
     agent: Any,  # noqa: ANN401
     prompt: str,
@@ -77,7 +111,9 @@ async def _ask(
     usage = RunUsage()  # Filled in as the run goes, so a call that fails still counts.
     with capture_run_messages() as messages:
         try:
-            run = await agent.run(prompt, usage=usage, **kw)
+            run = await agent.run(
+                prompt, usage=usage, capabilities=compaction(inp.model), **kw
+            )
         except UnexpectedModelBehavior as e:
             return {"error": str(e), "tokens": usage.total_tokens}
         finally:

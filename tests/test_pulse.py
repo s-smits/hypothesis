@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 from click.testing import CliRunner
 from pydantic_ai.messages import (
+    CompactionPart,
     ModelMessagesTypeAdapter,
     ModelRequest,
     ModelResponse,
@@ -209,6 +210,24 @@ def test_a_call_with_many_retries_is_a_warning_that_says_what_it_was_sent_back_f
     assert event.look == ["trajectories/h1-r1-plan.json"]
     one = read_call(1, "plan", transcript(["only one"]), saved=5.0)
     assert [e.mark for e in events(reading(), reading(calls=[one]))] == ["·"]
+
+
+def test_a_call_whose_context_was_compacted_says_so_and_is_still_read_as_finished():
+    messages = transcript([])
+    summary = CompactionPart("The goal is to remove TCG.", provider_name="anthropic")
+    first = messages[1]
+    assert isinstance(first, ModelResponse)
+    first.parts.insert(0, summary)
+    write_transcript("h1", 1, "plan", messages)
+    (call,) = read_calls("h1")
+    assert call.compactions == 1
+    assert call.done
+    (event,) = [
+        e for e in events(reading(), reading(calls=[call])) if "plan call" in e.text
+    ]
+    assert event.mark == "⚠" and "context compacted ×1" in event.text
+    plain = read_call(1, "plan", transcript([]), saved=5.0)
+    assert "compacted" not in events(reading(), reading(calls=[plain]))[0].text
 
 
 def test_a_call_already_seen_is_not_said_again_unless_its_transcript_was_rewritten():
