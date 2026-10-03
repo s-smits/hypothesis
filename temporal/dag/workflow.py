@@ -2,6 +2,7 @@ import asyncio
 from datetime import timedelta
 
 from temporalio import workflow
+from temporalio.common import RetryPolicy
 
 with workflow.unsafe.imports_passed_through():
     from node_dag.dag import DagInput, DagOutput, DagProgress, StepStatus
@@ -17,6 +18,8 @@ with workflow.unsafe.imports_passed_through():
     )
 
 TASK_QUEUE = "node-dag"
+# A node that raises will raise again, so give up fast rather than retry until timeout.
+RETRY = RetryPolicy(maximum_attempts=3)
 
 
 @workflow.defn
@@ -61,7 +64,10 @@ class DagWorkflow:
             try:
                 if isinstance(config, BaseScoreConfig):
                     rows = await workflow.execute_activity(
-                        run_score, node_inp, start_to_close_timeout=timeout
+                        run_score,
+                        node_inp,
+                        start_to_close_timeout=timeout,
+                        retry_policy=RETRY,
                     )
                     new = {
                         col: {i.id: r[name].value for i, r in zip(table.items, rows)}
@@ -79,7 +85,10 @@ class DagWorkflow:
                         }
                     )
                     keep = await workflow.execute_activity(
-                        run_filter, node_inp, start_to_close_timeout=timeout
+                        run_filter,
+                        node_inp,
+                        start_to_close_timeout=timeout,
+                        retry_policy=RETRY,
                     )
                     for out, want in zip(outs, (True, False)):
                         values[out] = Table.of(
@@ -88,7 +97,10 @@ class DagWorkflow:
                         )
                 else:
                     items = await workflow.execute_activity(
-                        run_tool, node_inp, start_to_close_timeout=timeout
+                        run_tool,
+                        node_inp,
+                        start_to_close_timeout=timeout,
+                        retry_policy=RETRY,
                     )
                     values[key] = Table.of(items)
             except Exception:

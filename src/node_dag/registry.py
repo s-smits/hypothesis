@@ -1,14 +1,19 @@
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from node_dag.factory import NodeConfig
 from node_dag.nodes.base import BaseFilterConfig, BaseScoreConfig
 from node_dag.storage import write_atomic
 
 logger = logging.getLogger(__name__)
+
+# ``<node name>__<config hash>``, the only shape an id has. A builder picks the id of a
+# step's node, so anything else must never be joined into a path.
+NODE_ID = re.compile(r"[a-z][a-z0-9_]{0,79}__[0-9a-f]{8}")
 
 
 class RegisteredNode(BaseModel):
@@ -69,26 +74,27 @@ class Registry:
     def _path(self, node_id: str) -> Path:
         return self.root / f"{node_id}.json"
 
-    def get(self, node_id: str) -> RegisteredNode | None:
-        """The node with this id, or None."""
-        path = self._path(node_id)
-        if not path.exists():
-            return None
+    def _load(self, path: Path) -> RegisteredNode | None:
+        """The node in ``path``, or None if there is none or it no longer validates."""
         try:
             return RegisteredNode.model_validate_json(path.read_bytes())
-        except Exception as e:
-            logger.warning("Skipping unreadable node %s: %s", path.name, e)
+        except FileNotFoundError:
+            return None
+        except ValidationError as e:  # Saved before its config changed shape.
+            logger.warning(
+                "Ignoring %s: it no longer validates (%d errors)", path, e.error_count()
+            )
             return None
 
+    def get(self, node_id: str) -> RegisteredNode | None:
+        """The node with this id, or None. Only ``<name>__<hash>`` ids are looked up."""
+        if not NODE_ID.fullmatch(node_id):
+            return None
+        return self._load(self._path(node_id))
+
     def all(self) -> list[RegisteredNode]:
-        """Every registered node, in id order."""
-        nodes: list[RegisteredNode] = []
-        for p in sorted(self.root.glob("*.json")):
-            try:
-                nodes.append(RegisteredNode.model_validate_json(p.read_bytes()))
-            except Exception as e:
-                logger.warning("Skipping unreadable node %s: %s", p.name, e)
-        return nodes
+        """Every registered node that still validates, in id order."""
+        return [n for p in sorted(self.root.glob("*.json")) if (n := self._load(p))]
 
     def score_columns(self) -> set[str]:
         """The full name of every score column that a registered scorer adds."""

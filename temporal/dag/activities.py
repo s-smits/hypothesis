@@ -22,6 +22,15 @@ def results_root() -> Path:
     return Path(os.environ.get("NODE_DAG_RESULTS", "results"))
 
 
+def results_subdir(name: str) -> Path:
+    """``<results root>/<name>``: ``hypotheses``, ``registry``, ``requests`` or ``trajectories``.
+
+    One file each: ``<hypothesis id>.json``, ``<node id>.json``, ``<node name>.json`` and
+    ``<hypothesis id>-r<round>-<stage>.json``.
+    """
+    return results_root() / name
+
+
 class RunNodeInput(BaseModel):
     """Input to the node activities.
 
