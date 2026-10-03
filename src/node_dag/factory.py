@@ -7,6 +7,8 @@ from node_dag.nodes.filters.at_least.config import AtLeastConfig
 from node_dag.nodes.filters.at_least.function import AtLeast
 from node_dag.nodes.filters.at_most.config import AtMostConfig
 from node_dag.nodes.filters.at_most.function import AtMost
+from node_dag.nodes.filters.top_k.config import TopKConfig
+from node_dag.nodes.filters.top_k.function import TopK
 from node_dag.nodes.tools.codon_adaptation.config import CodonAdaptationConfig
 from node_dag.nodes.tools.codon_adaptation.function import CodonAdaptation
 from node_dag.nodes.tools.codon_optimise.config import CodonOptimiseConfig
@@ -69,7 +71,8 @@ NodeConfig = Annotated[
     | OstirExpressionConfig
     | RecodeTargetedConfig
     | ResampleSynonymousConfig
-    | RnaBackTranscribeConfig,
+    | RnaBackTranscribeConfig
+    | TopKConfig,
     Discriminator("name"),
 ]
 
@@ -95,6 +98,7 @@ MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
     RecodeTargetedConfig: RecodeTargeted,
     ResampleSynonymousConfig: ResampleSynonymous,
     RnaBackTranscribeConfig: RnaBackTranscribe,
+    TopKConfig: TopK,
 }
 
 
