@@ -92,9 +92,13 @@ class Dag(BaseModel):
                 types[key] = types[src]
                 columns[key] = columns[src] | set(config.columns().values())
             elif isinstance(config, BaseFilterConfig):
-                if config.column not in columns[src]:
+                # Every column the filter reads has to reach it, not just the first,
+                # or a multi-objective filter would be handed a column that is absent.
+                if missing := [
+                    c for c in config.score_columns() if c not in columns[src]
+                ]:
                     raise ValueError(
-                        f"Step {key!r} filters on {config.column!r}, but {src!r} has "
+                        f"Step {key!r} filters on {missing[0]!r}, but {src!r} has "
                         f"score columns {sorted(columns[src])}"
                     )
                 for branch in ("yes", "no"):

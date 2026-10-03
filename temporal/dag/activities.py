@@ -33,7 +33,10 @@ class RunNodeInput(BaseModel):
     Args:
         config: The node to run.
         inputs: The list of entities for each of the node's input ports.
-        values: For a filter, the score of each entity, in order.
+        values: For a filter, the score of each entity, in order. A filter reading
+            several columns gets a dict instead, keyed by column, each list aligned
+            with ``inputs``. A single column stays a bare list, so those filters'
+            cache keys are unchanged.
         step: Which step of the run this is, for the links a node reports. It says
             nothing about what the node computes, so it is left out of the cache key:
             the same work in another step, or another run, is still a cache hit.
@@ -41,7 +44,7 @@ class RunNodeInput(BaseModel):
 
     config: NodeConfig
     inputs: dict[str, list[Value]]
-    values: list[float] | None = None
+    values: list[float] | dict[str, list[float]] | None = None
     step: str = ""
 
     def cache_path(self) -> Path:
