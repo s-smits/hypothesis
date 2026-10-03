@@ -115,6 +115,16 @@ class HypothesisWorkflow:
         """Replace the Hypothesis with a copy carrying ``fields``."""
         self._hyp = self._hyp.model_copy(update=fields)
 
+    def _put(self, att: Attempt) -> None:
+        """Record this round, replacing the entry for it if there already is one.
+
+        The attempt goes in as soon as it has a plan, not when the round ends, so a run
+        that blocks waiting for a tool still shows what it intends to do -- otherwise the
+        criteria panel reports that nothing asserts them while the plan sits right there.
+        """
+        kept = [a for a in self._hyp.attempts if a.round != att.round]
+        self._update(attempts=[*kept, att])
+
     async def _stop(self, state: str, why: str) -> Hypothesis:
         """End the run in ``state``, recording why, and save it."""
         self._update(state=state, stopped_because=why, pending=[])
@@ -339,7 +349,7 @@ class HypothesisWorkflow:
             if planned.plan is None:
                 att.error = planned.error
                 att.finished = workflow.now()
-                self._update(attempts=[*self._hyp.attempts, att])
+                self._put(att)
                 critique = Critique(
                     diagnosis=planned.error or "the builder produced no plan",
                     root_cause="goal_misread",
@@ -352,10 +362,11 @@ class HypothesisWorkflow:
             plan = planned.plan
             att.plan, att.fingerprint = plan, plan.fingerprint()
             self._update(hypothesis=plan.hypothesis)
+            self._put(att)
 
             res = await self._resolve(att, plan)
             if self._abandoned:
-                self._update(attempts=[*self._hyp.attempts, att])
+                self._put(att)
                 return await self._stop("abandoned", "abandoned while blocked on a tool")
             self._update(state="running", pending=[])
 
@@ -387,7 +398,7 @@ class HypothesisWorkflow:
                 self._update(verdict=att.verdict)
                 if att.verdict.achieved:
                     att.finished = workflow.now()
-                    self._update(attempts=[*self._hyp.attempts, att])
+                    self._put(att)
                     return await self._stop("achieved", att.verdict.reason)
 
             self._update(state="critiquing")
@@ -396,10 +407,9 @@ class HypothesisWorkflow:
             score = att.verdict.score if att.verdict else 0.0
             stale = 0 if score > self._hyp.best_score else stale + 1
             att.finished = workflow.now()
+            self._put(att)
             self._update(
-                attempts=[*self._hyp.attempts, att],
-                best_score=max(self._hyp.best_score, score),
-                critique=critique,
+                best_score=max(self._hyp.best_score, score), critique=critique
             )
             await self._save()
 

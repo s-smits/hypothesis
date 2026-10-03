@@ -217,6 +217,9 @@ function steps(row) {
 // "unverified" rather than achieved — nothing in the DAG could check it.
 function coverageView(h) {
   const plan = planOf(h), held = heldSources(h);
+  // Until the DAG has run there are no branches to read, so an assertion is pending
+  // rather than failed — the difference matters while a run is blocked on a tool.
+  const ran = !!(latest(h)?.outcome ?? h.outcome);
   const assertions = plan?.assertions ?? [];
   const rows = h.criteria.map((c) => ({ criterion: c, tests: assertions.filter((a) => a.criterion === c.id) }));
   const orphans = assertions.filter((a) => !h.criteria.some((c) => c.id === a.criterion));
@@ -231,7 +234,7 @@ function coverageView(h) {
             <td><code>${esc(c.id)}</code><br><span class="meta">${esc(c.source)}</span></td>
             <td>${esc(c.claim)}</td>
             <td>${tests.length ? tests.map((a) => `<code>${esc(a.step)}.${esc(a.branch)}</code> ${esc(a.claim)}`).join("<br>") : `<span class="unheld">no assertion covers it</span>`}</td>
-            <td>${tests.length ? tests.map((a) => held[`${a.step}.${a.branch}`] ? `<span class="held">held</span>` : `<span class="unheld">did not hold</span>`).join("<br>") : "—"}</td>
+            <td>${tests.length ? tests.map((a) => held[`${a.step}.${a.branch}`] ? `<span class="held">held</span>` : (ran ? `<span class="unheld">did not hold</span>` : `<span class="meta">not run yet</span>`)).join("<br>") : "—"}</td>
           </tr>`).join("")}${orphans.map((a) => `
           <tr>
             <td><code>${esc(a.criterion)}</code><br><span class="meta">not a criterion</span></td>

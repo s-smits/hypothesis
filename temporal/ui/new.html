@@ -172,8 +172,11 @@ $("#form").addEventListener("submit", async (e) => {
     const rounds = $("#rounds").value.trim();
     const body = {
       goal: $("#goal").value, hypothesis: $("#hypothesis").value, inputs: readInputs(),
-      criteria: readCriteria(), max_rounds: rounds === "" ? null : Number(rounds),
+      criteria: readCriteria(),
     };
+    // Left blank, the field is simply absent, so the server's default applies. Sending
+    // null instead fails validation: max_rounds is an int with a default, not optional.
+    if (rounds !== "") body.max_rounds = Number(rounds);
     const r = await fetch("/api/hypotheses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(explain(data.detail ?? `${r.status}`));
