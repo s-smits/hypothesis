@@ -437,6 +437,7 @@ def test_search_nodes_finds_and_ranks_by_intent():
         "domesticate",
         "gc_target_recode",
         "mutate_synonymous",
+        "recode_targeted",
         "resample_synonymous",
     ]
 
