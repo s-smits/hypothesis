@@ -1,16 +1,17 @@
 import pytest
 from pydantic import ValidationError
 
+from node_dag.dag import Dag
 from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
 from node_dag.nodes.tools.ostir_expression.function import OstirExpression
-from node_dag.types import Dna
+from node_dag.types import Dna, Rna
 
 CDS = Dna(sequence="ATGGCTCTGAAATAA")  # M A L K *
 STRONG = "TTCTAGAAAGGAGGTAAAAAA"  # AAGGAGG, six bases before the start codon.
 WEAK = "TTCTAGACCTCCTTATAAAAA"  # No Shine-Dalgarno to pair with the 16S rRNA.
 
 
-def rate(utr: str, cds: Dna = CDS, **kwargs) -> float:
+def rate(utr: str, cds: Dna | Rna = CDS, **kwargs) -> float:
     (scores,) = OstirExpression(OstirExpressionConfig(utr=utr, **kwargs)).run(
         sequence=[cds]
     )
@@ -24,6 +25,15 @@ def test_a_shine_dalgarno_before_the_start_codon_raises_the_rate():
 def test_a_sequence_that_does_not_start_with_a_start_codon_scores_zero():
     # OSTIR finds no initiation at the first codon, so no ribosome starts there.
     assert rate(STRONG, Dna(sequence="GCTCTGAAATAA")) == 0.0
+
+
+def test_rna_scores_the_same_as_its_dna():
+    assert rate(STRONG, Rna(sequence="AUGGCUCUGAAAUAA")) == rate(STRONG)
+
+
+def test_a_dag_can_score_rna_inputs():
+    step = {"config": {"name": "ostir_expression", "utr": STRONG}}
+    Dag(inputs={"seqs": "rna"}, steps={"x": {**step, "inputs": {"sequence": "seqs"}}})
 
 
 def test_the_rate_is_the_same_every_time():

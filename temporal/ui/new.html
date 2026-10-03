@@ -70,6 +70,7 @@
 // How to read each kind's value from one text box. Mirrors node_dag/types.py.
 const KINDS = {
   dna: { field: "sequence", placeholder: "ATGGCC…", parse: (s) => s.trim().toUpperCase() },
+  rna: { field: "sequence", placeholder: "AUGGCC…", parse: (s) => s.trim().toUpperCase() },
   amino_acid_sequence: { field: "sequence", placeholder: "MA…", parse: (s) => s.trim().toUpperCase() },
 };
 const $ = (sel) => document.querySelector(sel);

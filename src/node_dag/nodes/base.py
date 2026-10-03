@@ -48,6 +48,9 @@ class BaseNodeConfig(BaseModel):
     )
     categories: ClassVar[tuple[Category, ...]] = ()
     inputs: ClassVar[dict[str, type[Entity]]] = {}
+    intents: ClassVar[tuple[str, ...]] = ()
+    when_to_use: ClassVar[str] = ""
+    when_not_to_use: ClassVar[str] = ""
     # Part of the cache key and the config hash. Raise it when a change to run()
     # changes its results.
     version: ClassVar[int] = 1
@@ -74,11 +77,14 @@ class BaseNodeConfig(BaseModel):
 
     @classmethod
     def contract(cls) -> dict[str, Any]:
-        """Categories, input ports and outputs, with types as ``kind`` names."""
+        """Categories, input ports, outputs, intents and usage guidelines."""
         return {
             "categories": [c.value for c in cls.categories],
             "inputs": {port: _kind(t) for port, t in cls.inputs.items()},
             "outputs": {src: _kind(t) for src, t in cls.outputs().items()},
+            "intents": list(cls.intents),
+            "when_to_use": cls.when_to_use,
+            "when_not_to_use": cls.when_not_to_use,
         }
 
     @classmethod

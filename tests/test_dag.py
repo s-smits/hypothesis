@@ -4,6 +4,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+from Bio.Seq import Seq
 from pydantic import ValidationError
 from temporalio import activity
 from temporalio.contrib.pydantic import pydantic_data_converter
@@ -16,7 +17,7 @@ from node_dag.nodes.base import BaseFilterConfig
 from node_dag.nodes.tools.dna_atom_score.config import DnaAtomScoreConfig
 from node_dag.nodes.tools.mutate_synonymous.config import MutateSynonymousConfig
 from node_dag.nodes.tools.mutate_synonymous.function import MutateSynonymous
-from node_dag.types import AminoAcidSequence, Dna, Table, Value
+from node_dag.types import AminoAcidSequence, Dna, ProteinStructure, Table, Value
 from temporal.dag.activities import (
     RunNodeInput,
     run_filter,
@@ -87,7 +88,10 @@ async def test_workflow_runs_every_entity_through_each_step(results_dir):
     assert out.values["seqs"].items == SEQS
     mutated, scored = out.values["mutated"], out.values["scored"]
     assert mutated.items == MUTANTS
-    assert all(m.protein() == REF.protein() for m in mutated.items)
+    assert all(
+        str(Seq(m.sequence).translate()) == str(Seq(REF.sequence).translate())
+        for m in mutated.items
+    )
     assert mutated.scores == {}  # New entities have no scores.
     # Scoring keeps the entities and adds a column per score, named by node and hash.
     assert scored.items == mutated.items
@@ -106,7 +110,9 @@ async def test_workflow_runs_every_entity_through_each_step(results_dir):
     )
     split = small.items + out.values["small.no"].items
     assert sorted(i.id for i in split) == sorted(i.id for i in yes.items)
-    assert out.values["protein"].items == [AminoAcidSequence(sequence=REF.protein())]
+    assert out.values["protein"].items == [
+        AminoAcidSequence(sequence=str(Seq(REF.sequence).translate()))
+    ]
 
     saved = DagProgress.model_validate_json(
         (results_dir / "workflows" / "run-1.json").read_text()
@@ -191,6 +197,15 @@ def test_dag_input_must_match_declared_types():
         DagInput(dag=dag, inputs={"seqs": [AminoAcidSequence(sequence="MMM")]})
     with pytest.raises(ValidationError, match="DAG wants inputs"):
         DagInput(dag=dag, inputs={"other": SEQS})
+
+
+def test_dag_input_supports_protein_structure():
+    dag = Dag.model_validate(
+        {"inputs": {"structures": "protein_structure"}, "steps": {}}
+    )
+    ps = ProteinStructure(sequence="MALK*", structure="ATOM 1 ...")
+    inp = DagInput(dag=dag, inputs={"structures": [ps]})
+    assert inp.inputs["structures"] == [ps]
 
 
 def test_a_config_with_a_made_up_hash_is_rejected():

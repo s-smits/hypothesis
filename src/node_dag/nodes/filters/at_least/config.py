@@ -18,3 +18,16 @@ class AtLeastConfig(BaseFilterConfig):
     threshold: float
     categories = (Category.FILTER,)
     inputs: ClassVar = {"items": Entity}
+    intents: ClassVar = (
+        "keep entities with score at least threshold",
+        "filter for higher scores or values above a minimum cutoff",
+        "select candidate sequences that beat a baseline expression or score",
+    )
+    when_to_use: ClassVar = (
+        "Use after a scoring node to select entities whose score meets or exceeds a "
+        "threshold (e.g. higher expression >= baseline)."
+    )
+    when_not_to_use: ClassVar = (
+        "Do not set threshold to 0.0 or a trivial value that keeps all entities when "
+        "the goal asks to select or find better ones."
+    )

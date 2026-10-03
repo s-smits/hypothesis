@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -6,6 +7,8 @@ from pydantic import BaseModel
 from node_dag.factory import NodeConfig
 from node_dag.nodes.base import BaseFilterConfig, BaseScoreConfig
 from node_dag.storage import write_atomic
+
+logger = logging.getLogger(__name__)
 
 
 class RegisteredNode(BaseModel):
@@ -71,14 +74,21 @@ class Registry:
         path = self._path(node_id)
         if not path.exists():
             return None
-        return RegisteredNode.model_validate_json(path.read_bytes())
+        try:
+            return RegisteredNode.model_validate_json(path.read_bytes())
+        except Exception as e:
+            logger.warning("Skipping unreadable node %s: %s", path.name, e)
+            return None
 
     def all(self) -> list[RegisteredNode]:
         """Every registered node, in id order."""
-        return [
-            RegisteredNode.model_validate_json(p.read_bytes())
-            for p in sorted(self.root.glob("*.json"))
-        ]
+        nodes: list[RegisteredNode] = []
+        for p in sorted(self.root.glob("*.json")):
+            try:
+                nodes.append(RegisteredNode.model_validate_json(p.read_bytes()))
+            except Exception as e:
+                logger.warning("Skipping unreadable node %s: %s", p.name, e)
+        return nodes
 
     def score_columns(self) -> set[str]:
         """The full name of every score column that a registered scorer adds."""

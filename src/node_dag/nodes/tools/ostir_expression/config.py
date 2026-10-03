@@ -3,13 +3,13 @@ from typing import ClassVar, Literal
 from pydantic import field_validator
 
 from node_dag.nodes.base import BaseScoreConfig, Category
-from node_dag.types import Dna, Score
+from node_dag.types import NucleicAcid, Score
 
 ECOLI_ANTI_SD = "ACCTCCTTA"  # The 3' end of the E. coli 16S rRNA, as OSTIR has it.
 
 
 class OstirExpressionConfig(BaseScoreConfig):
-    """Score each coding sequence by how fast ribosomes start translating it.
+    """Score each coding sequence, DNA or RNA, by how fast ribosomes start translating it.
 
     Runs `OSTIR <https://github.com/barricklab/ostir>`_, which folds the mRNA with
     ViennaRNA and weighs how well its Shine-Dalgarno sequence pairs with the 16S rRNA,
@@ -37,8 +37,22 @@ class OstirExpressionConfig(BaseScoreConfig):
     utr: str
     anti_sd: str = ECOLI_ANTI_SD
     categories = (Category.SCORING,)
-    inputs: ClassVar = {"sequence": Dna}
+    inputs: ClassVar = {"sequence": NucleicAcid}
     output: ClassVar = {"expression": Score}
+    intents: ClassVar = (
+        "score sequences via expression / translation initiation",
+        "calculate translation initiation rate or ribosome binding efficiency",
+        "measure mRNA expression with OSTIR",
+        "evaluate protein translation rate of coding sequences",
+        "find sequences with higher or lower expression",
+    )
+    when_to_use: ClassVar = (
+        "Use when the goal asks to score, measure, increase, or optimize sequence "
+        "expression, translation initiation rate, or ribosome binding site (RBS) strength."
+    )
+    when_not_to_use: ClassVar = (
+        "Do not use for measuring atom counts, or on non-coding sequences."
+    )
 
     @field_validator("utr", "anti_sd")
     @classmethod

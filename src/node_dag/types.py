@@ -11,7 +11,7 @@ from pydantic import (
     model_serializer,
 )
 
-from node_dag.dna import ATOMS_PER_BASE, CODON_TABLE
+from node_dag.dna import ATOMS_PER_BASE
 
 
 class Entity(BaseModel):
@@ -73,20 +73,14 @@ class AminoAcidSequence(Entity):
         return v
 
 
-class Codon(BaseModel):
-    """One codon and the amino acid it codes for.
+class NucleicAcid(Entity):
+    """DNA or RNA. A node that takes either types its port with this."""
 
-    Args:
-        codon: Three bases.
-        amino_acid: One-letter amino acid code, or ``*`` for stop.
-    """
-
-    codon: str
-    amino_acid: str
+    kind: str = "nucleic_acid"
 
 
-class Dna(Entity):
-    """A coding DNA sequence: upper-case A, C, G, T, a whole number of codons.
+class Dna(NucleicAcid):
+    """A DNA sequence: upper-case A, C, G, T.
 
     Args:
         sequence: The bases, 5' to 3'.
@@ -94,33 +88,33 @@ class Dna(Entity):
 
     kind: Literal["dna"] = "dna"
 
-    @computed_field
-    @property
-    def display(self) -> str:
-        """The codons, separated by spaces: ``ATG GCT CTG``."""
-        return " ".join(c.codon for c in self.codons())
-
     @field_validator("sequence")
     @classmethod
     def _check(cls, v: str) -> str:
-        if len(v) % 3 or set(v) - set(ATOMS_PER_BASE):
-            raise ValueError(f"Not whole codons of A, C, G, T: {v!r}")
+        if set(v) - set(ATOMS_PER_BASE):
+            raise ValueError(f"Not A, C, G, T: {v!r}")
         return v
-
-    def codons(self) -> list[Codon]:
-        """The sequence split into codons, each with its amino acid."""
-        return [
-            Codon(codon=c, amino_acid=CODON_TABLE[c])
-            for c in (self.sequence[i : i + 3] for i in range(0, len(self.sequence), 3))
-        ]
-
-    def protein(self) -> str:
-        """The amino acids as a one-letter string."""
-        return "".join(c.amino_acid for c in self.codons())
 
     def atom_count(self) -> int:
         """Total atoms in the DNA strand."""
         return sum(ATOMS_PER_BASE[b] for b in self.sequence)
+
+
+class Rna(NucleicAcid):
+    """An RNA sequence: upper-case A, C, G, U.
+
+    Args:
+        sequence: The bases, 5' to 3'.
+    """
+
+    kind: Literal["rna"] = "rna"
+
+    @field_validator("sequence")
+    @classmethod
+    def _check(cls, v: str) -> str:
+        if set(v) - set("ACGU"):
+            raise ValueError(f"Not A, C, G, U: {v!r}")
+        return v
 
 
 class Score(BaseModel):
@@ -134,9 +128,44 @@ class Score(BaseModel):
     value: float
 
 
+class ProteinStructure(Entity):
+    """A protein sequence and its 3D macromolecular structure (e.g. PDB format).
+
+    Args:
+        sequence: The amino acids, or ``*`` for stop codons.
+        structure: The macromolecular 3D structure, e.g. as a PDB string.
+    """
+
+    kind: Literal["protein_structure"] = "protein_structure"
+    structure: str
+
+    @field_validator("sequence")
+    @classmethod
+    def _check(cls, v: str) -> str:
+        valid_chars = set("ACDEFGHIKLMNPQRSTVWY*")
+        if set(v) - valid_chars:
+            raise ValueError(f"Not valid amino acid codes: {v!r}")
+        return v
+
+    @computed_field
+    @property
+    def id(self) -> str:
+        """A short, stable hash of the kind, sequence, and structure."""
+        return hashlib.sha256(
+            f"{self.kind}:{self.sequence}:{self.structure}".encode()
+        ).hexdigest()[:12]
+
+
 # Add a new entity type to both.
-Value = Annotated[Dna | AminoAcidSequence, Discriminator("kind")]
-TYPES: dict[str, type[Entity]] = {"dna": Dna, "amino_acid_sequence": AminoAcidSequence}
+Value = Annotated[
+    Dna | Rna | AminoAcidSequence | ProteinStructure, Discriminator("kind")
+]
+TYPES: dict[str, type[Entity]] = {
+    "dna": Dna,
+    "rna": Rna,
+    "amino_acid_sequence": AminoAcidSequence,
+    "protein_structure": ProteinStructure,
+}
 
 
 class Table(BaseModel):

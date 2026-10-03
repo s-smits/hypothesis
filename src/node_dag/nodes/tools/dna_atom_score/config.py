@@ -22,3 +22,17 @@ class DnaAtomScoreConfig(BaseScoreConfig):
     categories = (Category.SCORING,)
     inputs: ClassVar = {"sequence": Dna}
     output: ClassVar = {"atom_count": Score, "amino_acid_changes": Score}
+    intents: ClassVar = (
+        "score sequences by atom count",
+        "count atoms in DNA sequences",
+        "measure amino acid changes against reference protein",
+        "verify synonymous mutations have 0 amino acid changes",
+        "find sequences with fewer or more atoms",
+    )
+    when_to_use: ClassVar = (
+        "Use when the goal asks to count atoms, lower or reduce atom count, or check "
+        "that amino acid sequences remain unchanged against a reference."
+    )
+    when_not_to_use: ClassVar = (
+        "Do not use for scoring expression or translation rate."
+    )

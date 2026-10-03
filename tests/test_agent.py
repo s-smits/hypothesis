@@ -1,6 +1,8 @@
 import json
 from concurrent.futures import ThreadPoolExecutor
 
+import pytest
+
 from pydantic_ai.messages import (
     ModelMessage,
     ModelResponse,
@@ -298,3 +300,142 @@ def test_a_hypothesis_from_an_older_schema_is_skipped_not_fatal():
 
     rows = _saved_rows()
     assert [r.hypothesis.goal for r in rows] == ["good"]
+
+
+def test_search_nodes_finds_and_ranks_by_intent():
+    from node_dag.agent import search_nodes
+
+    # Query matching expression scoring
+    expr_results = search_nodes(query="score expression translation", input_type="dna")
+    assert len(expr_results) >= 1
+    assert expr_results[0]["name"] == "ostir_expression"
+    assert "score sequences via expression / translation initiation" in expr_results[0]["intents"]
+
+    # A port that takes any nucleic acid matches RNA, and a DNA-only one does not.
+    rna_names = [r["name"] for r in search_nodes(input_type="rna")]
+    assert "ostir_expression" in rna_names
+    assert "dna_to_protein" not in rna_names
+
+    # Query matching atom count
+    atom_results = search_nodes(query="reduce atom count", input_type="dna")
+    assert len(atom_results) >= 1
+    assert atom_results[0]["name"] == "dna_atom_score"
+
+    # Category filtering
+    gen_results = search_nodes(category="generation")
+    assert [r["name"] for r in gen_results] == ["mutate_synonymous"]
+
+    # Translation
+    trans_results = search_nodes(query="translate to protein")
+    assert trans_results[0]["name"] == "dna_to_protein"
+
+
+async def test_agent_rejects_optimization_goal_without_generation(results_dir):
+    seen_errors: list[str] = []
+    scorer_id = f"dna_atom_score__{SCORE.config_hash}"
+
+    calls = [
+        ("list_registry", {}),
+        (
+            "create_node",
+            {
+                "config": {"name": "dna_atom_score", "reference": {"sequence": REF.sequence}},
+                "description": "score atoms",
+            },
+        ),
+    ]
+
+    def builder(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        for p in _returns(messages):
+            if isinstance(p, RetryPromptPart):
+                seen_errors.append(str(p.content))
+        turn = _turn(messages)
+        if turn < len(calls):
+            return _call(*calls[turn])
+        return _reply(
+            info,
+            {
+                "hypothesis": "score only",
+                "inputs": {"seq": "dna"},
+                "steps": {
+                    "scored": {
+                        "node": scorer_id,
+                        "inputs": {"sequence": "seq"},
+                    }
+                },
+            },
+        )
+
+    agent = build_agent(FunctionModel(builder), Registry(results_dir))
+    hyp = Hypothesis(
+        goal="lower the atom count of the sequence",
+        inputs={"seq": [REF]},
+    )
+    with pytest.raises(Exception):
+        await agent.run("build", deps=hyp)
+
+    assert any("no generation node" in err for err in seen_errors)
+
+
+async def test_agent_rejects_trivial_expression_threshold(results_dir):
+    seen_errors: list[str] = []
+    calls = [
+        (
+            "create_node",
+            {
+                "config": {"name": "ostir_expression", "utr": "AGGAGGTAAAAA"},
+                "description": "score expression",
+            },
+        ),
+        (
+            "create_node",
+            {
+                "config": {
+                    "name": "at_least",
+                    "column": "ostir_expression__mock__expression",
+                    "threshold": 0.0,
+                },
+                "description": "filter expression",
+            },
+        ),
+    ]
+
+    def builder(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        for p in _returns(messages):
+            if isinstance(p, RetryPromptPart):
+                seen_errors.append(str(p.content))
+        turn = _turn(messages)
+        if turn < len(calls):
+            return _call(*calls[turn])
+        # Find created filter node id
+        filter_id = [n.id for n in Registry(results_dir).all() if "at_least" in n.id][0]
+        return _reply(
+            info,
+            {
+                "hypothesis": "filter at 0.0",
+                "inputs": {"seq": "dna"},
+                "steps": {
+                    "filt": {
+                        "node": filter_id,
+                        "inputs": {"items": "seq"},
+                    }
+                },
+            },
+        )
+
+    registry = Registry(results_dir)
+    # Pre-register scorer so filter column is accepted by registry
+    from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
+    ostir = OstirExpressionConfig(utr="AGGAGGTAAAAA")
+    registry.register(ostir, "score expression")
+    calls[1][1]["config"]["column"] = ostir.columns()["expression"]
+
+    agent = build_agent(FunctionModel(builder), registry)
+    hyp = Hypothesis(
+        goal="measure expression",
+        inputs={"seq": [REF]},
+    )
+    with pytest.raises(Exception):
+        await agent.run("build", deps=hyp)
+
+    assert any("allows every sequence to pass trivially" in err for err in seen_errors)

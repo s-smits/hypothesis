@@ -18,3 +18,16 @@ class AtMostConfig(BaseFilterConfig):
     threshold: float
     categories = (Category.FILTER,)
     inputs: ClassVar = {"items": Entity}
+    intents: ClassVar = (
+        "keep entities with score at most threshold",
+        "filter for lower scores or values below a maximum cutoff",
+        "select candidate sequences with reduced atom count",
+        "filter to keep only synonymous sequences (amino_acid_changes at most 0)",
+    )
+    when_to_use: ClassVar = (
+        "Use after a scoring node to select entities whose score is at or below a "
+        "threshold (e.g. fewer atoms <= baseline - 1, or amino_acid_changes <= 0)."
+    )
+    when_not_to_use: ClassVar = (
+        "Do not use when filtering for higher values (use at_least instead)."
+    )
