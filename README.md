@@ -278,6 +278,33 @@ uv run python -m temporal.scaffold_node <name> --bump
 
 Then restart the worker, so the new code is picked up.
 
+## Try it without setting anything up
+
+```bash
+uv run python -m temporal.run_demo
+```
+
+One command, one process: it starts a Temporal server, a worker and the UI together, and
+opens on <http://127.0.0.1:8000/new>. The three agents are stubbed, so **no API key is
+needed and nothing is charged**, and the rest is real -- the real workflow, the real nodes
+and the real pages.
+
+It is set up to show the part that is hardest to picture. Enter:
+
+| | |
+|---|---|
+| Goal | Remove every TCG and TCA codon without changing the protein |
+| Criterion | `no_tcg_tca` / no TCG or TCA codon remains |
+| Input | `seq` / `dna` / `ATGTCGTCAGCTTAA` |
+
+The builder asks for a node nobody has written, so the run blocks and shows you its
+contract. Click **Tool added - resume** and the plan it was already holding runs without
+being written again: `ATGTCGTCAGCTTAA` becomes `ATGTCTTCTGCTTAA`, the `clean` decision
+takes its yes branch, and the protein is still `MSSA*`.
+
+Pass `--model anthropic:claude-fable-5-1` to use the real agents instead, which needs
+`ANTHROPIC_API_KEY`. Results go to `results-demo/` so they do not mix with real runs.
+
 ## Models
 
 The builder and the critic do the reasoning; the verifier is a cheap, independent veto.
