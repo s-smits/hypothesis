@@ -10,6 +10,7 @@ from pydantic_ai.messages import (
     ModelRequest,
     ModelResponse,
     RetryPromptPart,
+    TextPart,
     ToolCallPart,
     ToolReturnPart,
     UserPromptPart,
@@ -167,6 +168,19 @@ def test_a_call_shows_the_tools_read_the_retries_sent_and_whether_it_finished():
         call.done and call.model == "m" and call.took == 30 and call.tokens == 110 * 5
     )
     assert not read_call(1, "plan", transcript([], finished=False), saved=5.0).done
+
+
+def test_a_call_that_answers_in_plain_text_is_finished():
+    """The criteria and critique stages return text and call no output tool."""
+    usage = RequestUsage(input_tokens=100, output_tokens=10)
+    text = [
+        ModelRequest(parts=[UserPromptPart("go", timestamp=at(0))]),
+        ModelResponse(
+            parts=[TextPart("done")], usage=usage, model_name="m", timestamp=at(2)
+        ),
+    ]
+    assert read_call(1, "critique", text, saved=5.0).done
+    assert not read_call(1, "critique", text[:1], saved=5.0).done
 
 
 def test_transcripts_are_read_per_run_and_a_run_whose_id_starts_another_is_not_mixed_in():

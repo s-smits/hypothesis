@@ -249,7 +249,8 @@ Known kinds: {sorted(TYPES)}."""
 
 VERIFY_INSTRUCTIONS = """\
 You get JSON: a goal, its criteria and inputs, the plan (hypothesis, expected, assertions),
-`held` (whether each assertion's branch fired, worked out by code), the DAG and the outcome.
+`held` (whether each assertion's branch took every entity and the other took none, worked
+out by code: false does not mean the branch took nothing), the DAG and the outcome.
 Work out the expected result from the goal and inputs yourself, and do not trust the plan.
 Set agrees to true only if the outcome holds the expected result for every input. Set
 covers_goal to true only if the assertions genuinely test every criterion. You cannot

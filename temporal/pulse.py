@@ -211,7 +211,14 @@ def read_call(
                 own = "" if p.tool_name in (None, OUTPUT) else f"{p.tool_name}: "
                 retries.append(own + _why(p.content))
     last = messages[-1].parts[-1] if messages and messages[-1].parts else None
-    done = isinstance(last, ToolReturnPart) and last.tool_name == OUTPUT
+    # Done is the output tool's return, or, for the stages that answer in plain text
+    # (criteria, critique), a last response that calls no tool.
+    answered = (
+        bool(messages)
+        and isinstance(messages[-1], ModelResponse)
+        and not any(isinstance(p, ToolCallPart) for p in messages[-1].parts)
+    )
+    done = answered or (isinstance(last, ToolReturnPart) and last.tool_name == OUTPUT)
     began = min(stamps, default=saved)
     return Call(
         round=number,

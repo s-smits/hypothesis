@@ -132,7 +132,10 @@ class Plan(BaseModel):
     hypothesis: str
     expected: str
     assertions: list[Assertion] = []
-    inputs: dict[str, str]
+    inputs: dict[str, str] = Field(
+        description="The goal's inputs, as shown: each input's name and the kind of its "
+        'entities, e.g. {"seqs": "dna"}. Not a source name.'
+    )
     steps: dict[str, PlannedStep] = Field(min_length=1)
     requests: dict[str, ToolRequest] = {}
     addresses_critique: str = ""
