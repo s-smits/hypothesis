@@ -250,11 +250,11 @@ Apply these when implementing an experiment; the benchmark does not yet exist:
 - Keep benchmark code and hidden evaluation data outside the candidate's writable
   surface. A candidate may modify the design algorithm, not its evaluator. Label
   seeded random stub scores as synthetic and exclude them from scientific results.
-- `dna_atom_score` is a plumbing objective with separable codon costs; it is a weak
-  discovery benchmark. `ostir_expression` already uses OSTIR and ViennaRNA, but its
-  translation-initiation prediction is a proxy. Decide whether the task maximises
-  predicted initiation or preserves the original level before choosing a score.
-  Neither score establishes cellular fitness, viability or safe genome design.
+- `ostir_expression` already uses OSTIR and ViennaRNA, but its translation-initiation
+  prediction is a proxy. Decide whether the task maximises predicted initiation or
+  preserves the original level before choosing a score. A plumbing objective with
+  separable codon costs, like the removed `dna_atom_score`, is a weak discovery
+  benchmark. No score establishes cellular fitness, viability or safe genome design.
 - Compare against fixed random synonymous, best-of-N and greedy baselines with
   explicit token, candidate-evaluation and wall-clock budgets. The current mutation
   node needs adaptation to serve as a target-codon-elimination baseline. Record

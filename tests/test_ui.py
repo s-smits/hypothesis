@@ -1,19 +1,26 @@
 import copy
 import json
+import re
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
+import pytest
+from fastapi import HTTPException
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRoute
 from temporalio.client import Client
+from temporalio.service import RPCError, RPCStatusCode
 
+from node_dag import amass
 from node_dag.agent import Hypothesis
+from node_dag.dag import Dag, DagProgress
 from node_dag.nodes.filters.at_most.config import AtMostConfig
-from node_dag.nodes.tools.dna_atom_score.config import DnaAtomScoreConfig
-from node_dag.plan import Attempt, ToolRequest
+from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
+from node_dag.plan import Attempt, Observation, ToolRequest
 from node_dag.registry import Registry
 from node_dag.types import Dna
-from temporal.dag.activities import results_subdir
+from temporal.dag.activities import SavedRun, SaveWorkflowInput, results_subdir
 from temporal.hypothesis.activities import save_hypothesis
 from temporal.hypothesis.loop import HypothesisInput
 from temporal.ui.app import NewHypothesis, _hypothesis_row, make_app
@@ -50,21 +57,145 @@ def _endpoint(path: str, method: str = "GET", client=None, model=None):
     )
 
 
+class _NoTemporal:
+    """A client whose server is down, as when Temporal has been restarted."""
+
+    def _down(self, *args, **kwargs):
+        raise RPCError("connection refused", RPCStatusCode.UNAVAILABLE, b"")
+
+    list_workflows = describe = _down
+
+    def get_workflow_handle(self, workflow_id: str):
+        return self
+
+
+async def test_finished_runs_show_without_temporal(results_dir):
+    dag = Dag.model_validate(
+        {
+            "inputs": {"seq": "dna"},
+            "steps": {
+                "protein": {
+                    "config": {"name": "dna_to_protein"},
+                    "inputs": {"sequence": "seq"},
+                }
+            },
+        }
+    )
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    saved = SavedRun(
+        dag=dag,
+        steps={"protein": "failed"},
+        values={},
+        status="FAILED",
+        start_time=start,
+        close_time=start + timedelta(minutes=1),
+        error="out of GPUs",
+    )
+    path = SaveWorkflowInput.path_for("new")
+    path.parent.mkdir(parents=True)
+    path.write_text(saved.model_dump_json())
+    # A file from before runs saved their status and times.
+    old = DagProgress(dag=dag, steps={"protein": "done"}, values={})
+    SaveWorkflowInput.path_for("old").write_text(old.model_dump_json())
+    app = make_app(cast(Client, _NoTemporal()))
+    routes = {r.path: r.endpoint for r in app.routes if isinstance(r, APIRoute)}
+
+    runs = await routes["/api/runs"]()
+
+    assert [(r.id, r.status) for r in runs] == [("old", "COMPLETED"), ("new", "FAILED")]
+    detail = await routes["/api/runs/{workflow_id}"]("new")
+    assert detail.status == "FAILED"
+    assert detail.error == "out of GPUs"
+    assert detail.close_time == start + timedelta(minutes=1)
+    assert detail.progress and detail.progress.steps == {"protein": "failed"}
+    with pytest.raises(HTTPException) as e:
+        await routes["/api/runs/{workflow_id}"]("never-saved")
+    assert e.value.status_code == 503
+
+
+def _dag() -> Dag:
+    return Dag.model_validate(
+        {
+            "inputs": {"seq": "dna"},
+            "steps": {
+                "protein": {
+                    "config": {"name": "dna_to_protein"},
+                    "inputs": {"sequence": "seq"},
+                }
+            },
+        }
+    )
+
+
+async def test_a_row_carries_the_saved_run_of_its_current_round(results_dir):
+    saved = SavedRun(dag=_dag(), steps={"protein": "failed"}, values={})
+    saved = saved.model_copy(update={"status": "FAILED", "error": "out of GPUs"})
+    path = SaveWorkflowInput.path_for("h-r2")
+    path.parent.mkdir(parents=True)
+    path.write_text(saved.model_dump_json())
+    inputs = {"seq": [Dna(sequence="ATG")]}
+    attempts = [Attempt(round=2, dag=_dag(), workflow_id="h-r2")]
+    # state is None for a file from before the loop, so its status comes from its run.
+    for id_, state in (("old", None), ("loop", "running")):
+        save_hypothesis(
+            Hypothesis(
+                id=id_, goal="g", inputs=inputs, round=2, attempts=attempts, state=state
+            )
+        )
+
+    rows = {r.hypothesis.id: r for r in await _endpoint("/api/hypotheses")()}
+
+    assert {k: r.status for k, r in rows.items()} == {
+        "old": "failed",
+        "loop": "running",
+    }
+    assert all(r.progress and r.progress.error == "out of GPUs" for r in rows.values())
+
+
+async def test_an_observation_lists_the_hypotheses_that_cite_it(
+    results_dir, monkeypatch
+):
+    record = {"amassId": "AMBC_1", "title": "Ribosome binding sites", "fulltext": "..."}
+    monkeypatch.setattr(amass, "get_record", lambda core, amass_id, include=(): record)
+    cited = Observation(
+        amass_id="AMBC_1",
+        summary="RBS strength sets expression.",
+        core="biomedcore",
+        title="Ribosome binding sites",
+    )
+    inputs = {"seq": [Dna(sequence="ATG")]}
+    save_hypothesis(
+        Hypothesis(id="cites", goal="g", inputs=inputs, observations=[cited])
+    )
+    save_hypothesis(Hypothesis(id="silent", goal="g", inputs=inputs))
+
+    detail = await _endpoint("/api/observations/{core}/{amass_id}")(
+        "biomedcore", "AMBC_1"
+    )
+
+    assert detail.record == record
+    assert [(c.hypothesis_id, c.summary) for c in detail.cited_by] == [
+        ("cites", "RBS strength sets expression.")
+    ]
+
+
 async def test_nodes_api_lists_what_the_builder_registered(results_dir):
     assert await _endpoint("/api/nodes")() == []
-    score = DnaAtomScoreConfig(reference=Dna(sequence="ATGGCTCTGAAATAA"))
-    column = score.columns()["atom_count"]
+    score = OstirExpressionConfig(utr="TTCTAGAAAGGAGGTAAAAAA")
+    column = score.columns()["expression"]
     registry = Registry(results_subdir("registry"))
-    registry.register(score, "atoms and protein changes")
+    registry.register(score, "score expression")
     registry.register(AtMostConfig(column=column, threshold=400), "small ones")
 
     nodes = await _endpoint("/api/nodes")()
 
-    scorer, filt = sorted(nodes, key=lambda n: n["config"]["name"] != "dna_atom_score")
-    assert scorer["node"] == f"dna_atom_score__{score.config_hash}"
-    assert scorer["description"] == "atoms and protein changes"
+    scorer, filt = sorted(
+        nodes, key=lambda n: n["config"]["name"] != "ostir_expression"
+    )
+    assert scorer["node"] == f"ostir_expression__{score.config_hash}"
+    assert scorer["description"] == "score expression"
     assert scorer["categories"] == ["scoring"]
-    assert scorer["score_columns"]["atom_count"] == column
+    assert scorer["score_columns"]["expression"] == column
     assert filt["filters_on"] == column
     assert filt["categories"] == ["filter"]
 
@@ -182,3 +313,16 @@ def test_reading_an_old_file_leaves_the_dict_it_was_given_alone():
     assert (
         Hypothesis.model_validate(hyp.model_dump(mode="json")).attempts == hyp.attempts
     )
+
+
+async def test_the_runs_page_can_show_a_structure():
+    page = await _endpoint("/")()
+    index = (Path(page.path).parent / "index.html").read_text()
+    # A row with a structure gets a button, which loads Mol* and shows that structure.
+    assert "data-view-id" in index
+    assert "showStructure" in index
+    assert "molstar" in index
+    # The viewer is 5 MB, so the page does not load it until someone asks to see a
+    # structure: it is fetched in loadMolstar, not by a script tag in the page.
+    assert "<script src=" in index  # nice-dag is loaded up front, Mol* is not.
+    assert not re.search(r"<(script|link)[^>]*molstar", index)

@@ -15,7 +15,7 @@ from node_dag.dag import Dag
 from node_dag.nodes.filters.at_most.config import AtMostConfig
 from node_dag.nodes.tools.codon_count.config import CodonCountConfig
 from node_dag.nodes.tools.recode_codons.config import RecodeCodonsConfig
-from node_dag.plan import Critique, Plan, ToolRequest, VerifyOpinion
+from node_dag.plan import Critique, Observation, Plan, ToolRequest, VerifyOpinion
 from node_dag.types import Dna
 from temporal.dag.activities import run_filter, run_score, run_tool, save_workflow
 from temporal.dag.workflow import TASK_QUEUE, DagWorkflow
@@ -64,11 +64,22 @@ CRITIQUE = Critique(
 )
 
 
-def _fakes(calls: dict, plans: list, resolves: list, agrees: list[bool]) -> list:
+def _fakes(
+    calls: dict,
+    plans: list,
+    resolves: list,
+    agrees: list[bool],
+    cited: list[list[Observation]] | None = None,
+) -> list:
+    cited = list(cited or [])
+
     @activity.defn(name="plan_hypothesis")
     async def plan(inp: Stage) -> Out:
         calls.setdefault("plan", []).append(inp)
-        return Out(plan=plans.pop(0), tokens=10)
+        # The records each plan cites, round by round, as the real activity returns them.
+        return Out(
+            plan=plans.pop(0), observations=cited.pop(0) if cited else [], tokens=10
+        )
 
     @activity.defn(name="resolve_plan")
     def resolve(plan: Plan) -> ResolveOut:
@@ -203,6 +214,34 @@ async def test_a_rejected_round_is_critiqued_and_the_verifier_never_sees_earlier
     assert (
         done.attempts[0].outcome is None and done.attempts[0].produced
     )  # Older rounds keep previews, not outcomes.
+
+
+async def test_the_observations_on_the_hypothesis_are_the_current_rounds_plans(
+    results_dir,
+):
+    def found(n: int) -> list[Observation]:
+        return [
+            Observation(
+                amass_id=f"AMBC_{n}", summary=f"s{n}", core="biomedcore", title=f"t{n}"
+            )
+        ]
+
+    other = Plan.model_validate(
+        _plan(addresses_critique="allows one", hypothesis="second")
+    )
+    fakes = _fakes(
+        {},
+        [PLAN, other],
+        [ResolveOut(dag=DAG)] * 2,
+        [False, True],
+        [found(1), found(2)],
+    )
+    done = await _drive(fakes)
+    assert done.round == 2 and done.observations == found(2)
+    saved = Hypothesis.model_validate_json(
+        (results_dir / "hypotheses" / f"{HYP.id}.json").read_bytes()
+    )
+    assert saved.observations == found(2)  # What the pages read.
 
 
 async def test_a_node_that_raises_becomes_a_critique_not_a_crash():

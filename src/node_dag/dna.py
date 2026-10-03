@@ -14,10 +14,6 @@ SYNONYMS: dict[str, tuple[str, ...]] = {
     aa: tuple(c for c, a in CODON_TABLE.items() if a == aa) for aa in set(_AMINO_ACIDS)
 }
 
-# Atoms in one nucleotide residue of a DNA chain: the deoxynucleotide monophosphate
-# less a water, so C10H12N5O5P is 33 atoms.
-ATOMS_PER_BASE: dict[str, int] = {"A": 33, "C": 31, "G": 34, "T": 33}
-
 
 def codon_set(v: tuple[str, ...]) -> tuple[str, ...]:
     """Upper-case and de-duplicate codons, in order. Raises ValueError on a non-codon."""

@@ -185,6 +185,10 @@ class HypothesisLoop:
                 )
                 await self._put(att, error=planned.error, critique=fix)
                 continue
+            # Set before the save in _put, so this round's observations save with its plan.
+            self._hyp = self._hyp.model_copy(
+                update={"observations": planned.observations}
+            )
             att = await self._put(att, plan=planned.plan)
 
             resumed = False

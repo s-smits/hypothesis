@@ -19,7 +19,9 @@ from temporalio import activity
 from node_dag.agent import (
     NODES,
     Hypothesis,
+    Seen,
     build_agent,
+    cite,
     criteria_agent,
     critique_agent,
     plan_prompt,
@@ -29,7 +31,14 @@ from node_dag.agent import (
 from node_dag.dag import Dag
 from node_dag.factory import NodeConfig
 from node_dag.nodes.base import BaseFilterConfig
-from node_dag.plan import Criterion, Critique, Plan, ToolRequest, VerifyOpinion
+from node_dag.plan import (
+    Criterion,
+    Critique,
+    Observation,
+    Plan,
+    ToolRequest,
+    VerifyOpinion,
+)
 from node_dag.registry import Registry
 from temporal.dag.activities import results_subdir, write_atomic
 
@@ -51,10 +60,15 @@ class Stage(BaseModel):
 
 
 class Out(BaseModel):
-    """What an agent activity returns: its answer, or an ``error``, and the tokens spent."""
+    """What an agent activity returns: its answer, or an ``error``, and the tokens spent.
+
+    ``observations`` are the records the plan cites, filled in from the literature the
+    builder was shown.
+    """
 
     criteria: list[Criterion] = []
     plan: Plan | None = None
+    observations: list[Observation] = []
     opinion: VerifyOpinion | None = None
     critique: Critique | None = None
     error: str | None = None
@@ -167,10 +181,13 @@ async def derive_criteria(inp: Stage) -> Out:
 @activity.defn
 async def plan_hypothesis(inp: Stage) -> Out:
     """Run the builder, which sees every earlier attempt, and return its Plan."""
-    agent = build_agent(inp.model, Registry(results_subdir("registry")))
+    seen: Seen = {}
+    agent = build_agent(inp.model, Registry(results_subdir("registry")), seen)
     r = await _ask(agent, plan_prompt(inp.hyp), inp, "plan", deps=inp.hyp)
+    plan: Plan | None = r.get("out")
     return Out(
-        plan=r.get("out"),
+        plan=plan,
+        observations=cite(plan, seen) if plan else [],
         error=r.get("error") and f"no valid plan: {r['error']}",
         tokens=r.get("tokens", 0),
     )

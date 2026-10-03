@@ -56,6 +56,7 @@
   th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { color: var(--muted); font-weight: 500; font-size: 12px; }
   td code { font-size: 12px; }
+  td.obs { min-width: 220px; max-width: 340px; }
   a { color: var(--running); }
   .crumbs { font-size: 13px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; }
   .crumbs a, .crumbs b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60ch; }
@@ -77,7 +78,7 @@
 <body>
 <header>
   <h1>node-dag</h1>
-  <nav><a href="/">Runs</a><a href="/hypotheses" class="here">Hypotheses</a><a href="/new">New</a><a href="/nodes">Nodes</a></nav>
+  <nav><a href="/">Runs</a><a href="/hypotheses" class="here">Hypotheses</a><a href="/observations">Observations</a><a href="/new">New</a><a href="/nodes">Nodes</a></nav>
   <span id="updated"></span>
 </header>
 <main id="view"><div class="empty">Loading…</div></main>
@@ -98,6 +99,23 @@ const cur = (h) => h.attempts.find((a) => a.round === h.round);
 // The builder's plan once there is one, else the idea the user gave.
 const idea = (h) => cur(h)?.plan?.hypothesis ?? h.hypothesis;
 const chips = (values) => Object.entries(values).map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(showValue(v))}</span>`).join("");
+
+const obsHref = (o) => `/observations?${new URLSearchParams({ core: o.core, id: o.amass_id })}`;
+const obsSource = (o) => [o.source, o.date].filter(Boolean).map(esc).join(", ");
+
+// What the builder agent found in the literature, one row per record it cited.
+function observations(obs, withHypothesis) {
+  if (!obs.length) return "";
+  return `<div class="table"><table>
+    <thead><tr><th>Observation</th><th>Summary</th>${withHypothesis ? "<th>Hypothesis</th>" : ""}</tr></thead>
+    <tbody>${obs.map((o) => `
+      <tr>
+        <td class="obs"><a href="${obsHref(o)}">${esc(o.title)}</a><div class="meta">${obsSource(o)}</div></td>
+        <td>${esc(o.summary)}</td>
+        ${withHypothesis ? `<td>${badge(o.row.status)}<br><a href="${href({ id: o.row.hypothesis.id })}" class="meta">${esc(o.row.hypothesis.id.replace("hypothesis-", "").slice(0, 8))}</a></td>` : ""}
+      </tr>`).join("")}</tbody>
+  </table></div>`;
+}
 
 // Where we are: all goals, one goal, or one hypothesis. Kept in the URL.
 const route = () => Object.fromEntries(new URLSearchParams(location.search));
@@ -158,7 +176,18 @@ function goalView(goal) {
         <div class="side">${cur(h)?.verdict ? `<span class="meta">${cur(h).verdict.achieved ? "goal achieved" : "goal not achieved"}</span>` : ""}</div>
       </a>`;
     }).join("")}
-    </div>`;
+    </div>
+    ${goalObservations(rs)}`;
+}
+
+function goalObservations(rs) {
+  const obs = rs.flatMap((r) => (r.hypothesis.observations ?? []).map((o) => ({ ...o, row: r })));
+  if (!obs.length) return "";
+  const records = new Set(obs.map((o) => o.amass_id)).size;
+  return `
+    <h2>Observations</h2>
+    <div class="counts"><span><b>${obs.length}</b> from <b>${records}</b> ${records === 1 ? "record" : "records"} in the literature</span></div>
+    <div class="card">${observations(obs, true)}</div>`;
 }
 
 // One row per step: its node, sources, status and value.
@@ -225,6 +254,7 @@ function detailView(id) {
       <div class="id">${esc(h.id)}</div>
       <div><div class="label">Inputs</div><div class="chips">${chips(h.inputs)}</div></div>
       <div><div class="label">Hypothesis</div><div class="plan">${idea(h) ? esc(idea(h)) : `<span class="meta">The builder agent is writing it…</span>`}</div></div>
+      ${h.observations?.length ? `<div><div class="label">Observations from the literature</div>${observations(h.observations, false)}</div>` : ""}
       ${blockedView(h)}
       ${criteriaView(h)}
       ${roundsView(h)}

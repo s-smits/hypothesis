@@ -9,7 +9,7 @@ import json
 from collections import Counter
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Literal, Self
+from typing import Any, ClassVar, Literal, Self
 
 from pydantic import BaseModel, Field, create_model, model_validator
 
@@ -21,7 +21,7 @@ from node_dag.nodes.base import (
     BaseToolConfig,
     Category,
 )
-from node_dag.types import TYPES, Score
+from node_dag.types import TYPES, Entity, Score
 
 SLUG = r"^[a-z][a-z0-9_]*$"
 JSON_TYPES = {
@@ -93,13 +93,16 @@ class ToolRequest(BaseModel):
             f.name: (JSON_TYPES[f.type], ... if f.required else f.default)
             for f in self.config_fields
         }
+        # The port is set as the class is made: a score or filter must have its one then.
+        port = (ClassVar[dict[str, type[Entity]]], {self.port: TYPES[self.kind]})
         cls = create_model(
             f"Requested_{self.name}",
             __base__=base,
             name=(Literal[self.name], self.name),  # ty: ignore[invalid-type-form]
+            inputs=port,
             **fields,
         )
-        cls.categories, cls.inputs = (category,), {self.port: TYPES[self.kind]}
+        cls.categories = (category,)
         # The base is only known at run time, so the type checker cannot see its ``output``.
         if isinstance(self.output, str):
             cls.output = TYPES[self.output]  # ty: ignore[invalid-assignment]
@@ -126,6 +129,51 @@ class Assertion(BaseModel):
     claim: str
 
 
+class DraftObservation(BaseModel):
+    """A finding from an Amass record that bears on the hypothesis.
+
+    Args:
+        amass_id: The record's amassId, from search_literature or get_record.
+        summary: What the record found that bears on this hypothesis, and how it
+            shaped the DAG, in two or three sentences.
+    """
+
+    amass_id: str
+    summary: str
+
+
+class Observation(DraftObservation):
+    """A finding from the literature, with where it came from.
+
+    Args:
+        core: The Amass core the record is in, e.g. ``biomedcore``.
+        title: The record's title.
+        url: Where to read the record, if it has a link.
+        source: The journal, or whatever else published it.
+        date: When it was published.
+    """
+
+    core: str
+    title: str
+    url: str | None = None
+    source: str | None = None
+    date: str | None = None
+
+    @classmethod
+    def from_record(
+        cls, draft: DraftObservation, core: str, record: dict[str, Any]
+    ) -> "Observation":
+        """The draft, with the title, link and source filled in from its record."""
+        return cls(
+            **draft.model_dump(),
+            core=core,
+            title=record.get("title") or record.get("name") or draft.amass_id,
+            url=record.get("url"),
+            source=record.get("journal"),
+            date=record.get("publicationDate"),
+        )
+
+
 class Plan(BaseModel):
     """The builder's plan for a goal, whether or not its nodes exist."""
 
@@ -138,6 +186,11 @@ class Plan(BaseModel):
     )
     steps: dict[str, PlannedStep] = Field(min_length=1)
     requests: dict[str, ToolRequest] = {}
+    observations: list[DraftObservation] = Field(
+        default=[],
+        description="The findings from search_literature or get_record that bear on the "
+        "hypothesis, one per record. Leave out if you did not search.",
+    )
     addresses_critique: str = ""
 
     @model_validator(mode="after")

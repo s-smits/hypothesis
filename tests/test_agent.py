@@ -20,8 +20,8 @@ from pydantic_ai.providers.anthropic import AnthropicProvider
 
 from node_dag.agent import Hypothesis, build_agent, criteria_agent
 from node_dag.nodes.filters.at_most.config import AtMostConfig
-from node_dag.nodes.tools.dna_atom_score.config import DnaAtomScoreConfig
 from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
+from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
 from node_dag.plan import Criterion
 from node_dag.registry import Registry
 from node_dag.types import Dna
@@ -31,8 +31,8 @@ from temporal.ui.app import _hypothesis_row
 
 PROTEIN = f"dna_to_protein__{DnaToProteinConfig().config_hash}"
 REF = Dna(sequence="ATGGCTCTGAAATAA")
-SCORE = DnaAtomScoreConfig(reference=REF)
-SCORER = f"dna_atom_score__{SCORE.config_hash}"
+SCORE = OstirExpressionConfig(utr="TTCTAGAAAGGAGGTAAAAAA")
+SCORER = f"ostir_expression__{SCORE.config_hash}"
 
 
 def _dag(**steps: dict) -> dict:
@@ -137,30 +137,30 @@ async def test_agent_sees_the_score_columns_a_scorer_adds_and_filters_on_one(
     seen: list[ToolReturnPart | RetryPromptPart] = []
     scorer = {
         "config": {
-            "name": "dna_atom_score",
-            "reference": {"kind": "dna", "sequence": REF.sequence},
+            "name": "ostir_expression",
+            "utr": "TTCTAGAAAGGAGGTAAAAAA",
         },
-        "description": "atom count and protein changes against the reference",
+        "description": "score expression of coding sequence",
     }
 
     def filter_on(column: str) -> tuple[str, dict]:
         return "create_node", {
-            "config": {"name": "at_most", "column": column, "threshold": 500},
-            "description": "keep sequences with at most 500 atoms",
+            "config": {"name": "at_most", "column": column, "threshold": 500000},
+            "description": "keep sequences with at most 500k expression",
         }
 
     def script(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         seen.extend(_returns(messages))
         match _turn(messages):
             case 0:  # The scorer is not made yet.
-                return _call(*filter_on(SCORE.columns()["atom_count"]))
+                return _call(*filter_on(SCORE.columns()["expression"]))
             case 1:
                 return _call("create_node", scorer)
             case 2:  # Copy the column from the scorer's reply.
-                column = _content(seen[-1])["score_columns"]["atom_count"]
+                column = _content(seen[-1])["score_columns"]["expression"]
                 return _call(*filter_on(column))
             case _:
-                small = f"at_most__{AtMostConfig(column=SCORE.columns()['atom_count'], threshold=500).config_hash}"
+                small = f"at_most__{AtMostConfig(column=SCORE.columns()['expression'], threshold=500000).config_hash}"
                 return _submit(
                     info,
                     _dag(
@@ -170,7 +170,7 @@ async def test_agent_sees_the_score_columns_a_scorer_adds_and_filters_on_one(
                 )
 
     agent = build_agent(FunctionModel(script), Registry(results_dir / "registry"))
-    hyp = Hypothesis(goal="small", inputs={"seq": [REF]})
+    hyp = Hypothesis(goal="expression", inputs={"seq": [REF]})
     out = (await agent.run(hyp.goal, deps=hyp)).output
 
     rejected, scored, filtered = seen[:3]
@@ -178,7 +178,7 @@ async def test_agent_sees_the_score_columns_a_scorer_adds_and_filters_on_one(
     assert "Register the scorer first" in str(rejected.content)
     assert _content(scored)["score_columns"] == SCORE.columns()
     assert _content(scored)["new"] is True
-    assert _content(filtered)["filters_on"] == SCORE.columns()["atom_count"]
+    assert _content(filtered)["filters_on"] == SCORE.columns()["expression"]
     assert out.steps["scored"].node == SCORER
     assert out.steps["small"].node.startswith("at_most__")
 
@@ -474,10 +474,10 @@ def test_search_nodes_finds_and_ranks_by_intent():
     assert "ostir_expression" in rna_names
     assert "dna_to_protein" not in rna_names
 
-    # Query matching atom count
-    atom_results = search_nodes(query="reduce atom count", input_type="dna")
-    assert len(atom_results) >= 1
-    assert atom_results[0]["name"] == "dna_atom_score"
+    # Query matching expression
+    expr_results = search_nodes(query="measure translation initiation", input_type="dna")
+    assert len(expr_results) >= 1
+    assert expr_results[0]["name"] == "ostir_expression"
 
     # Category filtering
     gen_results = search_nodes(category="generation")

@@ -2,24 +2,30 @@ import asyncio
 import inspect
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from typing import ClassVar, Literal
 
 import pytest
 from Bio.Seq import Seq
 from pydantic import ValidationError
 from temporalio import activity
+from temporalio.client import WorkflowFailureError
 from temporalio.contrib.pydantic import pydantic_data_converter
+from temporalio.exceptions import ApplicationError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
-from node_dag.dag import Dag, DagInput, DagProgress
+from node_dag.dag import Dag, DagInput, DagOutput
 from node_dag.factory import MAPPING
 from node_dag.nodes.base import BaseFilterConfig
-from node_dag.nodes.tools.dna_atom_score.config import DnaAtomScoreConfig
+from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
 from node_dag.nodes.tools.mutate_synonymous.config import MutateSynonymousConfig
 from node_dag.nodes.tools.mutate_synonymous.function import MutateSynonymous
+from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
+from node_dag.nodes.tools.ostir_expression.function import OstirExpression
 from node_dag.types import AminoAcidSequence, Dna, ProteinStructure, Table, Value
 from temporal.dag.activities import (
     RunNodeInput,
+    SavedRun,
     run_filter,
     run_score,
     run_tool,
@@ -31,11 +37,14 @@ REF = Dna(sequence="ATGGCTCTGAAATAA")  # M A L K *
 SEQS = [REF, Dna(sequence="ATGGCCCTGAAATAA"), Dna(sequence="ATGGCGTTAAAGTAG")]
 MUTATE = MutateSynonymousConfig(seed=3, count=2)
 MUTANTS = MutateSynonymous(MUTATE).run(sequence=SEQS)
+SCORE = OstirExpressionConfig(utr="TTCTAGAAAGGAGGTAAAAAA")
+EXPRESSION = SCORE.columns()["expression"]
+SCORES = {
+    m.id: s["expression"].value
+    for m, s in zip(MUTANTS, OstirExpression(SCORE).run(sequence=MUTANTS))
+}
 # Splits the mutants: at least one is at or under it, and at least one is over.
-LIMIT = min(m.atom_count() for m in MUTANTS)
-SCORE = DnaAtomScoreConfig(reference=REF)
-ATOMS = SCORE.columns()["atom_count"]
-CHANGES = SCORE.columns()["amino_acid_changes"]
+LIMIT = 600_000.0
 ACTIVITIES = [run_tool, run_score, run_filter, save_workflow]
 
 
@@ -43,18 +52,20 @@ def _step(config: dict, source: str, port: str = "sequence") -> dict:
     return {"config": config, "inputs": {port: source}}
 
 
-# Make 2 changes to each, score them, keep the synonymous ones, then the smaller ones.
+# Make 2 changes to each, score them, keep the expressing ones, then the moderate ones.
 DAG: dict = {
     "inputs": {"seqs": "dna"},
     "steps": {
         "mutated": _step(MUTATE.model_dump(mode="json"), "seqs"),
         "scored": _step(SCORE.model_dump(mode="json"), "mutated"),
-        "same": _step(
-            {"name": "at_most", "column": CHANGES, "threshold": 0}, "scored", "items"
+        "expressed": _step(
+            {"name": "at_least", "column": EXPRESSION, "threshold": 0},
+            "scored",
+            "items",
         ),
         "small": _step(
-            {"name": "at_most", "column": ATOMS, "threshold": LIMIT},
-            "same.yes",
+            {"name": "at_most", "column": EXPRESSION, "threshold": LIMIT},
+            "expressed.yes",
             "items",
         ),
         "protein": _step({"name": "dna_to_protein"}, "small.yes"),
@@ -95,17 +106,16 @@ async def test_workflow_runs_every_entity_through_each_step(results_dir):
     assert mutated.scores == {}  # New entities have no scores.
     # Scoring keeps the entities and adds a column per score, named by node and hash.
     assert scored.items == mutated.items
-    assert set(scored.scores) == {ATOMS, CHANGES}
-    assert scored.scores[ATOMS] == {i.id: i.atom_count() for i in scored.items}
-    assert set(scored.scores[CHANGES].values()) == {0}
+    assert set(scored.scores) == {EXPRESSION}
+    assert scored.scores[EXPRESSION] == SCORES
     # A filter splits the table and takes the columns of what it keeps.
-    yes, no = out.values["same.yes"], out.values["same.no"]
+    yes, no = out.values["expressed.yes"], out.values["expressed.no"]
     assert yes.items == scored.items
     assert no.items == []
     assert yes.scores == scored.scores
     small = out.values["small.yes"]
-    assert small.items and all(i.atom_count() <= LIMIT for i in small.items)
-    assert any(i.atom_count() > LIMIT for i in yes.items) is bool(
+    assert small.items and all(SCORES[i.id] <= LIMIT for i in small.items)
+    assert any(SCORES[i.id] > LIMIT for i in yes.items) is bool(
         out.values["small.no"].items
     )
     split = small.items + out.values["small.no"].items
@@ -114,10 +124,15 @@ async def test_workflow_runs_every_entity_through_each_step(results_dir):
         AminoAcidSequence(sequence=str(Seq(REF.sequence).translate()))
     ]
 
-    saved = DagProgress.model_validate_json(
+    saved = SavedRun.model_validate_json(
         (results_dir / "workflows" / "run-1.json").read_text()
     )
     assert saved.values == out.values
+    # Enough to show the run once Temporal has forgotten it.
+    assert saved.status == "COMPLETED"
+    assert saved.error is None
+    assert saved.start_time and saved.close_time
+    assert saved.start_time <= saved.close_time
 
 
 async def test_a_step_with_nothing_to_run_on_is_skipped():
@@ -126,8 +141,8 @@ async def test_a_step_with_nothing_to_run_on_is_skipped():
         "steps": {
             **DAG["steps"],
             "small": _step(
-                {"name": "at_most", "column": ATOMS, "threshold": 0},
-                "same.yes",
+                {"name": "at_most", "column": EXPRESSION, "threshold": 0},
+                "expressed.yes",
                 "items",
             ),
         },
@@ -164,19 +179,23 @@ def _filter(column: str, source: str) -> dict:
             "port 'sequence' takes Dna, but 'p' gives AminoAcidSequence",
         ),
         # Nothing has scored the sequences yet.
-        ({"early": _filter(ATOMS, "seqs")}, "score columns \\[\\]"),
+        ({"early": _filter(EXPRESSION, "seqs")}, "score columns \\[\\]"),
         # A mutation makes new entities, which drops the scores.
         (
             {
                 "remut": _step({"name": "mutate_synonymous", "seed": 1}, "scored"),
-                "late": _filter(ATOMS, "remut"),
+                "late": _filter(EXPRESSION, "remut"),
             },
             "score columns \\[\\]",
         ),
         # The hash is part of the column, so the column of another config is unknown.
         (
-            {"wrong": _filter(ATOMS.replace(SCORE.config_hash, "00000000"), "scored")},
-            f"score columns \\['{CHANGES}', '{ATOMS}'\\]",
+            {
+                "wrong": _filter(
+                    EXPRESSION.replace(SCORE.config_hash, "00000000"), "scored"
+                )
+            },
+            f"score columns \\['{EXPRESSION}'\\]",
         ),
     ],
 )
@@ -187,7 +206,7 @@ def test_dag_rejects_bad_graphs(patch, match):
 
 def test_dag_accepts_filters_on_columns_that_reach_them():
     Dag.model_validate(
-        {**DAG, "steps": {**DAG["steps"], "ok": _filter(ATOMS, "same.no")}}
+        {**DAG, "steps": {**DAG["steps"], "ok": _filter(EXPRESSION, "expressed.no")}}
     )
 
 
@@ -225,15 +244,14 @@ def test_config_declares_what_run_takes(config):
     if issubclass(config, BaseFilterConfig):
         want["values"] = list[float]  # The score column.
     assert got == want
-    assert len(config.inputs) == 1
+    assert config.inputs
     assert config.categories
     assert config.model_json_schema()["x-node"] == config.contract()
 
 
 def test_contract_shows_score_names_and_types():
-    assert DnaAtomScoreConfig.contract()["scores"] == {
-        "atom_count": "score",
-        "amino_acid_changes": "score",
+    assert OstirExpressionConfig.contract()["scores"] == {
+        "expression": "score",
     }
 
 
@@ -279,6 +297,43 @@ async def test_a_step_does_not_wait_for_an_unrelated_slow_step():
             task_queue="t",
         )
     assert ran == ["fast", "slow"]
+
+
+async def test_a_failed_run_is_saved_with_its_error(results_dir):
+    @activity.defn(name="run_tool")
+    async def broken_tool(inp: RunNodeInput) -> list[Value]:
+        raise ApplicationError("out of GPUs", non_retryable=True)
+
+    dag = {
+        "inputs": {"seq": "dna"},
+        "steps": {"protein": _step({"name": "dna_to_protein"}, "seq")},
+    }
+    async with (
+        await WorkflowEnvironment.start_time_skipping(
+            data_converter=pydantic_data_converter
+        ) as env,
+        Worker(
+            env.client,
+            task_queue="t",
+            workflows=[DagWorkflow],
+            activities=[broken_tool, save_workflow],
+        ),
+    ):
+        with pytest.raises(WorkflowFailureError):
+            await env.client.execute_workflow(
+                DagWorkflow.run,
+                DagInput(
+                    dag=Dag.model_validate(dag), inputs={"seq": [Dna(sequence="ATG")]}
+                ),
+                id="broken",
+                task_queue="t",
+            )
+    saved = SavedRun.model_validate_json(
+        (results_dir / "workflows" / "broken.json").read_text()
+    )
+    assert saved.status == "FAILED"
+    assert saved.error == "out of GPUs"
+    assert saved.steps == {"protein": "failed"}
 
 
 async def test_progress_reports_each_step_while_running():
@@ -333,3 +388,99 @@ async def test_progress_reports_each_step_while_running():
         await handle.result()
         progress = await handle.query(DagWorkflow.progress)
     assert set(progress.steps.values()) == {"done"}
+
+
+# dna_to_protein, given a second port, stands in for a tool that takes two lists.
+TWO_PORTS = {"sequence": Dna, "partner": AminoAcidSequence}
+
+
+def _two_port_step(sequence: str, partner: str) -> dict:
+    return {
+        "config": {"name": "dna_to_protein"},
+        "inputs": {"sequence": sequence, "partner": partner},
+    }
+
+
+@pytest.fixture
+def two_ports(monkeypatch):
+    monkeypatch.setattr(DnaToProteinConfig, "inputs", TWO_PORTS)
+
+
+@pytest.mark.parametrize(
+    ("inputs", "match"),
+    [
+        ({"sequence": "seqs"}, "ports \\['sequence'\\] != dna_to_protein ports"),
+        (
+            {"sequence": "seqs", "partner": "seqs.yes"},
+            "port 'partner': unknown source 'seqs.yes'",
+        ),
+        (
+            {"sequence": "seqs", "partner": "seqs"},
+            "port 'partner' takes AminoAcidSequence, but 'seqs' gives Dna",
+        ),
+    ],
+)
+def test_dag_checks_every_port_of_a_tool(two_ports, inputs, match):
+    step = {"config": {"name": "dna_to_protein"}, "inputs": inputs}
+    with pytest.raises(ValidationError, match=match):
+        Dag.model_validate({"inputs": {"seqs": "dna"}, "steps": {"both": step}})
+
+
+def test_a_score_or_filter_must_have_one_port():
+    with pytest.raises(TypeError, match="must have one input port"):
+
+        class TwoPortFilter(BaseFilterConfig):
+            name: Literal["two_port_filter"] = "two_port_filter"
+            inputs: ClassVar = TWO_PORTS
+
+
+async def _run_two_ports(
+    seqs: list[Dna], partners: list[AminoAcidSequence]
+) -> tuple[DagOutput, list[RunNodeInput]]:
+    """Run a DAG whose one step takes both lists, recording what the tool was given."""
+    calls: list[RunNodeInput] = []
+
+    @activity.defn(name="run_tool")
+    async def recording_tool(inp: RunNodeInput) -> list[Value]:
+        calls.append(inp)
+        return inp.inputs["partner"]
+
+    dag = {
+        "inputs": {"seqs": "dna", "partners": "amino_acid_sequence"},
+        "steps": {"both": _two_port_step("seqs", "partners")},
+    }
+    async with (
+        await WorkflowEnvironment.start_time_skipping(
+            data_converter=pydantic_data_converter
+        ) as env,
+        Worker(
+            env.client,
+            task_queue="t",
+            workflows=[DagWorkflow],
+            activities=[recording_tool, save_workflow],
+        ),
+    ):
+        out = await env.client.execute_workflow(
+            DagWorkflow.run,
+            DagInput(
+                dag=Dag.model_validate(dag),
+                inputs={"seqs": seqs, "partners": partners},
+            ),
+            id=str(uuid.uuid4()),
+            task_queue="t",
+        )
+    return out, calls
+
+
+async def test_a_tool_gets_the_whole_list_on_each_port(two_ports):
+    partners = [AminoAcidSequence(sequence="MALK"), AminoAcidSequence(sequence="MK")]
+    out, (call,) = await _run_two_ports(SEQS, partners)
+    assert call.inputs == {"sequence": SEQS, "partner": partners}
+    assert out.values["both"].items == partners
+
+
+async def test_a_tool_with_an_empty_port_is_skipped(two_ports):
+    out, calls = await _run_two_ports(SEQS, [])
+    assert calls == []
+    assert out.skipped == ["both"]
+    assert out.values["both"] == Table()

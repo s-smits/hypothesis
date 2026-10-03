@@ -13,6 +13,7 @@ from pydantic import (
 from pydantic_ai import Agent, ModelRetry, RunContext, Tool, ToolOutput
 from pydantic_ai.models import Model
 
+from node_dag import amass
 from node_dag.factory import MAPPING, NodeConfig
 from node_dag.nodes.base import BaseFilterConfig, BaseNodeConfig
 from node_dag.plan import (
@@ -20,6 +21,7 @@ from node_dag.plan import (
     Criterion,
     Critique,
     HypothesisState,
+    Observation,
     Plan,
     ToolRequest,
     VerifyOpinion,
@@ -46,6 +48,8 @@ class Hypothesis(BaseModel):
         inputs: The list of entities to run on, keyed by DAG input name. Each list is
             not empty and holds one kind.
         hypothesis: Your own idea of how to meet ``goal``, for the builder to take or leave.
+        observations: What the builder found in the literature that bears on the
+            current round's plan.
         criteria: What must be true for the goal to be met. Frozen before any plan.
         state: Where the loop has got to. None for a file from before the loop.
         round: The current round.
@@ -58,6 +62,7 @@ class Hypothesis(BaseModel):
     goal: str
     inputs: dict[str, list[Value]]
     hypothesis: str | None = None
+    observations: list[Observation] = []
     criteria: list[Criterion] = []
     state: HypothesisState | None = None
     round: int = 0
@@ -158,7 +163,7 @@ def search_nodes(
 
         # A port takes its kind and every kind under it, e.g. nucleic_acid takes dna.
         want = TYPES.get(input_type.lower(), Entity) if input_type else None
-        if want and not issubclass(want, node_cls.port()[1]):
+        if want and not node_cls.takes(want):
             continue
 
         if category and category.lower() not in cat_values:
@@ -215,6 +220,27 @@ def describe_node(name: str) -> dict[str, Any]:
     return NODES[name].model_json_schema()
 
 
+# What search_literature shows of each hit. The cache in results/amass keeps it all.
+_HIT_FIELDS = (
+    "amassId",
+    "title",
+    "abstract",
+    "journal",
+    "publicationDate",
+    "citationCount",
+    "doi",
+    "url",
+)
+
+
+def _brief(core: str, hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """What the agent is shown of each search hit."""
+    # Other cores name their fields differently, so only trim the ones we know.
+    if core != "biomedcore":
+        return hits
+    return [{f: h[f] for f in _HIT_FIELDS if f in h} for h in hits]
+
+
 BUILD_INSTRUCTIONS = f"""\
 Plan a DAG of nodes that meets the user's goal. You are shown the input sequences and the
 criteria you will be marked against, which you cannot change. A config field such as a
@@ -229,7 +255,9 @@ Shapes that usually fit a goal:
   relative to it: a threshold every entity passes decides nothing.
 
 1. Call search_nodes (by intent and input_type) or list_nodes, list_registry for nodes
-   already made, and describe_node for each kind you use.
+   already made, and describe_node for each kind you use. When a choice depends on
+   biology you are unsure of, such as a threshold or which measure fits the goal, call
+   search_literature, and get_record for more of a hit.
 2. Each step names a registered node id (from create_node), or a node name with its fields
    in `config`. Connect its input port to a source whose kind is the kind of that port.
    Register a scorer with create_node before the filter on its column, and copy the column
@@ -241,6 +269,8 @@ Shapes that usually fit a goal:
    filter on a requested scorer's column gets that column name from the error you are shown.
 5. After a rejected round, say in addresses_critique what changed, and do not resubmit a
    wiring that already ran.
+6. If you searched the literature, add an observation for each record that bears on the
+   plan: its amassId and a summary of what it found and how that shaped the plan.
 Every source is a list of entities, and a node runs once on the whole list that reaches it.
 - A tool step makes new entities, under its key. They have no scores.
 - A scoring step passes its entities on under its key, and adds its score columns.
@@ -305,14 +335,29 @@ def plan_prompt(hyp: Hypothesis) -> str:
     return "\n\n".join(parts)
 
 
-def build_agent(model: Model | str, registry: Registry) -> Agent[Hypothesis, Plan]:
+# The Amass records an agent was shown, by amassId, each with the core it is in.
+Seen = dict[str, tuple[str, dict[str, Any]]]
+
+
+def cite(plan: Plan, seen: Seen) -> list[Observation]:
+    """The plan's observations, each filled in from the record it cites in ``seen``."""
+    return [Observation.from_record(o, *seen[o.amass_id]) for o in plan.observations]
+
+
+def build_agent(
+    model: Model | str, registry: Registry, seen: Seen | None = None
+) -> Agent[Hypothesis, Plan]:
     """Return an agent that writes a Plan for a goal, with each guard a retry.
 
     The agent makes the nodes it needs in ``registry`` with create_node, and can reuse
     the ones already there. Run it with ``deps=`` the Hypothesis, whose ``criteria`` and
     ``attempts`` the guards read. A plan may name a node that does not exist, if it
     carries a ToolRequest for it; the plan is typechecked as if the node were written.
+
+    The agent can search the literature, and a plan may only cite records it was shown.
+    Pass an empty ``seen`` to read them afterwards, for :func:`cite`.
     """
+    seen = {} if seen is None else seen
 
     def create_node(config: dict[str, Any], description: str) -> dict[str, Any]:
         """Make a node and add it to the registry. Make nodes one at a time.
@@ -335,11 +380,57 @@ def build_agent(model: Model | str, registry: Registry) -> Agent[Hypothesis, Pla
         """List every registered node: id, description, config, input, outputs, score columns."""
         return [n.summary() for n in registry.all()]
 
+    def search_literature(
+        query: str, core: amass.Core = "biomedcore", limit: int = 5
+    ) -> list[dict[str, Any]] | dict[str, str]:
+        """Search Amass for publications or other records about a topic.
+
+        Use it to ground a choice in what is known: e.g. a typical expression level, a
+        sensible threshold, or which measure suits the goal. A query asked before is
+        answered from the cache.
+
+        Args:
+            query: What to look for, in plain words, e.g. "Shine-Dalgarno spacing translation initiation".
+            core: biomedcore (publications), trialcore (clinical trials), drugcore
+                (drugs), regulatorycore (FDA and EMA approvals), genecore (genes) or
+                patentcore (patents).
+            limit: How many records to return, at most.
+        """
+        try:
+            hits = amass.search(core, query, limit)
+        except amass.AmassError as e:
+            return {"error": str(e)}
+        seen.update({h["amassId"]: (core, h) for h in hits if "amassId" in h})
+        return _brief(core, hits)
+
+    def get_record(
+        amass_id: str, core: amass.Core = "biomedcore", include: list[str] | None = None
+    ) -> dict[str, Any]:
+        """Fetch one Amass record in full, by the amassId that search_literature gave.
+
+        Args:
+            amass_id: The record's amassId, e.g. ``AMBC_...``.
+            core: The core the record came from.
+            include: Extra fields to add, e.g. ``["fulltext"]``. Full text is long: ask
+                for it only when the abstract is not enough.
+        """
+        try:
+            record = amass.get_record(core, amass_id, tuple(include or ()))
+        except amass.AmassError as e:
+            return {"error": str(e)}
+        seen[amass_id] = (core, record)
+        return record
+
     def check_plan(ctx: RunContext[Hypothesis], plan: Plan) -> Plan:
         hyp, reqs = ctx.deps, plan.requests
         if plan.inputs != hyp.input_kinds():
             raise ModelRetry(
                 f"inputs must be exactly the goal's inputs: {hyp.input_kinds()}"
+            )
+        if unseen := sorted({o.amass_id for o in plan.observations} - seen.keys()):
+            raise ModelRetry(
+                f"Observations cite records you were not shown: {unseen}. Cite only "
+                f"amassIds from search_literature or get_record: {sorted(seen)}"
             )
         used = {s.node for s in plan.steps.values()}
         if len(reqs) > MAX_REQUESTS or (reqs and used <= reqs.keys()):
@@ -389,6 +480,8 @@ def build_agent(model: Model | str, registry: Registry) -> Agent[Hypothesis, Pla
             Tool(describe_node),
             Tool(list_registry),
             Tool(create_node),
+            Tool(search_literature),
+            Tool(get_record),
         ],
         # Not strict: strict output sets additionalProperties false on every object,
         # which leaves steps, inputs, config and requests only able to be {}.
