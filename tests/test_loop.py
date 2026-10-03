@@ -16,7 +16,14 @@ from node_dag.nodes.filters.at_most.config import AtMostConfig
 from node_dag.nodes.tools.codon_count.config import CodonCountConfig
 from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
 from node_dag.nodes.tools.esmfold2_fold.config import Esmfold2FoldConfig
-from node_dag.plan import Critique, Observation, Plan, ToolRequest, VerifyOpinion
+from node_dag.plan import (
+    Attempt,
+    Critique,
+    Observation,
+    Plan,
+    ToolRequest,
+    VerifyOpinion,
+)
 from node_dag.types import Dna
 from temporal.dag.activities import run_filter, run_score, run_tool, save_workflow
 from temporal.dag.workflow import TASK_QUEUE, DagWorkflow
@@ -165,6 +172,12 @@ def test_the_users_own_idea_reaches_the_builder():
     idea = HYP.model_copy(update={"hypothesis": "swap TCG for TCC"})
     assert "swap TCG for TCC" in plan_prompt(idea)
     assert "own idea" not in plan_prompt(HYP)
+
+
+def test_the_criteria_reach_the_builder_and_the_verifier():
+    assert "no TCG remains" in plan_prompt(HYP)
+    judged = HYP.model_copy(update={"attempts": [Attempt(round=1, plan=PLAN)]})
+    assert "no TCG remains" in to_json(_view(judged)).decode()
 
 
 async def test_a_missing_tool_blocks_until_it_is_added_then_resolves_the_same_plan(
