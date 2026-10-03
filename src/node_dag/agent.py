@@ -210,7 +210,7 @@ def search_nodes(
 
     Args:
         query: Words or phrase describing what you want to do (e.g. "score expression", "mutate", "lower atoms", "translate").
-        input_type: Input entity kind to filter by ('dna', 'rna', 'amino_acid_sequence', 'protein_structure', 'entity').
+        input_type: Input entity kind to filter by ('dna', 'rna', 'amino_acid_sequence', 'protein_structure', 'protein_contacts', 'entity').
         category: Node category to filter by ('scoring', 'filter', 'generation', 'conversion').
 
     Returns a list of matching nodes with their intents, when to use them, and input/output contracts.

@@ -159,8 +159,7 @@ async def test_the_ui_marks_hypotheses_left_in_progress_interrupted(results_dir)
         "failed": "failed",
     }
     assert rows["building"].hypothesis.error == (
-        "Interrupted while building: the process running it stopped before it "
-        "finished."
+        "Interrupted while building: the process running it stopped before it finished."
     )
     assert rows["building"].updated.timestamp() == old  # When it last got anywhere.
     assert rows["failed"].progress and rows["failed"].progress.error == "out of GPUs"

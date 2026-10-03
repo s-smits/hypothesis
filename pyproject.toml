@@ -15,6 +15,8 @@ dependencies = [
     "viennarna>=2.7.2",
     "modal>=1.6.0",
     "biopython>=1.88",
+    "mdtraj>=1.11.1.post2",
+    "pdbfixer>=1.12.0",
 ]
 
 [dependency-groups]

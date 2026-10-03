@@ -418,7 +418,10 @@ def test_search_nodes_finds_and_ranks_by_intent():
     expr_results = search_nodes(query="score expression translation", input_type="dna")
     assert len(expr_results) >= 1
     assert expr_results[0]["name"] == "ostir_expression"
-    assert "score sequences via expression / translation initiation" in expr_results[0]["intents"]
+    assert (
+        "score sequences via expression / translation initiation"
+        in expr_results[0]["intents"]
+    )
 
     # A port that takes any nucleic acid matches RNA, and a DNA-only one does not.
     rna_names = [r["name"] for r in search_nodes(input_type="rna")]
@@ -426,7 +429,9 @@ def test_search_nodes_finds_and_ranks_by_intent():
     assert "dna_to_protein" not in rna_names
 
     # Query matching expression
-    expr_results = search_nodes(query="measure translation initiation", input_type="dna")
+    expr_results = search_nodes(
+        query="measure translation initiation", input_type="dna"
+    )
     assert len(expr_results) >= 1
     assert expr_results[0]["name"] == "ostir_expression"
 
@@ -437,6 +442,7 @@ def test_search_nodes_finds_and_ranks_by_intent():
         "domesticate",
         "gc_target_recode",
         "mutate_synonymous",
+        "protlib_design",
         "recode_targeted",
         "resample_synonymous",
     ]
@@ -542,6 +548,7 @@ async def test_agent_rejects_trivial_expression_threshold(results_dir):
     registry = Registry(results_dir)
     # Pre-register scorer so filter column is accepted by registry
     from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
+
     ostir = OstirExpressionConfig(utr="AGGAGGTAAAAA")
     registry.register(ostir, "score expression")
     calls[1][1]["config"]["column"] = ostir.columns()["expression"]

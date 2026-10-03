@@ -150,15 +150,70 @@ class ProteinStructure(Entity):
         ).hexdigest()[:12]
 
 
+class ResidueContact(BaseModel):
+    """Two residues on different chains, and how close they come.
+
+    A residue is ``chain:res_name:res_num:insertion_code``, with the author chain,
+    residue number and insertion code as a PDB file shows them, e.g. ``H:ALA:52:A``.
+    A residue with no insertion code ends in ``:``, e.g. ``L:LYS:7:``.
+
+    Args:
+        residue_a: A residue on one side of the interface.
+        residue_b: A residue on the other side.
+        distance: How far apart they are, in ångströms.
+    """
+
+    residue_a: str
+    residue_b: str
+    distance: float
+
+
+class ProteinContacts(Entity):
+    """The contacts between the chains of one protein structure.
+
+    Args:
+        sequence: The structure's amino acids.
+        structure_id: The id of the structure the contacts were found in.
+        contacts: Each contact, ordered by distance, closest first.
+    """
+
+    kind: Literal["protein_contacts"] = "protein_contacts"
+    structure_id: str
+    contacts: list[ResidueContact]
+
+    @computed_field
+    @property
+    def id(self) -> str:
+        """A short, stable hash of the kind, structure id and contacts."""
+        contacts = [(c.residue_a, c.residue_b, c.distance) for c in self.contacts]
+        return hashlib.sha256(
+            f"{self.kind}:{self.structure_id}:{contacts}".encode()
+        ).hexdigest()[:12]
+
+    @computed_field
+    @property
+    def display(self) -> str:
+        """How many contacts, and the closest, e.g. ``3 contacts; closest ...``."""
+        if not self.contacts:
+            return "0 contacts"
+        c = self.contacts[0]
+        return (
+            f"{len(self.contacts)} contacts; closest {c.residue_a}–{c.residue_b} "
+            f"at {c.distance:.2f} Å"
+        )
+
+
 # Add a new entity type to both.
 Value = Annotated[
-    Dna | Rna | AminoAcidSequence | ProteinStructure, Discriminator("kind")
+    Dna | Rna | AminoAcidSequence | ProteinStructure | ProteinContacts,
+    Discriminator("kind"),
 ]
 TYPES: dict[str, type[Entity]] = {
     "dna": Dna,
     "rna": Rna,
     "amino_acid_sequence": AminoAcidSequence,
     "protein_structure": ProteinStructure,
+    "protein_contacts": ProteinContacts,
 }
 
 
