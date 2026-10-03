@@ -17,7 +17,7 @@ from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
 from node_dag import entrez
-from node_dag.agent import Hypothesis, build_agent
+from node_dag.agent import Criterion, Hypothesis, build_agent
 from node_dag.dag import Dag
 from node_dag.nodes.filters.at_most.config import AtMostConfig
 from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
@@ -262,6 +262,86 @@ async def test_run_hypothesis_builds_runs_and_verifies(results_dir):
     assert row.progress.steps == {"protein": "done"}
 
 
+async def test_criteria_agent_drafts_a_list_of_criteria():
+    from node_dag.agent import criteria_agent
+
+    def script(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        prompt = next(
+            p.content for p in messages[0].parts if isinstance(p, UserPromptPart)
+        )
+        assert "Goal: increase expression" in str(prompt)
+        assert "Proposed hypothesis: mutate codons" in str(prompt)
+        return _reply(
+            info,
+            {
+                "response": [
+                    {"kind": "quantitative", "text": "expression above the input's"},
+                    {"kind": "qualitative", "text": "the protein is unchanged"},
+                ]
+            },
+        )
+
+    agent = criteria_agent(FunctionModel(script))
+    out = (
+        await agent.run("Goal: increase expression\nProposed hypothesis: mutate codons")
+    ).output
+
+    assert out == [
+        Criterion(kind="quantitative", text="expression above the input's"),
+        Criterion(kind="qualitative", text="the protein is unchanged"),
+    ]
+
+
+async def test_criteria_reach_the_builder_prompt_and_the_verifier(results_dir):
+    """Criteria the user accepted qualify the goal for both agents."""
+
+    def builder(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        prompt = next(
+            p.content for p in messages[0].parts if isinstance(p, UserPromptPart)
+        )
+        assert "[quantitative] expression above the input's" in str(prompt)
+        assert "[qualitative] the protein is unchanged" in str(prompt)
+        if _turn(messages) == 0:
+            return _call(*CREATE_PROTEIN)
+        return _submit(info, GOOD)
+
+    def verifier(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        prompt = next(
+            p.content for p in messages[0].parts if isinstance(p, UserPromptPart)
+        )
+        sent = json.loads(str(prompt))
+        assert sent["criteria"] == [
+            {"kind": "quantitative", "text": "expression above the input's"},
+            {"kind": "qualitative", "text": "the protein is unchanged"},
+        ]
+        return _reply(info, {"achieved": True, "reason": "criteria met"})
+
+    hyp = Hypothesis(
+        goal="Convert DNA to protein.",
+        criteria=[
+            Criterion(kind="quantitative", text="expression above the input's"),
+            Criterion(kind="qualitative", text="the protein is unchanged"),
+        ],
+        inputs={"seq": [Dna(sequence="ATG")]},
+    )
+    async with await WorkflowEnvironment.start_time_skipping(
+        data_converter=pydantic_data_converter
+    ) as env:
+        with ThreadPoolExecutor() as pool:
+            async with Worker(
+                env.client,
+                task_queue=TASK_QUEUE,
+                workflows=[DagWorkflow],
+                activities=[run_tool, run_score, run_filter, save_workflow],
+                activity_executor=pool,
+            ):
+                done = await run_hypothesis(
+                    hyp, env.client, FunctionModel(builder), FunctionModel(verifier)
+                )
+
+    assert done.criteria == hyp.criteria
+
+
 def test_a_hypothesis_without_a_dag_is_building():
     hyp = Hypothesis(
         goal="Convert DNA to protein.", inputs={"seq": [Dna(sequence="ATG")]}
@@ -277,8 +357,14 @@ def test_goals_are_distinct_newest_first_with_latest_inputs():
 
     from temporal.ui.app import _goals
 
-    for goal, seq in [("a", "ATG"), ("b", "AAA"), ("a", "TTT")]:
-        save_hypothesis(Hypothesis(goal=goal, inputs={"seq": [Dna(sequence=seq)]}))
+    newer = [Criterion(kind="quantitative", text="expression above baseline")]
+    rows = [
+        Hypothesis(goal="a", inputs={"seq": [Dna(sequence="ATG")]}),
+        Hypothesis(goal="b", inputs={"seq": [Dna(sequence="AAA")]}),
+        Hypothesis(goal="a", criteria=newer, inputs={"seq": [Dna(sequence="TTT")]}),
+    ]
+    for h in rows:
+        save_hypothesis(h)
         time.sleep(0.01)
     paths = sorted(hypotheses_dir().iterdir(), key=lambda p: p.stat().st_mtime)
     for i, p in enumerate(paths):  # mtimes can tie on coarse filesystems.
@@ -286,6 +372,9 @@ def test_goals_are_distinct_newest_first_with_latest_inputs():
     goals = _goals([_hypothesis_row(p) for p in paths])
     assert [(g.goal, g.hypotheses) for g in goals] == [("a", 2), ("b", 1)]
     assert goals[0].inputs == {"seq": [Dna(sequence="TTT")]}
+    # The page pre-fills a goal's criteria from its most recent hypothesis.
+    assert goals[0].criteria == newer
+    assert goals[1].criteria == []
 
 
 def test_a_hypothesis_from_an_older_schema_is_skipped_not_fatal():

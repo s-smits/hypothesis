@@ -90,8 +90,12 @@ against the chosen provider. `temporal/run_hypothesis.py` loads the repository's
 
 The current path is `Hypothesis → build_agent → validated Dag → DagWorkflow →
 DagOutput → verify_agent`. `Hypothesis.inputs` starts empty: the `/new` page asks
-only for a goal, and the builder chooses the inputs with `add_input`, fetching
-sequences from NCBI with `search_sequences` and `fetch_sequences`. A caller that
+for a goal and its success criteria, and the builder chooses the inputs with
+`add_input`, fetching sequences from NCBI with `search_sequences` and
+`fetch_sequences`. `Hypothesis.criteria` holds the qualitative and quantitative
+criteria the outcome is judged against: the user writes them, or `criteria_agent`
+drafts them through `POST /api/criteria` and the user edits the draft; the builder
+sees them in its prompt and the verifier in the serialised hypothesis. A caller that
 supplies `inputs` keeps them; `add_input` refuses to shadow one. Treat a sequence
 the model wrote out rather than fetched as unverified: `input_sources` records
 what each input was taken from, and is the only provenance a run carries today.

@@ -18,7 +18,7 @@ from temporalio.client import (
 from temporalio.service import RPCError, RPCStatusCode
 
 from node_dag import amass
-from node_dag.agent import Hypothesis
+from node_dag.agent import Criterion, Hypothesis, criteria_agent
 from node_dag.dag import DagProgress
 from node_dag.links import Link
 from node_dag.registry import Registry
@@ -164,12 +164,14 @@ class Goal(BaseModel):
         goal: The goal text.
         hypotheses: How many hypotheses it has.
         inputs: The inputs of its most recently saved hypothesis.
+        criteria: The success criteria of its most recently saved hypothesis.
         updated: When its most recent hypothesis was saved.
     """
 
     goal: str
     hypotheses: int
     inputs: dict[str, list[Value]]
+    criteria: list[Criterion]
     updated: datetime
 
 
@@ -196,7 +198,11 @@ def _goals(rows: list[HypothesisRow]) -> list[Goal]:
             goals[h.goal].hypotheses += 1
         else:
             goals[h.goal] = Goal(
-                goal=h.goal, hypotheses=1, inputs=h.inputs, updated=r.updated
+                goal=h.goal,
+                hypotheses=1,
+                inputs=h.inputs,
+                criteria=h.criteria,
+                updated=r.updated,
             )
     return list(goals.values())
 
@@ -250,6 +256,9 @@ class NewHypothesis(BaseModel):
         goal: What the DAG must do, in plain English.
         hypothesis: The user's idea of how to meet the goal. The builder agent takes
             it as a starting point.
+        criteria: The success criteria of the goal, written by the user or
+            drafted by the criteria agent and then edited. The builder sees them
+            and the verifier judges against them.
         inputs: The values to run on, keyed by DAG input name. Optional, and the
             page does not ask for them: left out, the builder agent works out what
             the goal is about and fetches the sequences itself.
@@ -257,7 +266,21 @@ class NewHypothesis(BaseModel):
 
     goal: str = Field(min_length=1)
     hypothesis: str | None = None
+    criteria: list[Criterion] = []
     inputs: dict[str, list[Value]] = {}
+
+
+class NewCriteria(BaseModel):
+    """A goal to draft success criteria for.
+
+    Args:
+        goal: The goal to describe success for, in plain English.
+        hypothesis: The user's idea of how to meet it, if they wrote one. It can
+            sharpen what success means.
+    """
+
+    goal: str = Field(min_length=1)
+    hypothesis: str | None = None
 
 
 class Citation(BaseModel):
@@ -317,6 +340,7 @@ def make_app(
         hyp = Hypothesis(
             goal=new.goal.strip(),
             hypothesis=(new.hypothesis or "").strip() or None,
+            criteria=new.criteria,
             inputs=new.inputs,
         )
         logger.info("Starting hypothesis %s: %s", hyp.id, hyp.goal)
@@ -336,6 +360,17 @@ def make_app(
 
         task.add_done_callback(on_done)
         return hyp
+
+    @app.post("/api/criteria")
+    async def draft_criteria(new: NewCriteria) -> list[Criterion]:
+        """Draft a goal's success criteria with the criteria agent, to edit next."""
+        if build_model is None:
+            raise HTTPException(503, "The server was started without --model.")
+        prompt = f"Goal: {new.goal.strip()}"
+        if new.hypothesis and new.hypothesis.strip():
+            prompt += f"\nProposed hypothesis: {new.hypothesis.strip()}"
+        result = await criteria_agent(build_model).run(prompt)
+        return result.output
 
     @app.get("/", include_in_schema=False)
     async def index() -> FileResponse:

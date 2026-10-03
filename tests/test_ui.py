@@ -9,11 +9,17 @@ import pytest
 from fastapi import HTTPException
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRoute
-from pydantic_ai.models.function import FunctionModel
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelResponse,
+    ToolCallPart,
+    UserPromptPart,
+)
+from pydantic_ai.models.function import AgentInfo, FunctionModel
 from temporalio.client import Client
 from temporalio.service import RPCError, RPCStatusCode
 
-from node_dag.agent import Hypothesis
+from node_dag.agent import Criterion, Hypothesis
 from node_dag.dag import Dag, DagProgress
 from node_dag.nodes.filters.at_most.config import AtMostConfig
 from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
@@ -26,7 +32,7 @@ from temporal.run_hypothesis import (
     run_hypothesis,
     save_hypothesis,
 )
-from temporal.ui.app import NEW, NewHypothesis, make_app
+from temporal.ui.app import NEW, NewCriteria, NewHypothesis, make_app
 
 
 def _endpoint(path: str):
@@ -37,6 +43,18 @@ def _endpoint(path: str):
         for r in app.routes
         if isinstance(r, APIRoute) and r.path == path and "GET" in r.methods
     )
+
+
+def _post(app, path: str):
+    return next(
+        r.endpoint
+        for r in app.routes
+        if isinstance(r, APIRoute) and r.path == path and "POST" in r.methods
+    )
+
+
+def _reply(info: AgentInfo, args: dict) -> ModelResponse:
+    return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, args)])
 
 
 class _NoTemporal:
@@ -219,6 +237,65 @@ async def test_the_runs_page_can_show_a_structure():
     # structure: it is fetched in loadMolstar, not by a script tag in the page.
     assert "<script src=" in index  # nice-dag is loaded up front, Mol* is not.
     assert not re.search(r"<(script|link)[^>]*molstar", index)
+
+
+async def test_the_criteria_endpoint_drafts_a_list_to_edit():
+    """The agent's draft comes back for the user to edit before they start a run."""
+    seen: list[ModelMessage] = []
+
+    def script(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        seen.extend(messages)
+        return _reply(
+            info,
+            {
+                "response": [
+                    {"kind": "quantitative", "text": "twice the expression"},
+                    {"kind": "qualitative", "text": "the protein is unchanged"},
+                ]
+            },
+        )
+
+    app = make_app(cast(Client, None), build_model=FunctionModel(script))
+    got = await _post(app, "/api/criteria")(
+        NewCriteria(goal="faster lacZ", hypothesis="mutate codons")
+    )
+
+    assert got == [
+        Criterion(kind="quantitative", text="twice the expression"),
+        Criterion(kind="qualitative", text="the protein is unchanged"),
+    ]
+    prompt = next(p.content for p in seen[0].parts if isinstance(p, UserPromptPart))
+    assert "Goal: faster lacZ" in str(prompt)
+    assert "Proposed hypothesis: mutate codons" in str(prompt)
+
+    with pytest.raises(HTTPException) as e:  # No model, no agent.
+        await _post(make_app(cast(Client, None)), "/api/criteria")(
+            NewCriteria(goal="faster lacZ")
+        )
+    assert e.value.status_code == 503
+
+
+async def test_a_new_hypothesis_keeps_the_criteria_the_user_sent(results_dir):
+    def give_up(messages, info):
+        raise RuntimeError("stop before Temporal")
+
+    app = make_app(cast(Client, None), build_model=FunctionModel(give_up))
+    criteria = [Criterion(kind="qualitative", text="the protein is unchanged")]
+
+    hyp = await _post(app, "/api/hypotheses")(
+        NewHypothesis(goal="g", criteria=criteria)
+    )
+    await asyncio.sleep(0)  # Let the doomed background task settle.
+
+    assert hyp.criteria == criteria
+
+
+def test_the_new_page_edits_criteria_and_can_draft_them_with_the_agent():
+    page = NEW.read_text()
+    for s in ("Success criteria", "quantitative", "qualitative", "Add criterion"):
+        assert s in page
+    assert "/api/criteria" in page  # The "draft with the agent" button's call.
+    assert "criteria: criteria()" in page  # They are sent when the run starts.
 
 
 def test_a_hypothesis_starts_without_inputs_and_the_page_does_not_ask_for_them():

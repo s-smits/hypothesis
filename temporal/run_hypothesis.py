@@ -113,6 +113,10 @@ async def run_hypothesis(
             hyp.hypothesis
         ):  # One the user proposed. The builder replaces it with its own.
             prompt += f"\nProposed hypothesis: {hyp.hypothesis}"
+        if hyp.criteria:  # The user signed these off; the outcome is judged on them.
+            prompt += "\nSuccess criteria:\n" + "\n".join(
+                f"- [{c.kind}] {c.text}" for c in hyp.criteria
+            )
         logger.info("Calling builder agent for %s", hyp.id)
         agent = build_agent(build_model, Registry(registry_dir()))
         async with agent.iter(prompt, deps=hyp) as run:

@@ -1,6 +1,6 @@
 import json
 import uuid
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, TypeAdapter, ValidationError, field_validator
 from pydantic_ai import Agent, ModelRetry, RunContext, Tool
@@ -26,6 +26,19 @@ class Verdict(BaseModel):
 
     achieved: bool
     reason: str
+
+
+class Criterion(BaseModel):
+    """One success criterion a goal's outcome is judged against.
+
+    Args:
+        kind: ``quantitative`` for a criterion that names a measure or a
+            comparison, ``qualitative`` for one that states a property to judge.
+        text: What must hold for the goal to count as met, in a sentence.
+    """
+
+    kind: Literal["qualitative", "quantitative"]
+    text: str = Field(min_length=1)
 
 
 class DraftObservation(BaseModel):
@@ -83,6 +96,9 @@ class Hypothesis(BaseModel):
     Args:
         id: Names the saved file. Generated if not given.
         goal: What the DAG must do, in plain English, e.g. "lower the atom count of the sequences".
+        criteria: The success criteria of ``goal``: what must hold of the outcome
+            for it to count as met. Written by the user or drafted by the criteria
+            agent and then edited; empty means the goal speaks for itself.
         inputs: The list of entities to run on, keyed by DAG input name. Each list is
             not empty and holds one kind. Empty when the hypothesis starts: the
             builder agent chooses the inputs from the goal unless the caller gave
@@ -103,6 +119,7 @@ class Hypothesis(BaseModel):
 
     id: str = Field(default_factory=lambda: f"hypothesis-{uuid.uuid4()}")
     goal: str
+    criteria: list[Criterion] = []
     inputs: dict[str, list[Value]] = {}
     input_sources: dict[str, str] = {}
     hypothesis: str | None = None
@@ -286,6 +303,9 @@ Inputs come first. The prompt shows the inputs you were given, which may be none
   sequence for the goal, say so in your hypothesis rather than inventing one.
 - Name an input for what it holds, e.g. `seq`. A step reads it by that name.
 
+The prompt may also list the goal's success criteria, which the user signed off
+on: the outcome will be judged against them, so build with them in mind.
+
 Match the DAG to the goal's archetype:
 - Measurement Archetype: Goal asks to measure, score, or convert given sequences
   (e.g. "Score sequence via ostir expression", "Convert DNA to protein").
@@ -345,7 +365,26 @@ Set achieved to false, whatever else the DAG did, when:
 - The goal asks for higher, lower, more, less, or optimized values, but the outcome only
   holds the original input sequence(s) without improvement or with a filter threshold
   that trivialized selection (e.g. threshold 0.0 on positive scores).
-- A threshold let everything through, so the filter decided nothing."""
+- A threshold let everything through, so the filter decided nothing.
+The hypothesis may list success criteria that qualify the goal: judge the outcome
+against each of them as well as the goal itself, and say in the reason which held
+and which did not."""
+
+CRITERIA_INSTRUCTIONS = """\
+You get a goal for a sequence experiment, and sometimes a proposed hypothesis.
+Draft its success criteria: the list of things that must hold of the DAG's
+outcome for the goal to count as met. The user reviews and edits your list, so
+make it a draft worth correcting, not a formality.
+
+- Keep it short: two to six criteria, each one testable statement.
+- Mark a criterion quantitative when it names a measure or a comparison, e.g.
+  "expression above the input sequences'". Mark it qualitative when it states a
+  property to judge, e.g. "the protein is unchanged".
+- Cover what the goal leaves out: the hard constraints it implies (e.g. same
+  protein, same length) as well as the improvement it asks for.
+- Where the goal is vague about success, commit to a reasonable reading and say
+  what it assumes in the criterion, so the user can correct it.
+- Do not restate the goal in different words; each criterion must add a check."""
 
 
 def build_agent(
@@ -704,6 +743,11 @@ def build_agent(
         output_type=submit_dag,
         retries={"output": 3},
     )
+
+
+def criteria_agent(model: Model | str) -> Agent[None, list[Criterion]]:
+    """Return an agent that drafts a goal's success criteria for the user to edit."""
+    return Agent(model, instructions=CRITERIA_INSTRUCTIONS, output_type=list[Criterion])
 
 
 def verify_agent(model: Model | str) -> Agent[None, Verdict]:

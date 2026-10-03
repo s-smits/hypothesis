@@ -35,6 +35,8 @@
   .id { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); word-break: break-all; }
   .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
   .plan { white-space: pre-wrap; }
+  .crits { margin: 2px 0 0; padding-left: 18px; }
+  .crits .kind { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
   .chips { display: flex; gap: 6px; flex-wrap: wrap; }
   .chip { font: 12px ui-monospace, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 1px 8px; }
   .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; }
@@ -235,6 +237,7 @@ function detailView(id) {
         <span class="meta">updated ${when(row.updated)}</span>
       </div>
       <div class="id">${esc(h.id)}</div>
+      ${h.criteria?.length ? `<div><div class="label">Success criteria</div><ul class="crits">${h.criteria.map((c) => `<li><span class="kind">${c.kind}</span> ${esc(c.text)}</li>`).join("")}</ul></div>` : ""}
       <div><div class="label">Inputs</div><div class="chips">${inputChips(row)}</div></div>
       ${STOPPED.has(row.status) && why(row) ? `
       <div class="verdict error">

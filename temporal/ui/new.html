@@ -32,6 +32,10 @@
   button { font: inherit; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: inherit; padding: 6px 12px; cursor: pointer; }
   button.primary { background: var(--running); border-color: var(--running); color: #fff; font-weight: 600; align-self: flex-start; }
   button:disabled { opacity: .6; cursor: default; }
+  .crit-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+  .criterion { display: flex; gap: 6px; margin-bottom: 6px; }
+  .criterion input { flex: 1; min-width: 0; }
+  .criterion button { padding: 2px 8px; }
   #error { color: var(--failed); white-space: pre-wrap; }
 </style>
 </head>
@@ -53,9 +57,18 @@
       <label for="hypothesis">Hypothesis (optional)</label>
       <textarea id="hypothesis" rows="3" placeholder="How you think the goal can be met. The builder agent starts from this."></textarea>
     </div>
+    <div>
+      <div class="crit-head">
+        <span class="label">Success criteria</span>
+        <button type="button" id="suggest">Draft with the agent</button>
+      </div>
+      <div id="criteria"></div>
+      <button type="button" id="add-criterion">+ Add criterion</button>
+      <div class="hint">What must hold of the outcome for the goal to count as met, qualitative or quantitative. Write your own, or draft them with the agent and edit. Left empty, the verifier judges the goal alone.</div>
+    </div>
     <div id="error"></div>
     <button class="primary" id="go">Start</button>
-    <div class="hint">The builder agent works out which sequences the goal is about and fetches them from NCBI, writes the DAG, it runs on Temporal, then the verifier judges the outcome. Name the gene, organism or accession in the goal so it can find the right record. You can close this page; follow progress under Hypotheses.</div>
+    <div class="hint">The builder agent works out which sequences the goal is about and fetches them from NCBI, writes the DAG, it runs on Temporal, then the verifier judges the outcome against the goal and its criteria. Name the gene, organism or accession in the goal so it can find the right record. You can close this page; follow progress under Hypotheses.</div>
   </form>
 </main>
 <script>
@@ -66,12 +79,27 @@ const explain = (d) => typeof d === "string" ? d : Array.isArray(d) ? d.map((e) 
 
 let GOALS = [];
 
-// Picking a previous goal hides the text box: that goal is used as it stands.
+// One editable criterion row: its kind, its text, and a way to remove it.
+function criterionRow(c = { kind: "quantitative", text: "" }) {
+  const row = document.createElement("div");
+  row.className = "criterion";
+  row.innerHTML = `<select><option value="quantitative">quantitative</option><option value="qualitative">qualitative</option></select><input placeholder="e.g. expression above the input sequences&#39;"><button type="button" title="Remove">×</button>`;
+  row.querySelector("select").value = c.kind;
+  row.querySelector("input").value = c.text;
+  row.querySelector("button").addEventListener("click", () => row.remove());
+  return row;
+}
+
+const setCriteria = (list) => $("#criteria").replaceChildren(...list.map(criterionRow));
+
+// Picking a previous goal hides the text box: that goal, and the success
+// criteria its latest hypothesis carried, are used as they stand.
 function pickGoal() {
   const g = GOALS[$("#goal-pick").value];
   $("#goal").hidden = !!g;
   $("#goal").required = !g;
   $("#goal-hint").textContent = g ? `${g.hypotheses} hypothesis${g.hypotheses === 1 ? "" : "es"} so far.` : "";
+  setCriteria(g?.criteria ?? []);
 }
 
 async function loadGoals() {
@@ -91,13 +119,38 @@ async function loadGoals() {
 
 const goalText = () => GOALS[$("#goal-pick").value]?.goal ?? $("#goal").value;
 
+const criteria = () => [...document.querySelectorAll("#criteria .criterion")]
+  .map((r) => ({ kind: r.querySelector("select").value, text: r.querySelector("input").value.trim() }))
+  .filter((c) => c.text);
+
 $("#goal-pick").addEventListener("change", pickGoal);
+$("#add-criterion").addEventListener("click", () => $("#criteria").append(criterionRow()));
+
+// The criteria agent drafts a list for the user to edit before starting.
+$("#suggest").addEventListener("click", async () => {
+  $("#error").textContent = "";
+  $("#suggest").disabled = true;
+  try {
+    const r = await fetch("/api/criteria", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ goal: goalText(), hypothesis: $("#hypothesis").value || null }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(explain(data.detail ?? `${r.status}`));
+    setCriteria(data);
+  } catch (err) {
+    $("#error").textContent = err.message;
+  } finally {
+    $("#suggest").disabled = false;
+  }
+});
 $("#form").addEventListener("submit", async (e) => {
   e.preventDefault();
   $("#error").textContent = "";
   $("#go").disabled = true;
   try {
-    const body = { goal: goalText(), hypothesis: $("#hypothesis").value };
+    const body = { goal: goalText(), hypothesis: $("#hypothesis").value, criteria: criteria() };
     const r = await fetch("/api/hypotheses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(explain(data.detail ?? `${r.status}`));
