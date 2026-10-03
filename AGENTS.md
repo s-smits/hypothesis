@@ -70,8 +70,8 @@ uv run python -m temporal.run_workflow examples/simple.json
 
 The default Temporal address is `localhost:7233`, queue `node-dag`, and UI
 `http://127.0.0.1:8000`. Use CLI `--help` for overrides. Agent runs additionally
-need `ANTHROPIC_API_KEY` and `--model`; a proposed model string must be checked
-against the chosen provider. `temporal/run_hypothesis.py` loads the repository's
+need `ANTHROPIC_API_KEY`. `--model` and `--verify-model` default to `anthropic:claude-sonnet-5-5`
+and `anthropic:claude-haiku-4-5`; a proposed model string must be checked against the chosen provider. `temporal/run_hypothesis.py` loads the repository's
 `.env`. Leave missing credentials missing and report the gap. Never copy `.env*`,
 `AGENTS.md` or configuration from another repository, or print secrets.
 

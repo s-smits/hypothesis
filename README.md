@@ -169,10 +169,11 @@ under `results/`, so it needs no worker.
 
 http://127.0.0.1:8000/new starts a hypothesis: enter a goal, optionally your own
 hypothesis for how to meet it, criteria (one per line, or drafted by the criteria agent
-through `POST /api/criteria` for you to edit) and the inputs. The server then
+through `POST /api/criteria` for you to edit) and, if you like, the inputs. With none,
+the agent fetches the sequences the goal names from NCBI before round 1. The server then
 starts the loop in the background, and the page jumps to the hypothesis so you can watch
-its rounds. This needs `--model` (and optionally `--verify-model`) on `run_ui`, and a
-worker running.
+its rounds. This needs a worker running. `--model` and `--verify-model` on `run_ui`
+default to `anthropic:claude-sonnet-5-5` to build and `anthropic:claude-haiku-4-5` to verify.
 
 http://127.0.0.1:8000/nodes lists every node in the registry, as the builder agent sees
 it: its description, input port, outputs, the full name of each score column a scorer
@@ -187,7 +188,7 @@ Models use the Anthropic API directly, so set `ANTHROPIC_API_KEY` first.
 export ANTHROPIC_API_KEY=sk-ant-...
 temporal server start-dev &
 uv run python -m temporal.run_worker --step-delay 2 &
-uv run python -m temporal.run_ui --model anthropic:claude-haiku-4-5 &
+uv run python -m temporal.run_ui &
 uv run python -m temporal.run_workflow examples/simple.json
 ```
 
@@ -204,9 +205,9 @@ The `Makefile` runs the server, worker and UI in the background:
 
 `make start` prints the URLs: the UI at http://127.0.0.1:8000 and the Temporal UI at
 http://localhost:8233. Logs go to `results/logs/` (`temporal.log`, `worker.log`,
-`ui.log`). The UI uses
-`anthropic:claude-haiku-4-5` by default. Pick another model with `MODEL`, as in
-`make restart MODEL=anthropic:claude-sonnet-5-5`.
+`ui.log`). The UI builds with
+`anthropic:claude-sonnet-5-5` and verifies with `anthropic:claude-haiku-4-5` by default.
+Pick another build model with `MODEL`, as in `make restart MODEL=anthropic:claude-opus-5-5`.
 
 ### Evaluating the UI with Claude
 
@@ -226,19 +227,24 @@ name, as in `examples/optimise.json`) and optional `criteria`: claims the result
 satisfy. `HypothesisLoop` (`temporal/hypothesis/`) runs it as a durable Temporal
 workflow. Only the model calls are non-deterministic, and each is an activity:
 
-1. **Criteria.** If you gave none, an agent derives them from the goal. They are frozen.
-2. **Plan.** The builder agent makes the nodes it needs (`create_node`), reuses
+1. **Inputs.** If you gave none, an agent searches and fetches the sequences the goal
+   names through `entrez` and freezes them on the Hypothesis, with where each came from.
+   Inputs you give are used as they are, and are never changed mid-run.
+2. **Criteria.** If you gave none, an agent derives them from the goal. They are frozen.
+   Each is an `id`, a `claim` and a `source`: `human` if you wrote or edited it, else `derived`.
+3. **Plan.** The builder agent makes the nodes it needs (`create_node`), reuses
    registered ones, and submits a `Plan`: the wiring, plus one assertion per criterion
-   saying which filter branch must hold every entity and which none. Guards reject a
+   saying which filter branch must hold every entity and which none (`yes` or `no` on a filter),
+   or, on any other step, that it `produced` at least one entity. Guards reject a
    bad plan (wrong inputs, an uncovered criterion, a repeat of an earlier plan) before
    anything runs, and the agent fixes it.
    The builder can also search the literature with Amass (`search_literature`,
    `get_record`; set `AMASS_API_KEY`), and cites each record it used as an observation
    on the plan. Those of the current round's plan are on the Hypothesis as
    `observations`, which the hypothesis, goal and Observations pages show.
-3. **Run.** The plan becomes a `Dag` and runs as the `DagWorkflow` child.
-4. **Verify.** A second agent reads the outcome and can only veto.
-5. **Critique.** If the round failed, a third agent says why. The next plan must address it.
+4. **Run.** The plan becomes a `Dag` and runs as the `DagWorkflow` child.
+5. **Verify.** A second agent reads the outcome and can only veto.
+6. **Critique.** If the round failed, a third agent says why. The next plan must address it.
 
 Each model call writes its full message history, failed calls included, to
 `results/trajectories/<hypothesis id>-r<round>-<stage>.json` (`criteria` is round 0). That is
@@ -249,7 +255,9 @@ Rounds stop at `max_rounds` (default 3; `--max-rounds` on `run_hypothesis`) or 5
 
 **Acceptance is code, not a model.** `accepted()` in `plan.py` passes a round only if
 every criterion has an assertion, every assertion holds on the outcome, and the verifier
-agrees. A model cannot grant that, only veto it.
+agrees. An assertion on a filter holds only if its branch took at least one entity and the
+other took none, so one plan cannot assert both branches of a filter. A model cannot grant
+acceptance, only veto it. A model that refuses a call stops the run with the refusal as the reason.
 
 **Blocked on a tool.** A plan may request at most three nodes that do not exist yet, with
 a contract (purpose, ports, example) and why none can be composed from the registry. It
@@ -284,7 +292,7 @@ temporal server start-dev
 # Start the worker
 uv run python -m temporal.run_worker
 # Start the UI
-uv run python -m temporal.run_ui --model anthropic:claude-sonnet-5-5 --verify-model anthropic:claude-haiku-4-5
+uv run python -m temporal.run_ui
 ```
 
 Or run `make start` to start all three. See [Make commands](#make-commands).
