@@ -24,30 +24,44 @@ expression in a cell, fitness or viability.
 import hashlib
 import json
 import math
+import os
 import subprocess
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from importlib.metadata import PackageNotFoundError, version
 from itertools import pairwise
+from pathlib import Path
 
 from node_dag.dna import CODON_TABLE, SYNONYMS, codons
 from node_dag.lineage import Lineage, Outcome, Variant, outcomes
 from node_dag.nodes.tools.constraint_check.config import ConstraintCheckConfig
 from node_dag.nodes.tools.constraint_check.function import ConstraintCheck
+from node_dag.storage import write_atomic
 from node_dag.types import Dna
 
 __all__ = [
     "Instance",
+    "Ledger",
     "Objective",
     "Result",
+    "Split",
     "cai_objective",
+    "cai_weights_from",
     "codon_pair_objective",
     "compare",
+    "dependency_versions",
     "exact_cai",
     "exact_codon_pair",
     "greedy_chain",
+    "ledger_dir",
     "manifest",
+    "pair_weights_from",
     "random_synonymous",
+    "record_attempt",
+    "release_holdout",
     "run_strategy",
+    "split_instances",
 ]
 
 
@@ -425,14 +439,17 @@ def manifest(
     weights: Mapping[str, float],
     seed: int,
     notes: str = "",
+    split: "Split | None" = None,
 ) -> dict[str, object]:
     """What a run has to record to be auditable afterwards.
 
-    This is the subset an append-only ledger would keep per attempt. It is not the
-    ledger itself, and it holds no split hash, since nothing is held back yet.
+    This is what ``record_attempt`` stores per attempt. Pass ``split`` whenever one
+    exists, so the hash of the division travels with the result: a number reported
+    against a split nobody can identify is not evidence of independence.
     """
     return {
         "commit": _commit(),
+        "split_hash": split.split_hash if split else None,
         "objective": objective.name,
         "seed": seed,
         "weights_sha256_16": _digest(dict(weights)),
@@ -471,3 +488,320 @@ def mean_pair_weight(
     if not pairs:
         return 0.0
     return sum(pair_weights.get(p, missing) for p in pairs) / len(pairs)
+
+
+# --- splitting ---------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Split:
+    """A fixed development and held-out division of an instance set.
+
+    Development scores may inform a prompt, a configuration or a choice of strategy.
+    Held-out scores may not, which is why they are reached through ``release_holdout``
+    rather than by reading this field: an unlogged look leaves no trace, and a claim of
+    independence then rests on nobody's memory.
+
+    Args:
+        dev: The instances that may be optimised against.
+        holdout: The instances reserved for one frozen confirmation.
+        salt: What the assignment was keyed by, recorded so it can be reproduced.
+        holdout_fraction: The fraction asked for, which the realised split approximates.
+    """
+
+    dev: tuple[Instance, ...]
+    holdout: tuple[Instance, ...]
+    salt: str
+    holdout_fraction: float
+
+    @property
+    def split_hash(self) -> str:
+        """A hash of the assignment itself, for the manifest.
+
+        Over keys and their side, not sequences, so it identifies the division rather
+        than the data, and two runs can be compared on whether they split alike.
+        """
+        return _digest(
+            {
+                "dev": sorted(i.key for i in self.dev),
+                "holdout": sorted(i.key for i in self.holdout),
+                "salt": self.salt,
+            }
+        )
+
+    def summary(self) -> dict[str, object]:
+        """What the ledger records about the split, without the held-out sequences."""
+        return {
+            "split_hash": self.split_hash,
+            "salt": self.salt,
+            "holdout_fraction_asked": self.holdout_fraction,
+            "n_dev": len(self.dev),
+            "n_holdout": len(self.holdout),
+            "dev_keys": sorted(i.key for i in self.dev),
+            "holdout_keys": sorted(i.key for i in self.holdout),
+        }
+
+
+def split_instances(
+    instances: Sequence[Instance], *, holdout_fraction: float = 0.3, salt: str = ""
+) -> Split:
+    """Divide instances deterministically, each one decided on its own key.
+
+    Each instance's side comes from a hash of its key and the salt, so the division
+    does not depend on the order instances arrive in, and adding one instance never
+    moves another across. That matters when an instance set grows: a split that
+    reshuffled would quietly turn held-out genes into development genes.
+
+    Args:
+        instances: The instance set to divide.
+        holdout_fraction: Roughly what share to hold back. Because each key is decided
+            independently the realised share only approximates it, which is the price
+            of a stable assignment.
+        salt: Changes the assignment. Record it; a new salt is a new split and
+            invalidates any earlier claim of independence.
+    """
+    if not 0.0 <= holdout_fraction <= 1.0:
+        raise ValueError(f"holdout_fraction must be in [0, 1], got {holdout_fraction}")
+    dev, holdout = [], []
+    cut = holdout_fraction * 2**32
+    for inst in instances:
+        digest = hashlib.sha256(f"{salt}:{inst.key}".encode()).digest()
+        (holdout if int.from_bytes(digest[:4], "big") < cut else dev).append(inst)
+    return Split(
+        dev=tuple(dev),
+        holdout=tuple(holdout),
+        salt=salt,
+        holdout_fraction=holdout_fraction,
+    )
+
+
+# --- the ledger --------------------------------------------------------------
+
+
+def ledger_dir() -> Path:
+    """``$NODE_DAG_RESULTS/ledger``. The root defaults to ``results``."""
+    return Path(os.environ.get("NODE_DAG_RESULTS", "results")) / "ledger"
+
+
+class Ledger:
+    """An append-only record of attempts, one file per entry.
+
+    One file per entry rather than one appended file: a partial append would corrupt
+    earlier entries, and two processes appending at once would interleave. Writing a
+    new file through ``write_atomic`` gives append-only semantics that survive both,
+    and matches how the rest of ``results/`` is laid out.
+
+    Nothing here rewrites or deletes an entry. An attempt that turned out badly stays,
+    because a ledger that can be tidied afterwards cannot evidence what was tried.
+    """
+
+    def __init__(self, root: Path | None = None) -> None:
+        """Keep entries under ``root``, defaulting to ``$NODE_DAG_RESULTS/ledger``."""
+        self.root = root or ledger_dir()
+
+    def append(self, kind: str, record: Mapping[str, object]) -> Path:
+        """Write one entry and return its path.
+
+        The name carries the time and a hash of the content, so entries sort
+        chronologically and an identical attempt written twice does not collide
+        silently.
+        """
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
+        body = {
+            "kind": kind,
+            "recorded_at": datetime.now(UTC).isoformat(),
+            **record,
+        }
+        payload = json.dumps(body, indent=2, sort_keys=True, default=str).encode()
+        path = self.root / f"{stamp}-{kind}-{_digest(body)}.json"
+        if path.exists():  # Same kind, same content, same microsecond.
+            raise FileExistsError(f"Ledger entry already exists: {path}")
+        write_atomic(path, payload)
+        return path
+
+    def entries(self) -> Iterator[dict[str, object]]:
+        """Every entry, oldest first by filename."""
+        if not self.root.exists():
+            return
+        for path in sorted(self.root.glob("*.json")):
+            yield json.loads(path.read_text())
+
+    def holdout_accesses(self) -> list[dict[str, object]]:
+        """Every recorded look at held-out data.
+
+        What a reader checks before believing a held-out number: one release, after
+        the strategy was frozen, with a reason given.
+        """
+        return [e for e in self.entries() if e.get("kind") == "holdout_release"]
+
+
+def dependency_versions(
+    packages: Sequence[str] = ("pydantic", "biopython", "viennarna", "temporalio"),
+) -> dict[str, str]:
+    """The installed version of each package, or ``absent``.
+
+    The cache keys configuration and inputs, not the environment, so a result is only
+    reproducible alongside a record of what was installed.
+    """
+    out = {}
+    for name in packages:
+        try:
+            out[name] = version(name)
+        except PackageNotFoundError:
+            out[name] = "absent"
+    return out
+
+
+def release_holdout(
+    split: Split, *, reason: str, frozen: Mapping[str, object], ledger: Ledger
+) -> tuple[Instance, ...]:
+    """Record a held-out access, then return the held-out instances.
+
+    The entry is written before the instances are handed over, so an access cannot
+    happen without a trace even if what follows fails. ``frozen`` is what was fixed
+    before looking: the strategy, its configuration, the development result it was
+    chosen on. Recording it afterwards would prove nothing, since anything can be
+    described as predeclared once the answer is known.
+
+    Raises:
+        ValueError: If no reason or nothing frozen is given. An unexplained release is
+            the thing this is here to prevent.
+    """
+    if not reason.strip():
+        raise ValueError("A held-out release needs a reason, recorded in the ledger.")
+    if not frozen:
+        raise ValueError(
+            "A held-out release needs what was frozen beforehand: the strategy and "
+            "the development result it was selected on."
+        )
+    ledger.append(
+        "holdout_release",
+        {
+            "reason": reason,
+            "frozen": dict(frozen),
+            "split": split.summary(),
+            "commit": _commit(),
+            "dependencies": dependency_versions(),
+        },
+    )
+    return split.holdout
+
+
+def record_attempt(
+    ledger: Ledger,
+    *,
+    manifest_: Mapping[str, object],
+    split: Split | None,
+    results: Mapping[str, Sequence[Result]],
+    selection: str = "",
+    errors: Sequence[str] = (),
+) -> Path:
+    """Append one attempt: what ran, on what, with what budget and what came out.
+
+    Per-instance metrics are kept rather than only their mean, so a later reader can
+    see which instances failed instead of inferring it from an average.
+    """
+    return ledger.append(
+        "attempt",
+        {
+            "manifest": dict(manifest_),
+            "dependencies": dependency_versions(),
+            "split": split.summary() if split else None,
+            "selection": selection,
+            "errors": list(errors),
+            "strategies": {
+                name: {
+                    "evaluations": sum(r.evaluations for r in rows),
+                    "passed": sum(r.passed for r in rows),
+                    "n_instances": len(rows),
+                    "mean_gap_closed": _mean([r.gap_closed for r in rows]),
+                    "per_instance": [
+                        {
+                            "instance": r.instance,
+                            "score": r.score,
+                            "optimum": r.optimum,
+                            "parent_score": r.parent_score,
+                            "gap_closed": r.gap_closed,
+                            "fraction_of_optimum": r.fraction_of_optimum,
+                            "passed": r.passed,
+                            "gates": r.gates,
+                            "evaluations": r.evaluations,
+                        }
+                        for r in rows
+                    ],
+                }
+                for name, rows in results.items()
+            },
+        },
+    )
+
+
+def _mean(values: Sequence[float | None]) -> float | None:
+    """The mean of the values that exist, or None when none do."""
+    present = [v for v in values if v is not None]
+    return sum(present) / len(present) if present else None
+
+
+# --- weight tables from a reference set --------------------------------------
+
+
+def cai_weights_from(sequences: Sequence[str]) -> dict[str, float]:
+    """Relative adaptiveness of every codon over a reference set.
+
+    Each codon's count divided by the highest count among synonyms of its amino acid,
+    which is the weight a codon adaptation index is built from. Derive it from genes
+    that are not in the instance set: a gene scored against statistics computed from
+    itself is being compared with a ruler it helped make.
+
+    An amino acid absent from the reference gets zero for all its codons, which the
+    ``codon_adaptation`` node then skips rather than treating as a zero term.
+    """
+    counts: dict[str, int] = dict.fromkeys(CODON_TABLE, 0)
+    for sequence in sequences:
+        for codon in codons(sequence):
+            if codon in counts:
+                counts[codon] += 1
+    weights: dict[str, float] = {}
+    for syns in SYNONYMS.values():
+        top = max((counts[c] for c in syns), default=0)
+        for c in syns:
+            weights[c] = (counts[c] / top) if top else 0.0
+    return weights
+
+
+def pair_weights_from(
+    sequences: Sequence[str], floor: float = math.log(0.1)
+) -> dict[str, float]:
+    """Log observed over expected frequency of each adjacent codon pair.
+
+    Expected assumes the two codons are independent, so this measures how far adjacent
+    use departs from that. It is deliberately not the Coleman codon-pair-bias
+    statistic, which conditions on the amino-acid pair as well; this is the plainer
+    measure, named for what it is.
+
+    A pair never seen is not in the table, and the scorer's ``missing`` handles it.
+    A pair seen far less often than expected is held at ``floor`` so one rare pair
+    cannot dominate a mean through a large negative log.
+    """
+    codon_counts: dict[str, int] = {}
+    pair_counts: dict[str, int] = {}
+    for sequence in sequences:
+        cs = [c for c in codons(sequence) if len(c) == 3 and c in CODON_TABLE]
+        for c in cs:
+            codon_counts[c] = codon_counts.get(c, 0) + 1
+        for a, b in pairwise(cs):
+            pair_counts[a + b] = pair_counts.get(a + b, 0) + 1
+    total_codons = sum(codon_counts.values())
+    total_pairs = sum(pair_counts.values())
+    if not total_codons or not total_pairs:
+        return {}
+    weights: dict[str, float] = {}
+    for pair, observed in pair_counts.items():
+        a, b = pair[:3], pair[3:]
+        expected = (
+            total_pairs
+            * (codon_counts[a] / total_codons)
+            * (codon_counts[b] / total_codons)
+        )
+        weights[pair] = max(math.log(observed / expected), floor) if expected else floor
+    return weights

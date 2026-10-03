@@ -5,6 +5,7 @@ they are checked against brute force over every allowed sequence rather than aga
 each other.
 """
 
+import json
 import math
 import random
 from itertools import product
@@ -13,10 +14,13 @@ import pytest
 
 from node_dag.benchmark import (
     Instance,
+    Ledger,
     cai_objective,
+    cai_weights_from,
     codon_pair_objective,
     compare,
     default_immutable,
+    dependency_versions,
     exact_cai,
     exact_codon_pair,
     gate,
@@ -24,9 +28,13 @@ from node_dag.benchmark import (
     manifest,
     mean_pair_weight,
     pair_count,
+    pair_weights_from,
     per_instance,
     random_synonymous,
+    record_attempt,
+    release_holdout,
     run_strategy,
+    split_instances,
 )
 from node_dag.dna import CODON_TABLE, codons
 from node_dag.types import Dna
@@ -476,3 +484,311 @@ def test_gap_closed_works_where_fraction_of_optimum_misleads():
     r = rows[0]
     assert r.score is not None and r.score < 0
     assert r.gap_closed is not None
+
+
+# --- splitting ---------------------------------------------------------------
+
+
+def many(n: int) -> list[Instance]:
+    return [
+        Instance(
+            key=f"gene{i}", parent=Dna(sequence="ATG" + "AAA" * (i % 5 + 1) + "TAA")
+        )
+        for i in range(n)
+    ]
+
+
+def test_split_covers_every_instance_exactly_once():
+    insts = many(40)
+    sp = split_instances(insts, holdout_fraction=0.3)
+    keys = [i.key for i in sp.dev] + [i.key for i in sp.holdout]
+    assert sorted(keys) == sorted(i.key for i in insts)
+    assert len(keys) == len(set(keys))
+
+
+def test_split_is_deterministic():
+    insts = many(40)
+    a = split_instances(insts, holdout_fraction=0.3, salt="s")
+    b = split_instances(insts, holdout_fraction=0.3, salt="s")
+    assert a.split_hash == b.split_hash
+    assert [i.key for i in a.holdout] == [i.key for i in b.holdout]
+
+
+def test_split_does_not_depend_on_input_order():
+    insts = many(40)
+    a = split_instances(insts, holdout_fraction=0.3)
+    b = split_instances(list(reversed(insts)), holdout_fraction=0.3)
+    assert a.split_hash == b.split_hash
+
+
+def test_adding_an_instance_never_moves_another_across():
+    """A reshuffling split would silently turn held-out genes into dev genes."""
+    small = many(30)
+    grown = many(45)
+    a = split_instances(small, holdout_fraction=0.3)
+    b = split_instances(grown, holdout_fraction=0.3)
+    a_side = {i.key: "holdout" for i in a.holdout} | {i.key: "dev" for i in a.dev}
+    b_side = {i.key: "holdout" for i in b.holdout} | {i.key: "dev" for i in b.dev}
+    for key, side in a_side.items():
+        assert b_side[key] == side, key
+
+
+def test_salt_changes_the_assignment():
+    insts = many(60)
+    a = split_instances(insts, holdout_fraction=0.3, salt="one")
+    b = split_instances(insts, holdout_fraction=0.3, salt="two")
+    assert a.split_hash != b.split_hash
+    assert [i.key for i in a.holdout] != [i.key for i in b.holdout]
+
+
+def test_holdout_fraction_is_approximately_honoured():
+    insts = many(400)
+    sp = split_instances(insts, holdout_fraction=0.25)
+    assert 0.18 < len(sp.holdout) / len(insts) < 0.32
+
+
+def test_fraction_of_zero_holds_nothing_back_and_one_holds_everything():
+    insts = many(30)
+    assert split_instances(insts, holdout_fraction=0.0).holdout == ()
+    assert split_instances(insts, holdout_fraction=1.0).dev == ()
+
+
+@pytest.mark.parametrize("fraction", [-0.1, 1.5])
+def test_an_impossible_fraction_is_rejected(fraction: float):
+    with pytest.raises(ValueError, match="holdout_fraction"):
+        split_instances(many(5), holdout_fraction=fraction)
+
+
+def test_split_hash_tracks_the_division_not_the_sequences():
+    a = [Instance(key="x", parent=Dna(sequence="ATGAAATAA"))]
+    b = [Instance(key="x", parent=Dna(sequence="ATGAAGTAA"))]
+    assert (
+        split_instances(a, holdout_fraction=1.0).split_hash
+        == split_instances(b, holdout_fraction=1.0).split_hash
+    )
+
+
+def test_summary_lists_both_sides():
+    sp = split_instances(many(20), holdout_fraction=0.3)
+    s = sp.summary()
+    n_dev, n_holdout = s["n_dev"], s["n_holdout"]
+    dev_keys = s["dev_keys"]
+    assert isinstance(n_dev, int) and isinstance(n_holdout, int)
+    assert isinstance(dev_keys, list)
+    assert n_dev + n_holdout == 20
+    assert len(dev_keys) == n_dev
+    assert s["split_hash"] == sp.split_hash
+
+
+def test_manifest_carries_the_split_hash():
+    insts = many(20)
+    sp = split_instances(insts, holdout_fraction=0.3)
+    obj = codon_pair_objective(PAIRS)
+    assert manifest(insts, obj, PAIRS, seed=1)["split_hash"] is None
+    assert manifest(insts, obj, PAIRS, seed=1, split=sp)["split_hash"] == sp.split_hash
+
+
+# --- ledger ------------------------------------------------------------------
+
+
+def test_ledger_appends_and_reads_back(tmp_path):
+    led = Ledger(tmp_path / "ledger")
+    led.append("attempt", {"a": 1})
+    led.append("attempt", {"a": 2})
+    got = [e["a"] for e in led.entries()]
+    assert got == [1, 2]
+    assert all(e["kind"] == "attempt" for e in led.entries())
+    assert all("recorded_at" in e for e in led.entries())
+
+
+def test_ledger_is_one_file_per_entry(tmp_path):
+    led = Ledger(tmp_path / "ledger")
+    led.append("attempt", {"a": 1})
+    led.append("attempt", {"a": 2})
+    assert len(list((tmp_path / "ledger").glob("*.json"))) == 2
+
+
+def test_ledger_never_rewrites_an_earlier_entry(tmp_path):
+    led = Ledger(tmp_path / "ledger")
+    first = led.append("attempt", {"a": 1})
+    before = first.read_bytes()
+    led.append("attempt", {"a": 2})
+    assert first.read_bytes() == before
+
+
+def test_an_empty_ledger_reads_as_empty(tmp_path):
+    assert list(Ledger(tmp_path / "nothing").entries()) == []
+
+
+def test_record_attempt_keeps_per_instance_rows(tmp_path):
+    insts = three_instances()
+    obj = codon_pair_objective(PAIRS)
+    out = compare(insts, obj, strategies(PAIRS))
+    led = Ledger(tmp_path / "ledger")
+    path = record_attempt(
+        led,
+        manifest_=manifest(insts, obj, PAIRS, seed=11),
+        split=None,
+        results=out,
+        selection="none, this is a harness check",
+    )
+    body = json.loads(path.read_text())
+    assert set(body["strategies"]) == set(out)
+    exact = body["strategies"]["exact"]
+    assert exact["n_instances"] == len(insts)
+    assert len(exact["per_instance"]) == len(insts)
+    assert exact["mean_gap_closed"] == pytest.approx(1.0)
+    assert {r["instance"] for r in exact["per_instance"]} == {i.key for i in insts}
+
+
+def test_record_attempt_keeps_failures_visible(tmp_path):
+    insts = three_instances()
+    obj = codon_pair_objective(PAIRS)
+    out = {"barren": run_strategy(insts, obj, "barren", lambda i: [])}
+    led = Ledger(tmp_path / "ledger")
+    path = record_attempt(
+        led, manifest_=manifest(insts, obj, PAIRS, seed=1), split=None, results=out
+    )
+    body = json.loads(path.read_text())
+    rows = body["strategies"]["barren"]
+    assert rows["passed"] == 0
+    assert rows["n_instances"] == len(insts)
+    assert rows["mean_gap_closed"] is None
+    assert all(r["score"] is None for r in rows["per_instance"])
+
+
+def test_record_attempt_stores_dependency_versions(tmp_path):
+    insts = three_instances()
+    obj = codon_pair_objective(PAIRS)
+    led = Ledger(tmp_path / "ledger")
+    path = record_attempt(
+        led,
+        manifest_=manifest(insts, obj, PAIRS, seed=1),
+        split=None,
+        results={"exact": run_strategy(insts, obj, "e", lambda i: [i.parent.sequence])},
+    )
+    deps = json.loads(path.read_text())["dependencies"]
+    assert deps["pydantic"] != "absent"
+
+
+def test_dependency_versions_reports_absent_rather_than_raising():
+    assert dependency_versions(("definitely-not-installed-xyz",)) == {
+        "definitely-not-installed-xyz": "absent"
+    }
+
+
+# --- held-out discipline -----------------------------------------------------
+
+
+def test_releasing_the_holdout_logs_before_returning_it(tmp_path):
+    sp = split_instances(many(20), holdout_fraction=0.3)
+    led = Ledger(tmp_path / "ledger")
+    got = release_holdout(
+        sp,
+        reason="frozen confirmation of the exact DP strategy",
+        frozen={"strategy": "exact_dp", "dev_mean_gap_closed": 1.0},
+        ledger=led,
+    )
+    assert got == sp.holdout
+    accesses = led.holdout_accesses()
+    assert len(accesses) == 1
+    entry = accesses[0]
+    reason, frozen, split_rec = entry["reason"], entry["frozen"], entry["split"]
+    assert isinstance(reason, str) and reason.startswith("frozen confirmation")
+    assert isinstance(frozen, dict) and frozen["strategy"] == "exact_dp"
+    assert isinstance(split_rec, dict)
+    assert split_rec["split_hash"] == sp.split_hash
+
+
+def test_every_release_is_recorded_so_repeats_are_visible(tmp_path):
+    sp = split_instances(many(20), holdout_fraction=0.3)
+    led = Ledger(tmp_path / "ledger")
+    for n in range(3):
+        release_holdout(sp, reason=f"look {n}", frozen={"strategy": "s"}, ledger=led)
+    assert len(led.holdout_accesses()) == 3
+
+
+def test_a_release_without_a_reason_is_refused(tmp_path):
+    sp = split_instances(many(10), holdout_fraction=0.3)
+    led = Ledger(tmp_path / "ledger")
+    with pytest.raises(ValueError, match="reason"):
+        release_holdout(sp, reason="   ", frozen={"strategy": "s"}, ledger=led)
+    assert led.holdout_accesses() == []
+
+
+def test_a_release_without_anything_frozen_is_refused(tmp_path):
+    sp = split_instances(many(10), holdout_fraction=0.3)
+    led = Ledger(tmp_path / "ledger")
+    with pytest.raises(ValueError, match="frozen"):
+        release_holdout(sp, reason="because", frozen={}, ledger=led)
+    assert led.holdout_accesses() == []
+
+
+def test_holdout_accesses_ignores_ordinary_attempts(tmp_path):
+    led = Ledger(tmp_path / "ledger")
+    led.append("attempt", {"a": 1})
+    assert led.holdout_accesses() == []
+
+
+def test_dev_and_holdout_instances_are_disjoint():
+    sp = split_instances(many(60), holdout_fraction=0.4)
+    assert not {i.key for i in sp.dev} & {i.key for i in sp.holdout}
+
+
+# --- weight tables -----------------------------------------------------------
+
+
+def test_cai_weights_put_the_commonest_synonym_at_one():
+    # AAA appears three times, AAG once, so lysine's weights are 1.0 and 1/3.
+    seqs = ["ATGAAAAAAAAATAA", "ATGAAGTAA"]
+    w = cai_weights_from(seqs)
+    assert w["AAA"] == 1.0
+    assert w["AAG"] == pytest.approx(1 / 3)
+
+
+def test_cai_weights_cover_every_codon():
+    w = cai_weights_from(["ATGAAAGGCTAA"])
+    assert set(w) == set(CODON_TABLE)
+
+
+def test_an_amino_acid_absent_from_the_reference_gets_zero():
+    w = cai_weights_from(["ATGAAATAA"])  # no tryptophan anywhere
+    assert w["TGG"] == 0.0
+
+
+def test_cai_weights_are_in_the_unit_interval():
+    w = cai_weights_from([i.parent.sequence for i in three_instances()])
+    assert all(0.0 <= v <= 1.0 for v in w.values())
+
+
+def test_cai_weights_of_nothing_are_all_zero():
+    assert set(cai_weights_from([]).values()) == {0.0}
+
+
+def test_pair_weights_only_cover_pairs_that_occur():
+    w = pair_weights_from(["ATGAAAGGCTAA"])
+    assert "ATGAAA" in w
+    assert "GGCTAA" in w
+    assert "ATGGGC" not in w  # never adjacent
+
+
+def test_pair_weights_are_floored():
+    floor = math.log(0.5)
+    seqs = [i.parent.sequence for i in three_instances()] * 3
+    w = pair_weights_from(seqs, floor=floor)
+    assert all(v >= floor - 1e-12 for v in w.values())
+
+
+def test_pair_weights_of_nothing_are_empty():
+    assert pair_weights_from([]) == {}
+    assert pair_weights_from(["ATG"]) == {}  # no adjacent pair
+
+
+def test_derived_weights_drive_the_objectives():
+    """The tables the runner derives are usable by the objectives unchanged."""
+    reference = [i.parent.sequence for i in three_instances()]
+    cai = cai_objective(cai_weights_from(reference))
+    pair = codon_pair_objective(pair_weights_from(reference), math.log(0.1))
+    i = three_instances()[0]
+    assert math.isfinite(cai.score(exact_cai(i, cai_weights_from(reference))))
+    assert math.isfinite(pair.score(i.parent.sequence))
