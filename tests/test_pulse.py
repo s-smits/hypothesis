@@ -1,12 +1,10 @@
 import json
-import subprocess
 from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 from click.testing import CliRunner
 from pydantic_ai.messages import (
-    CompactionPart,
     ModelMessagesTypeAdapter,
     ModelRequest,
     ModelResponse,
@@ -24,13 +22,13 @@ from node_dag.plan import Attempt, Plan, ToolRequest
 from temporal import pulse
 from temporal.dag.activities import results_subdir
 from temporal.hypothesis.activities import save_hypothesis
+from temporal.hypothesis.loop import HypothesisInput
 from temporal.pulse import (
     ALERTS,
     BLOCKED_S,
+    BUDGET,
     FRICTION,
-    QUIET_S,
     Call,
-    Host,
     Memory,
     Reading,
     Round,
@@ -212,24 +210,6 @@ def test_a_call_with_many_retries_is_a_warning_that_says_what_it_was_sent_back_f
     assert [e.mark for e in events(reading(), reading(calls=[one]))] == ["·"]
 
 
-def test_a_call_whose_context_was_compacted_says_so_and_is_still_read_as_finished():
-    messages = transcript([])
-    summary = CompactionPart("The goal is to remove TCG.", provider_name="anthropic")
-    first = messages[1]
-    assert isinstance(first, ModelResponse)
-    first.parts.insert(0, summary)
-    write_transcript("h1", 1, "plan", messages)
-    (call,) = read_calls("h1")
-    assert call.compactions == 1
-    assert call.done
-    (event,) = [
-        e for e in events(reading(), reading(calls=[call])) if "plan call" in e.text
-    ]
-    assert event.mark == "⚠" and "context compacted ×1" in event.text
-    plain = read_call(1, "plan", transcript([]), saved=5.0)
-    assert "compacted" not in events(reading(), reading(calls=[plain]))[0].text
-
-
 def test_a_call_already_seen_is_not_said_again_unless_its_transcript_was_rewritten():
     call = read_call(1, "plan", transcript([]), saved=5.0)
     assert events(reading(calls=[call]), reading(calls=[call])) == []
@@ -266,18 +246,6 @@ def test_criteria_rounds_plans_assertions_verdicts_and_critiques_are_said_once_e
         "◆ r2 opened; r1 missed (wrong_config)",
     ]
     assert events(after, after) == []
-
-
-def test_a_plan_that_wires_the_same_dag_as_an_earlier_round_is_flagged():
-    old = Round(number=1, steps=2, wiring="aa", achieved=False)
-    new = Round(number=2, steps=2, wiring="aa")
-    said = texts(reading(rounds=[old], round=2), reading(rounds=[old, new], round=2))
-    assert "⚠ r2 wires the same DAG as r1" in said
-    other = Round(number=2, steps=2, wiring="bb")
-    assert not any(
-        "same DAG" in s
-        for s in texts(reading(rounds=[old]), reading(rounds=[old, other], round=2))
-    )
 
 
 def test_a_round_that_errored_is_a_warning():
@@ -321,31 +289,6 @@ def test_a_run_that_ends_says_why_once():
 # --- Alerts say once when they start and once when they clear.
 
 
-def test_a_quiet_run_is_said_once_and_again_when_it_moves():
-    silent = reading(saved=NOW - QUIET_S - 1, worker=True)
-    assert texts(reading(worker=True), silent) == [
-        f"⚠ no save for {pulse.dur(QUIET_S + 1)} in r1; the criteria call may have stalled"
-    ]
-    assert events(silent, silent) == []
-    assert texts(silent, reading(worker=True)) == ["· quiet cleared"]
-    assert ALERTS["quiet"](reading(saved=NOW - QUIET_S - 1, state="blocked")) is None
-
-
-def test_a_working_run_with_no_worker_is_flagged_and_a_blocked_one_is_not():
-    assert (
-        "⚠ the worker is not running"
-        in texts(reading(worker=True), reading(worker=False))[0]
-    )
-    assert (
-        events(
-            reading(state="blocked", worker=True),
-            reading(state="blocked", worker=False),
-        )
-        == []
-    )
-    assert ALERTS["down"](reading(worker=None)) is None
-
-
 def test_waiting_on_a_person_too_long_and_a_nearly_spent_budget_are_flagged():
     long = reading(
         state="blocked", pending={"a": "missing", "b": "missing"}, saved=NOW - BLOCKED_S
@@ -358,20 +301,6 @@ def test_waiting_on_a_person_too_long_and_a_nearly_spent_budget_are_flagged():
     ]
     assert ALERTS["spent"](reading(tokens=400_000, state="achieved")) is None
     assert ALERTS["spent"](reading(tokens=400_000, budget=0)) is None
-
-
-def test_rounds_that_come_no_closer_than_the_best_are_a_stall_and_a_better_one_is_not():
-    def done(n: int, ok: int) -> Round:
-        return Round(number=n, held={f"a{i}": i < ok for i in range(4)}, achieved=False)
-
-    flat = [done(1, 2), done(2, 2), done(3, 1)]
-    assert "stall: the 2 rounds since r1 (2/4) came no closer" in (
-        ALERTS["stalled"](reading(rounds=flat)) or ""
-    )
-    assert (
-        ALERTS["stalled"](reading(rounds=[done(1, 1), done(2, 2), done(3, 3)])) is None
-    )
-    assert ALERTS["stalled"](reading(rounds=flat, state="not achieved")) is None
 
 
 # --- Status.
@@ -464,17 +393,9 @@ def test_a_blocked_run_is_read_from_its_hypothesis_its_requests_and_its_transcri
         stopped_because=None,
     )
     write_transcript("h1", 1, "plan", transcript(["why"]))
-    r = read_run(
-        results_subdir("hypotheses") / "h1.json", NOW, 500_000, Host(worker=False)
-    )
+    r = read_run(results_subdir("hypotheses") / "h1.json", NOW, 500_000)
     assert isinstance(r, Reading)
-    assert (r.id, r.state, r.round, r.tokens, r.worker) == (
-        "h1",
-        "blocked",
-        1,
-        1234,
-        False,
-    )
+    assert (r.id, r.state, r.round, r.tokens) == ("h1", "blocked", 1, 1234)
     assert r.criteria == ["no_tcg"] and r.pending == {"gc_count": "missing"}
     assert r.rounds[0].nodes == ["at_most", "codon_count"] and r.rounds[0].asked == []
     assert (
@@ -498,7 +419,7 @@ def test_a_file_that_is_not_a_hypothesis_is_reported_and_does_not_stop_the_look(
 ):
     save(state="building")
     (results_subdir("hypotheses") / "broken.json").write_text("{not json")
-    seen = pulse.look((), Memory(), 500_000, NOW, Host())
+    seen = pulse.look((), Memory(), 500_000, NOW)
     assert [r.id for r in seen.runs] == ["h1"]
     assert seen.unreadable == ["broken.json (not JSON)"]
     assert "unreadable: broken.json (not JSON)" in render(seen)[0]
@@ -524,13 +445,13 @@ def test_a_file_saved_before_a_node_changed_says_which_hash_no_longer_matches(
     }
     results_subdir("hypotheses").mkdir(parents=True, exist_ok=True)
     (results_subdir("hypotheses") / "old.json").write_text(json.dumps(stale))
-    why = read_run(results_subdir("hypotheses") / "old.json", NOW, 500_000, Host())
+    why = read_run(results_subdir("hypotheses") / "old.json", NOW, 500_000)
     assert isinstance(why, str) and "config_hash 'deadbeef' is not" in why
     assert ". " not in why and "Value error" not in why
 
 
 def test_a_missing_file_is_named_not_raised(results_dir):
-    why = read_run(results_subdir("hypotheses") / "gone.json", NOW, 500_000, Host())
+    why = read_run(results_subdir("hypotheses") / "gone.json", NOW, 500_000)
     assert isinstance(why, str) and why.startswith("cannot be read")
 
 
@@ -560,16 +481,19 @@ def test_open_runs_are_read_and_a_closed_one_only_if_kept_or_named():
     assert not selected(open_, ("h2",), frozenset())
 
 
-def test_memory_survives_a_round_trip_and_a_bad_reading_or_file_is_a_first_look(
+def test_memory_survives_a_round_trip_and_an_unreadable_file_is_a_first_look(
     results_dir,
 ):
     path = results_dir / "pulse.json"
     memory = Memory(readings={"h1": reading()})
     assert save_memory(path, memory) is None and load_memory(path) == memory
     raw = json.loads(path.read_text())
+    raw["readings"]["h1"]["worker"] = True  # A field an older version kept.
+    path.write_text(json.dumps(raw))
+    assert load_memory(path) == memory
     raw["readings"]["h2"] = {"id": "h2"}  # Written by another version.
     path.write_text(json.dumps(raw))
-    assert list(load_memory(path).readings) == ["h1"]
+    assert load_memory(path) == Memory()
     path.write_text("[1, 2]")
     assert load_memory(path) == Memory()
     path.write_text("{")
@@ -580,59 +504,46 @@ def test_memory_survives_a_round_trip_and_a_bad_reading_or_file_is_a_first_look(
     assert "could not keep" in (save_memory(blocked, memory) or "")
 
 
+def test_only_the_transcripts_of_a_run_the_look_reads_are_parsed(
+    results_dir, monkeypatch
+):
+    save(state="verifying")
+    save_hypothesis(HYP.model_copy(update={"id": "h2", "state": "achieved"}))
+    parsed: list[str] = []
+    read = pulse.read_calls
+    monkeypatch.setattr(pulse, "read_calls", lambda i: parsed.append(i) or read(i))
+    pulse.look((), Memory(), 500_000, NOW)
+    assert parsed == ["h1"]
+    parsed.clear()
+    pulse.look(("h2",), Memory(), 500_000, NOW)
+    assert parsed == ["h2"]
+
+
+def test_the_default_budget_is_the_loops():
+    assert BUDGET == HypothesisInput.model_fields["max_tokens"].default
+
+
 def test_a_run_that_ended_is_said_once_and_then_no_longer_watched(results_dir):
     save(state="verifying")
     memory = Memory()
-    first = pulse.look((), memory, 500_000, NOW, Host(worker=True))
+    first = pulse.look((), memory, 500_000, NOW)
     assert (
         first.events == [] and "h1" in memory.readings
     )  # A first look says nothing moved.
     assert any("goal: remove TCG" in line for line in first.status)
     save(state="achieved", stopped_because="done")
-    ended = pulse.look((), memory, 500_000, NOW, Host(worker=True))
+    ended = pulse.look((), memory, 500_000, NOW)
     assert [e.text for e in ended.events] == [
         "ended: achieved: done"
     ] and memory.readings == {}
-    assert pulse.look((), memory, 500_000, NOW, Host()).runs == []
-
-
-# --- The host.
-
-
-def test_the_host_is_read_from_the_process_table_and_unknown_when_it_cannot_be(
-    monkeypatch,
-):
-    def table(*lines: str):
-        done = subprocess.CompletedProcess([], 0, stdout="\n".join(lines))
-        monkeypatch.setattr(subprocess, "run", lambda *a, **k: done)
-
-    table("/bin/zsh -l", "python -m temporal.run_worker", "temporal server start-dev")
-    assert (pulse.read_host().worker, pulse.read_host().server) == (True, True)
-    table("python -m temporal.pulse", "vim temporal/run_ui.py")
-    assert (pulse.read_host().worker, pulse.read_host().server) == (False, False)
-
-    def broken(*a, **k):
-        raise subprocess.TimeoutExpired("ps", 5)
-
-    monkeypatch.setattr(subprocess, "run", broken)
-    assert (pulse.read_host().worker, pulse.read_host().server) == (None, None)
-    assert [pulse._up(x) for x in (True, False, None)] == ["up", "DOWN", "?"]
-
-
-def test_a_worker_inside_another_process_is_not_reported_down(monkeypatch):
-    def not_called(*a, **k):
-        raise AssertionError("the process table was read")
-
-    monkeypatch.setattr(subprocess, "run", not_called)
-    host = pulse.read_host(process_table=False)
-    assert (host.worker, host.server) == (None, None)
+    assert pulse.look((), memory, 500_000, NOW).runs == []
 
 
 # --- The command.
 
 
 def test_a_look_that_finds_no_run_says_where_it_looked(results_dir):
-    head = render(pulse.look((), Memory(), 500_000, NOW, Host()))[0]
+    head = render(pulse.look((), Memory(), 500_000, NOW))[0]
     assert f"0 runs under {results_dir}" in head
 
 
@@ -641,18 +552,15 @@ def test_interrupting_a_repeating_look_ends_it_quietly(monkeypatch):
         raise KeyboardInterrupt
 
     monkeypatch.setattr(pulse.time, "sleep", interrupt)
-    done = CliRunner().invoke(main, ["--every", "30", "--no-host"])
+    done = CliRunner().invoke(main, ["--every", "30"])
     assert done.exit_code == 0 and done.exception is None
-    assert "0 runs" in done.output and "worker ?" in done.output
+    assert "0 runs" in done.output
 
 
-def test_the_command_prints_status_on_a_first_look_and_events_on_the_next(monkeypatch):
-    monkeypatch.setattr(
-        pulse, "read_host", lambda **_: Host(worker=True, server=True, load=1.0)
-    )
+def test_the_command_prints_status_on_a_first_look_and_events_on_the_next():
     save(state="building", round=1)
     first = CliRunner().invoke(main, [])
-    assert first.exit_code == 0 and "1 run · worker up · server up" in first.output
+    assert first.exit_code == 0 and "1 run" in first.output
     assert "◆" not in first.output and "building" in first.output
     request = ToolRequest(name="gc_count", node="score", output=["gc"], **ASK)
     save(

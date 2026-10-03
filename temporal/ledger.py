@@ -14,7 +14,7 @@ from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
 from temporal.dag.activities import results_root, results_subdir
-from temporal.pulse import Host, Reading, held_text, read_run
+from temporal.pulse import Reading, held_text, read_run
 
 
 class Entry(BaseModel):
@@ -121,9 +121,7 @@ def read(path: Path) -> tuple[list[Entry], int]:
 @activity.defn
 def record_ledger(hyp_id: str) -> None:
     """Add a finished run to the ledger, reading its saved files as pulse does."""
-    r = read_run(
-        results_subdir("hypotheses") / f"{hyp_id}.json", time.time(), 0, Host()
-    )
+    r = read_run(results_subdir("hypotheses") / f"{hyp_id}.json", time.time(), 0)
     if isinstance(r, str):  # Why it cannot be read: retrying will not change it.
         raise ApplicationError(f"{hyp_id} cannot be read: {r}", non_retryable=True)
     append(ledger_path(), entry_for(r))

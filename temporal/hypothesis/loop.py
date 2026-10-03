@@ -147,7 +147,7 @@ class HypothesisLoop:
             while cause.__cause__:  # The activity's own error is at the bottom.
                 cause = cause.__cause__
             final = await self._stop("failed", f"{e.activity_type} failed: {cause}")
-        # By name: ``temporal.ledger`` reads the run as pulse does, and pulse imports this.
+        # By name: ``temporal.ledger`` reads the run as pulse does.
         # A ledger that cannot be written never changes how the run ended.
         try:
             await workflow.execute_activity("record_ledger", final.id, **QUICK)

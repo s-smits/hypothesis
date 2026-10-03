@@ -111,14 +111,13 @@ While a hypothesis run is open, make the last action of each reply a look:
 uv run python -m temporal.pulse
 ```
 
-It reads the saved hypotheses, trajectories and requests under `$NODE_DAG_RESULTS` and the
-process table. It never calls a model, a worker or the API, so it is safe to run at any time.
+It reads the saved hypotheses, trajectories and requests under `$NODE_DAG_RESULTS`. It never
+calls a model, a worker or the API, so it is safe to run at any time.
 It keeps what it saw in `<results>/pulse.json`, so each look says only what moved since the
 last one. The first look has nothing to differ from and prints status lines only. Do not
 loop it inside a reply; the next reply's look is the next reading. `--every 30` keeps
 looking for a person at a terminal, `--json` is for another program, and an id, label or part
-of the goal selects one run. Use `--no-host` when the worker runs inside another process, as
-it does in a test or script, or it will report the worker down.
+of the goal selects one run.
 
 Each line starts with a mark:
 
@@ -133,12 +132,7 @@ does not mean it is fixed. The status line keeps showing the state.
 
 | Alert | What it means | What to do |
 | --- | --- | --- |
-| `the worker is not running` | A working run has no worker to move it. | Start `uv run python -m temporal.run_worker` (and `temporal server start-dev` if the server is `DOWN` too). `?` means unknown, not down. |
-| `no save for 12m` | Nothing was written for longer than a call takes. | Read the run's newest file in `trajectories/`; check the Temporal UI before restarting anything. |
 | a call `sent back for: …` | A model call was rejected three or more times. | Read the reasons. The same one repeating means a guard message or schema is unclear; fix that, not the run. |
-| a call `context compacted ×1` | Its context passed the compaction window (150k input tokens) and Anthropic summarised it. | Read the `compaction` part in the transcript for what the summary kept. A call that gets here is far larger than any seen; find out why. |
-| `wires the same DAG as r1` | The plan repeats an earlier round's wiring. | Check whether only the assertions changed; the repeat guard compares wiring only. |
-| `stall: the 2 rounds since r1 …` | Rounds came no closer than the best one. | Abandon, or revise the goal or criteria. More rounds spend the budget for nothing. |
 | `blocked 30m00s on …` | A person has to write a node. | Follow the `↳ waiting on` line (below). |
 | `400k of 500k tokens used` | The budget is 80% spent; reaching it ends the run. | Let it end, or abandon. |
 

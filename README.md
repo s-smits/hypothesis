@@ -274,10 +274,9 @@ different frames, which no registered node can recode in both, so it blocks in r
 **Watching runs.** `uv run python -m temporal.pulse` prints a status line per open run, and on
 every later look what moved since the last: criteria fixed, a round opened, a plan accepted,
 blocked, the verdict. It warns about a model call sent back three or more times (and says what
-for), a plan that wires the same DAG as an earlier round, rounds that come no closer, a working
-run with no worker, and a budget nearly spent. For a blocked run it says what each requested node
-still needs. It only reads files and the process table; `--every 30` keeps looking, and `--json`
-prints the look for another program; `--no-host` skips the process table for a worker started inside another process. Readings are kept in `results/pulse.json`. `AGENTS.md` says what each alert means and what to do.
+for), a run blocked for a long time, and a budget nearly spent. For a blocked run it says what
+each requested node still needs. It only reads files; `--every 30` keeps looking, and `--json`
+prints the look for another program. Readings are kept in `results/pulse.json`. `AGENTS.md` says what each alert means and what to do.
 
 **Ledger.** Every run that ends adds one line to `results/ledger.jsonl`: its goal, how and why it
 ended, the rounds and what held in each, tokens and seconds, guard retries, errors and repeated

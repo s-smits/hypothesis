@@ -1,28 +1,21 @@
 """``python -m temporal.pulse``: what changed in the open hypotheses since the last look.
 
 A run that is being watched raises a different question every few minutes: not where it
-stands, but what moved. Answering it by hand meant reopening the Hypothesis file, the
-transcript of each model call and the request files, and remembering what each said last
-time. This keeps one reading per run between looks and prints the difference as events:
-``◆`` a stage worth reading (criteria fixed, a round opened, a plan accepted, blocked, the
-verdict), ``⚠`` something that may be wrong (a model call that needed many retries, a run
-with no worker, a stall, a repeated plan) and ``·`` a smaller fact. A first look, with no
-reading kept, prints status lines only.
+stands, but what moved. This keeps one reading per run between looks and prints the
+difference as events: ``◆`` a stage worth reading (criteria fixed, a round opened, a plan
+accepted, blocked, the verdict), ``⚠`` something that may be wrong (a model call that needed
+many retries, a budget nearly spent) and ``·`` a smaller fact. A first look, with no reading
+kept, prints status lines only.
 
-Read-only: every value comes from a file the loop recorded, through its owner's reader, and
-a file that cannot be read leaves its part of the reading out. The two live facts, whether a
-worker and a Temporal server are running, come from the process table and are never
-evidence. What a transcript shows is how much guard friction a plan cost and which nodes the
-builder read, which the Hypothesis file does not keep.
+Read-only: every value comes from a file the loop recorded, and a file that cannot be read
+leaves its part of the reading out. What a transcript shows is how much guard friction a plan
+cost and which nodes the builder read, which the Hypothesis file does not keep.
 
 A blocked run is the one that waits on a person, so its status line says what each requested
 node still needs: scaffolding, a body for ``run``, a factory edit, or only a Resume.
 """
 
-import json
-import os
 import re
-import subprocess
 import time
 from collections import Counter
 from collections.abc import Callable
@@ -33,7 +26,6 @@ from typing import Literal
 import click
 from pydantic import BaseModel, ValidationError
 from pydantic_ai.messages import (
-    CompactionPart,
     ModelMessage,
     ModelMessagesTypeAdapter,
     ModelResponse,
@@ -47,26 +39,22 @@ from node_dag.agent import Hypothesis
 from node_dag.plan import Attempt
 from node_dag.storage import write_atomic
 from temporal.dag.activities import results_root, results_subdir
-from temporal.hypothesis.loop import HypothesisInput
 from temporal.scaffold_node import camel
 
-# A model call is cut off at 10 minutes and tried once more, so a longer silence is a stall.
-QUIET_S = 12 * 60
 # Waiting on a person is normal; waiting this long is worth a nudge.
 BLOCKED_S = 30 * 60
 # Retries in one model call that make a pattern of friction rather than ordinary noise.
 FRICTION = 3
-# Rounds in a row that came no closer to holding every assertion than the best one before.
-STALL_ROUNDS = 2
 SPENT = 0.8
+# The loop's default token budget, HypothesisInput.max_tokens, which is not imported because
+# the loop module costs a third of a second to start; a test keeps the two equal.
+BUDGET = 500_000
 # pydantic-ai's name for an agent's output tool, which is not one of the builder's own.
 OUTPUT = "final_result"
 TERMINAL = frozenset({"achieved", "not achieved", "abandoned", "failed"})
 WORKING = frozenset({"building", "running", "verifying", "critiquing"})
 TRANSCRIPT = re.compile(r"-r(\d+)-(criteria|plan|verify|critique)\.json$")
 UUID_ID = re.compile(r"^hypothesis-([0-9a-f]{8})(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$")
-WORKER = re.compile(r"temporal[./]run_worker")
-SERVER = re.compile(r"temporal(?:\.exe)? server")
 
 Mark = Literal["◆", "⚠", "·"]
 NodeState = Literal["missing", "scaffolded", "unregistered", "ready"]
@@ -95,7 +83,6 @@ class Call(BaseModel):
     model: str | None = None
     tools: dict[str, int] = {}
     retries: list[str] = []
-    compactions: int = 0
     tokens: int = 0
     began: float
     took: float
@@ -137,25 +124,12 @@ class Reading(BaseModel):
     tokens: int = 0
     budget: int
     stopped: str | None = None
-    worker: bool | None = None
-
-
-class Host(BaseModel):
-    """What the process table says at the moment of a look."""
-
-    worker: bool | None = None
-    server: bool | None = None
-    load: float | None = None
 
 
 class Memory(BaseModel):
     """What one look leaves for the next."""
 
     readings: dict[str, Reading] = {}
-
-
-# ---------------------------------------------------------------------------------------
-# Reading.
 
 
 def dur(seconds: float) -> str:
@@ -194,11 +168,10 @@ def read_call(
     tools: Counter[str] = Counter()
     retries: list[str] = []
     stamps: list[float] = []
-    tokens, compactions, model = 0, 0, None
+    tokens, model = 0, None
     for m in messages:
         if isinstance(m, ModelResponse):
             tokens += m.usage.total_tokens
-            compactions += sum(isinstance(p, CompactionPart) for p in m.parts)
             model = m.model_name or model
             stamps.append(m.timestamp.timestamp())
             tools.update(
@@ -229,7 +202,6 @@ def read_call(
         model=model,
         tools=dict(tools),
         retries=retries,
-        compactions=compactions,
         tokens=tokens,
         began=began,
         took=max(stamps, default=began) - began,
@@ -298,11 +270,17 @@ def _invalid(e: ValidationError) -> str:
     return why if len(why) <= 90 else why[:89] + "…"
 
 
-def read_run(path: Path, now: float, budget: int, host: Host) -> Reading | str:
+def read_run(
+    path: Path,
+    now: float,
+    budget: int,
+    wanted: Callable[[Reading], bool] = lambda _: True,
+) -> Reading | str:
     """One run from its saved files, or why its Hypothesis cannot be read.
 
     A file written before a node's fields or version changed no longer validates, and is
-    named with the reason rather than shown as empty.
+    named with the reason rather than shown as empty. The transcripts, which are most of
+    the work, are read only if ``wanted`` accepts the reading without them.
     """
     try:
         hyp = Hypothesis.model_validate_json(path.read_bytes())
@@ -311,10 +289,7 @@ def read_run(path: Path, now: float, budget: int, host: Host) -> Reading | str:
         return f"cannot be read: {e.strerror or e}"
     except ValidationError as e:
         return _invalid(e)
-    calls = read_calls(hyp.id)
-    began = [c.began for c in calls] + [
-        a.started.timestamp() for a in hyp.attempts if a.started
-    ]
+    began = [a.started.timestamp() for a in hyp.attempts if a.started]
     verdict = hyp.current.verdict if hyp.current else None
     state = hyp.state or (
         "legacy"
@@ -324,7 +299,7 @@ def read_run(path: Path, now: float, budget: int, host: Host) -> Reading | str:
         else "not achieved"
     )
     names = [r.name for r in hyp.pending]
-    return Reading(
+    run = Reading(
         id=hyp.id,
         label=label_of(hyp.id),
         goal=hyp.goal,
@@ -335,56 +310,15 @@ def read_run(path: Path, now: float, budget: int, host: Host) -> Reading | str:
         round=hyp.round,
         criteria=[c.id for c in hyp.criteria],
         rounds=[read_round(a) for a in hyp.attempts],
-        calls=calls,
         pending={n: node_state(n) for n in names},
         tokens=hyp.usage.get("total", 0),
         budget=budget,
         stopped=hyp.stopped_because,
-        worker=host.worker,
     )
-
-
-def read_host(*, process_table: bool = True) -> Host:
-    """Whether a worker and a Temporal server are running, from the process table.
-
-    A worker started inside another process, as a test or a script does, is invisible to
-    it; ``process_table=False`` leaves both unknown rather than reporting them down.
-    """
-    if not process_table:
-        return Host(load=os.getloadavg()[0])
-    try:
-        out = subprocess.run(
-            ["ps", "-axo", "args="],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=True,
-        ).stdout.splitlines()
-    except (OSError, subprocess.SubprocessError):
-        return Host(load=os.getloadavg()[0])
-    return Host(
-        worker=any(WORKER.search(line) for line in out),
-        server=any(SERVER.search(line) for line in out),
-        load=os.getloadavg()[0],
-    )
-
-
-# ---------------------------------------------------------------------------------------
-# Alerts: each is said once when it starts and once when it clears.
-
-
-def quiet(r: Reading) -> str | None:
-    """A working run whose record has not changed for longer than a call can take."""
-    if r.state not in WORKING or r.worker is False or r.now - r.saved < QUIET_S:
-        return None
-    return f"no save for {dur(r.now - r.saved)} in r{r.round}; {in_flight(r)} may have stalled"
-
-
-def down(r: Reading) -> str | None:
-    """A working run with no worker to move it."""
-    if r.state in WORKING and r.worker is False:
-        return f"the worker is not running, so r{r.round} cannot move: python -m temporal.run_worker"
-    return None
+    if wanted(run):
+        run.calls = read_calls(hyp.id)
+        run.started = min([c.began for c in run.calls] + began, default=saved)
+    return run
 
 
 def waited(r: Reading) -> str | None:
@@ -401,31 +335,8 @@ def spent(r: Reading) -> str | None:
     return None
 
 
-def fraction(x: Round) -> float:
-    """The share of a round's assertions that held; a round with none held counts as 0."""
-    return sum(x.held.values()) / len(x.held) if x.held else 0.0
-
-
-def stalled(r: Reading) -> str | None:
-    """Rounds in a row that came no closer than the best one before them."""
-    done = [x for x in r.rounds if x.achieved is not None or x.error]
-    best = 0
-    for i, x in enumerate(done):
-        if fraction(x) > fraction(done[best]):
-            best = i  # A tie does not replace it.
-    flat = len(done) - 1 - best
-    if r.state in TERMINAL or flat < STALL_ROUNDS:
-        return None
-    return f"stall: the {flat} rounds since r{done[best].number} ({held_text(done[best])}) came no closer"
-
-
-ALERTS: dict[str, Callable[[Reading], str | None]] = {
-    "quiet": quiet,
-    "down": down,
-    "waited": waited,
-    "spent": spent,
-    "stalled": stalled,
-}
+# Each is said once when it starts and once when it clears.
+ALERTS: dict[str, Callable[[Reading], str | None]] = {"waited": waited, "spent": spent}
 
 
 def in_flight(r: Reading) -> str:
@@ -438,27 +349,11 @@ def in_flight(r: Reading) -> str:
     }.get(r.state, r.state)
 
 
-# ---------------------------------------------------------------------------------------
-# Events.
-
-
 def held_text(x: Round) -> str:
     """``3/4`` for a round whose assertions ran, ``error`` for one that failed, else empty."""
     if x.held:
         return f"{sum(x.held.values())}/{len(x.held)}"
     return "error" if x.error else ""
-
-
-def calls_text(c: Call) -> str:
-    """One model call in a line: time, tools read, retries and tokens."""
-    tools = ", ".join(f"{n} ×{k}" if k > 1 else n for n, k in c.tools.items())
-    parts = [
-        dur(c.took),
-        tools or "no tools",
-        f"{len(c.retries)} retr{'y' if len(c.retries) == 1 else 'ies'}",
-        f"{thousands(c.tokens)} tokens",
-    ]
-    return ", ".join(parts)
 
 
 def events(before: Reading | None, after: Reading) -> list[Event]:
@@ -491,9 +386,6 @@ def events(before: Reading | None, after: Reading) -> list[Event]:
         if x.steps is not None and (was is None or was.steps is None):
             asked = f", asking for {', '.join(x.requests)}" if x.requests else ""
             say("◆", f"{n} plan accepted: {x.steps} steps{asked}", hyp_file)
-            same = [y.number for y in after.rounds[:i] if y.wiring == x.wiring]
-            if same:
-                say("⚠", f"{n} wires the same DAG as r{same[0]}")
         if x.held and not (was and was.held):
             failed = [k for k, ok in x.held.items() if not ok]
             tail = f"; did not hold: {', '.join(failed)}" if failed else ""
@@ -535,15 +427,18 @@ def events(before: Reading | None, after: Reading) -> list[Event]:
         if was_call is not None and was_call.saved == c.saved:
             continue
         noisy = len(c.retries) >= FRICTION or not c.done
-        text = f"r{c.round} {c.stage} call: {calls_text(c)}"
+        tools = ", ".join(f"{n} ×{k}" if k > 1 else n for n, k in c.tools.items())
+        retried = f"{len(c.retries)} retr{'y' if len(c.retries) == 1 else 'ies'}"
+        text = (
+            f"r{c.round} {c.stage} call: {dur(c.took)}, {tools or 'no tools'}, "
+            f"{retried}, {thousands(c.tokens)} tokens"
+        )
         if not c.done:
             text += "; it did not finish"
         if noisy and c.retries:
             text += f"; sent back for: {'; '.join(c.retries[:3])}"
-        if c.compactions:  # Its context passed the window and was summarised.
-            text += f"; context compacted ×{c.compactions}"
         say(
-            "⚠" if noisy or c.compactions else "·",
+            "⚠" if noisy else "·",
             text,
             f"trajectories/{after.id}-r{c.round}-{c.stage}.json",
         )
@@ -559,10 +454,6 @@ def events(before: Reading | None, after: Reading) -> list[Event]:
             f"ended: {after.state}" + (f": {after.stopped}" if after.stopped else ""),
         )
     return out
-
-
-# ---------------------------------------------------------------------------------------
-# Status.
 
 
 def status(r: Reading, width: int) -> str:
@@ -600,10 +491,6 @@ def next_step(r: Reading) -> str | None:
     return "waiting on " + ", ".join(parts)
 
 
-# ---------------------------------------------------------------------------------------
-# The look.
-
-
 def selected(r: Reading, selectors: tuple[str, ...], watched: frozenset[str]) -> bool:
     """Whether this look reads the run. Selectors are the whole answer when given; with none,
     every open run is read, and so is one kept that has closed since, so its ending is said."""
@@ -613,21 +500,11 @@ def selected(r: Reading, selectors: tuple[str, ...], watched: frozenset[str]) ->
 
 
 def load_memory(path: Path) -> Memory:
-    """A missing, unreadable or foreign file is a first look; so is one run's reading that
-    no longer validates, which would hand the event reader a baseline it cannot use."""
+    """A missing, unreadable or older file is a first look."""
     try:
-        raw = json.loads(path.read_text())
+        return Memory.model_validate_json(path.read_bytes())
     except (OSError, ValueError):
         return Memory()
-    readings: dict[str, Reading] = {}
-    for key, value in (
-        (raw.get("readings") or {}).items() if isinstance(raw, dict) else []
-    ):
-        try:
-            readings[key] = Reading.model_validate(value)
-        except ValidationError:
-            continue
-    return Memory(readings=readings)
 
 
 def save_memory(path: Path, memory: Memory) -> str | None:
@@ -640,29 +517,26 @@ def save_memory(path: Path, memory: Memory) -> str | None:
 
 
 class Look(BaseModel):
-    """One look: the host, each run's status and what moved since the last look."""
+    """One look: each run's status and what moved since the last look."""
 
     at: str
-    host: Host
     runs: list[Reading]
     status: list[str]
     events: list[Event]
     unreadable: list[str]
 
 
-def look(
-    selectors: tuple[str, ...], memory: Memory, budget: int, now: float, host: Host
-) -> Look:
+def look(selectors: tuple[str, ...], memory: Memory, budget: int, now: float) -> Look:
     """Read the saved runs, compare each with its kept reading, and keep the new one."""
-    paths = sorted(results_subdir("hypotheses").glob("*.json"))
-    readings = [(p, read_run(p, now, budget, host)) for p in paths]
-    unreadable = [f"{p.name} ({r})" for p, r in readings if isinstance(r, str)]
     watched = frozenset(memory.readings)
-    runs = [
-        r
-        for _, r in readings
-        if isinstance(r, Reading) and selected(r, selectors, watched)
-    ]
+
+    def wanted(r: Reading) -> bool:
+        return selected(r, selectors, watched)
+
+    paths = sorted(results_subdir("hypotheses").glob("*.json"))
+    readings = [(p, read_run(p, now, budget, wanted)) for p in paths]
+    unreadable = [f"{p.name} ({r})" for p, r in readings if isinstance(r, str)]
+    runs = [r for _, r in readings if isinstance(r, Reading) and wanted(r)]
     width = max((len(r.label) for r in runs), default=0)
     lines, moved = [], []
     for r in runs:
@@ -679,7 +553,6 @@ def look(
             memory.readings[r.id] = r
     return Look(
         at=datetime.fromtimestamp(now).astimezone().strftime("%H:%M"),
-        host=host,
         runs=runs,
         status=lines,
         events=moved,
@@ -687,19 +560,13 @@ def look(
     )
 
 
-def _up(running: bool | None) -> str:
-    return "?" if running is None else "up" if running else "DOWN"
-
-
 def render(seen: Look) -> list[str]:
     """The look as text: a header, a status line per run, then the events."""
     count = f"{len(seen.runs)} run{'' if len(seen.runs) == 1 else 's'}"
     if not seen.runs:
         count += f" under {results_root()}"
-    load = "" if seen.host.load is None else f" · load {seen.host.load:.1f}"
     bad = f" · unreadable: {', '.join(seen.unreadable)}" if seen.unreadable else ""
-    head = f"{seen.at} {count} · worker {_up(seen.host.worker)} · server {_up(seen.host.server)}{load}{bad}"
-    lines = [head, *(f"  {line}" for line in seen.status)]
+    lines = [f"{seen.at} {count}{bad}", *(f"  {line}" for line in seen.status)]
     for e in seen.events:
         where = f" → {', '.join(e.look)}" if e.look else ""
         lines.append(f"{seen.at} {e.mark} {e.label} {e.text}{where}")
@@ -720,22 +587,16 @@ def render(seen: Look) -> list[str]:
 @click.option(
     "--budget",
     type=int,
-    default=HypothesisInput.model_fields["max_tokens"].default,
+    default=BUDGET,
     help="The runs' token budget, for the spent alert.",
 )
 @click.option("--json", "as_json", is_flag=True, help="Print the look as JSON.")
-@click.option(
-    "--no-host",
-    is_flag=True,
-    help="Do not read the process table, for a worker started inside another process.",
-)
 def main(
     selectors: tuple[str, ...],
     every: float | None,
     state_path: Path | None,
     budget: int,
     as_json: bool,
-    no_host: bool,
 ) -> None:
     """Say what changed in the open hypotheses since the last look.
 
@@ -746,9 +607,7 @@ def main(
     path = state_path or results_root() / "pulse.json"
     memory = load_memory(path)
     while True:
-        seen = look(
-            selectors, memory, budget, time.time(), read_host(process_table=not no_host)
-        )
+        seen = look(selectors, memory, budget, time.time())
         click.echo(
             seen.model_dump_json(indent=2) if as_json else "\n".join(render(seen))
         )
