@@ -3,7 +3,7 @@ import pytest
 from node_dag import factory
 from node_dag.nodes.decisions.at_least.config import AtLeastConfig
 from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
-from node_dag.types import Dna, AminoAcidSequence, Score
+from node_dag.types import AminoAcidSequence, Dna, Score
 from temporal.dag.activities import RunNodeInput, run_decision, run_tool
 
 

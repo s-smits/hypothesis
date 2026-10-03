@@ -27,8 +27,13 @@ def _add_contract(schema: dict[str, Any], cls: type["BaseNodeConfig"]) -> None:
 class BaseNodeConfig(BaseModel):
     """Base for every node config.
 
-    A subclass sets a unique ``name`` literal, ``categories``, and ``inputs``: the
-    port names and types that the node's ``run`` takes as keyword arguments.
+    A subclass sets a unique ``name`` literal, ``categories``, ``inputs`` (the port
+    names and types that the node's ``run`` takes as keyword arguments) and
+    ``example``.
+
+    ``example`` is required because a ``ToolRequest`` demands a worked example for a
+    node that does *not* exist yet. Without one here the agent would reason better
+    about hypothetical tools than about the real ones it can actually use.
     """
 
     model_config = ConfigDict(
@@ -37,6 +42,9 @@ class BaseNodeConfig(BaseModel):
     name: str
     categories: ClassVar[tuple[Category, ...]] = ()
     inputs: ClassVar[dict[str, type[BaseModel]]] = {}
+    # One concrete input, the config that was used, and the output it gives. Rides in
+    # ``contract()`` -> ``x-node``, so it reaches the agent through ``describe_node``.
+    example: ClassVar[str] = ""
     # Part of the cache key. Raise it when a change to run() changes its results.
     version: ClassVar[int] = 1
 
@@ -47,9 +55,10 @@ class BaseNodeConfig(BaseModel):
 
     @classmethod
     def contract(cls) -> dict[str, Any]:
-        """Categories, input ports and outputs, with types as ``kind`` names."""
+        """Categories, a worked example, input ports and outputs as ``kind`` names."""
         return {
             "categories": [c.value for c in cls.categories],
+            "example": cls.example,
             "inputs": {port: _kind(t) for port, t in cls.inputs.items()},
             "outputs": {src: _kind(t) for src, t in cls.outputs().items()},
         }

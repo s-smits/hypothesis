@@ -1,6 +1,6 @@
 from node_dag.nodes.base import BaseNode
 from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
-from node_dag.types import Dna, AminoAcidSequence
+from node_dag.types import AminoAcidSequence, Dna
 
 
 class DnaToProtein(BaseNode[DnaToProteinConfig]):

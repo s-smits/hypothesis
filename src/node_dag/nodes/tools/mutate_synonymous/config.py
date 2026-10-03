@@ -23,3 +23,7 @@ class MutateSynonymousConfig(BaseToolConfig):
     categories = (Category.GENERATION,)
     inputs: ClassVar = {"sequence": Dna}
     output: ClassVar = Dna
+    example: ClassVar = (
+        "sequence=ATGTCGTAA with seed=0, count=1 -> ATGTCGTGA: the codon and its "
+        "replacement are chosen at random, so this cannot target a given codon"
+    )

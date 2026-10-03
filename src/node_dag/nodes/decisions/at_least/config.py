@@ -16,3 +16,7 @@ class AtLeastConfig(BaseDecisionConfig):
     categories = (Category.FILTER,)
     inputs: ClassVar = {"value": Score}
     forwards = "value"
+    example: ClassVar = (
+        "value=score 297 with threshold=200 -> yes, forwarding the score on <step>.yes; "
+        "with threshold=300 -> no, forwarding it on <step>.no"
+    )

@@ -15,3 +15,7 @@ class DnaAtomScoreConfig(BaseToolConfig):
     categories = (Category.SCORING,)
     inputs: ClassVar = {"sequence": Dna, "reference": Dna}
     output: ClassVar = Score
+    example: ClassVar = (
+        "sequence=ATGTCGTAA, reference=ATGAGCTAA -> score 297 "
+        "(both code for MS*); reference=ATGGGGTAA raises, MG* is a different protein"
+    )

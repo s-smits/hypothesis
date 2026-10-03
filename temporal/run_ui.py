@@ -11,7 +11,7 @@ from temporalio.contrib.pydantic import pydantic_data_converter
 from temporal.ui.app import make_app
 
 # Load .env from the project root
-load_dotenv(Path(__file__).parent.parent.parent / ".env")
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 logging.basicConfig(
     level=logging.INFO,

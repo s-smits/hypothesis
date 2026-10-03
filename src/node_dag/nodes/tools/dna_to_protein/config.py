@@ -1,7 +1,7 @@
 from typing import ClassVar, Literal
 
 from node_dag.nodes.base import BaseToolConfig, Category
-from node_dag.types import Dna, AminoAcidSequence
+from node_dag.types import AminoAcidSequence, Dna
 
 
 class DnaToProteinConfig(BaseToolConfig):
@@ -15,3 +15,4 @@ class DnaToProteinConfig(BaseToolConfig):
     categories = (Category.CONVERSION,)
     inputs: ClassVar = {"sequence": Dna}
     output: ClassVar = AminoAcidSequence
+    example: ClassVar = "sequence=ATGTCGTAA -> amino_acid_sequence MS*"

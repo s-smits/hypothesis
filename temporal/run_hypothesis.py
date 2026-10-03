@@ -13,22 +13,15 @@ from temporalio.contrib.pydantic import pydantic_data_converter
 
 from node_dag.agent import Hypothesis, build_agent, verify_agent
 from node_dag.dag import DagInput
-from temporal.dag.activities import results_root, write_atomic
 from temporal.dag.workflow import TASK_QUEUE, DagWorkflow
+from temporal.store import hypotheses_dir, save_hypothesis
+
+# These two now live in temporal.store, a leaf module the Temporal workflow can import
+# without dragging in the UI or the agents. Re-exported here so callers that already
+# import them from this module (temporal/ui/app.py, tests/test_agent.py) keep working.
+__all__ = ["hypotheses_dir", "main", "run_hypothesis", "save_hypothesis"]
 
 logger = logging.getLogger(__name__)
-
-
-def hypotheses_dir() -> Path:
-    """``$NODE_DAG_RESULTS/hypotheses``: one ``<hypothesis id>.json`` per Hypothesis."""
-    return results_root() / "hypotheses"
-
-
-def save_hypothesis(hyp: Hypothesis) -> Hypothesis:
-    """Write ``hyp`` to its file and return it."""
-    path = hypotheses_dir() / f"{hyp.id}.json"
-    write_atomic(path, hyp.model_dump_json(indent=2).encode())
-    return hyp
 
 
 async def run_hypothesis(
@@ -70,7 +63,7 @@ async def run_hypothesis(
         )
         logger.info("Verifier finished for %s: achieved=%s", hyp.id, verdict.output.achieved)
         return save_hypothesis(hyp.model_copy(update={"verdict": verdict.output}))
-    except Exception as e:
+    except Exception:
         logger.exception("Hypothesis %s failed", hyp.id)
         raise
 

@@ -1,11 +1,12 @@
-from graphlib import CycleError, TopologicalSorter
+from graphlib import TopologicalSorter
 from typing import Literal, Self
 
 from pydantic import BaseModel, model_validator
 
+from node_dag import wiring
 from node_dag.factory import NodeConfig
-from node_dag.nodes.base import BaseDecisionConfig, BaseToolConfig
 from node_dag.types import TYPES, Value
+from node_dag.wiring import PortContract
 
 
 class Step(BaseModel):
@@ -23,7 +24,11 @@ class Step(BaseModel):
 
     def deps(self) -> set[str]:
         """The DAG inputs and step keys this step reads from."""
-        return {src.split(".")[0] for src in self.inputs.values()}
+        return wiring.deps(self.inputs)
+
+    def contract(self) -> PortContract:
+        """The ports and kinds of the node this step runs."""
+        return PortContract.of(type(self.config))
 
 
 class Dag(BaseModel):
@@ -40,50 +45,11 @@ class Dag(BaseModel):
 
     def order(self) -> TopologicalSorter:
         """A sorter over steps and inputs, keyed by name."""
-        return TopologicalSorter({k: s.deps() for k, s in self.steps.items()})
+        return wiring.order(self.steps)
 
     @model_validator(mode="after")
     def _check(self) -> Self:
-        if bad := [k for k in self.steps if "." in k or k in self.inputs]:
-            raise ValueError(
-                f"Step keys must not contain '.' or repeat an input: {bad}"
-            )
-        if bad := {k: v for k, v in self.inputs.items() if v not in TYPES}:
-            raise ValueError(f"Unknown input types {bad}; known: {sorted(TYPES)}")
-        # The type each source produces, filled in dependency order.
-        types = {k: TYPES[v] for k, v in self.inputs.items()}
-        try:
-            order = list(self.order().static_order())
-        except CycleError as e:
-            raise ValueError(f"Cycle: {' -> '.join(e.args[1])}") from e
-        for key in order:
-            if key in self.inputs:
-                continue
-            if key not in self.steps:
-                raise ValueError(f"Unknown source {key!r}")
-            step, config = self.steps[key], self.steps[key].config
-            if step.inputs.keys() != config.inputs.keys():
-                raise ValueError(
-                    f"Step {key!r} ports {sorted(step.inputs)} != {config.name} ports "
-                    f"{sorted(config.inputs)}"
-                )
-            for port, src in step.inputs.items():
-                if src not in types:
-                    raise ValueError(
-                        f"Step {key!r} port {port!r}: unknown source {src!r}. "
-                        "Read a decision's output as '<step>.yes' or '<step>.no'."
-                    )
-                if types[src] is not config.inputs[port]:
-                    raise ValueError(
-                        f"Step {key!r} port {port!r} takes {config.inputs[port].__name__}"
-                        f", but {src!r} gives {types[src].__name__}"
-                    )
-            if isinstance(config, BaseToolConfig):
-                types[key] = config.output
-            elif isinstance(config, BaseDecisionConfig):
-                types[f"{key}.yes"] = types[f"{key}.no"] = config.inputs[
-                    config.forwards
-                ]
+        wiring.check_wiring(self.inputs, self.steps)
         return self
 
 

@@ -13,7 +13,7 @@ from temporalio.worker import Worker
 from node_dag.dag import Dag, DagInput, DagProgress
 from node_dag.factory import MAPPING
 from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
-from node_dag.types import Dna, AminoAcidSequence, Value
+from node_dag.types import AminoAcidSequence, Dna, Value
 from temporal.dag.activities import RunNodeInput, run_decision, run_tool, save_workflow
 from temporal.dag.workflow import DagWorkflow
 
@@ -96,6 +96,10 @@ def test_config_declares_what_run_takes(config):
     params = inspect.signature(MAPPING[config].run).parameters
     assert {k: p.annotation for k, p in params.items() if k != "self"} == config.inputs
     assert config.categories
+    # Gap G: a ToolRequest demands a worked example for a node that does not exist, so
+    # a node that does exist must supply one too, or the agent reasons better about
+    # hypothetical tools than about real ones.
+    assert config.example
     assert config.model_json_schema()["x-node"] == config.contract()
 
 
@@ -105,7 +109,6 @@ async def test_a_step_does_not_wait_for_an_unrelated_slow_step():
 
     @activity.defn(name="run_tool")
     async def timed_tool(inp: RunNodeInput) -> Value:
-        from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
         assert isinstance(inp.config, DnaToProteinConfig)
         # Mark slow/fast by checking the input sequence
         is_slow = len(inp.inputs["sequence"].sequence) > 10
@@ -152,7 +155,6 @@ async def test_progress_reports_each_step_while_running():
 
     @activity.defn(name="run_tool")
     async def gated_tool(inp: RunNodeInput) -> Value:
-        from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
         assert isinstance(inp.config, DnaToProteinConfig)
         # Mark slow based on sequence length
         is_slow = len(inp.inputs["sequence"].sequence) > 10

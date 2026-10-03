@@ -45,8 +45,8 @@ def _reply(info: AgentInfo, args: dict) -> ModelResponse:
     return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, args)])
 
 
-def _submit(info: AgentInfo, dag: dict) -> ModelResponse:
-    return _reply(info, {"hypothesis": "sum x with itself", **dag})
+def _submit(info: AgentInfo, dag: dict, hypothesis: str) -> ModelResponse:
+    return _reply(info, {"hypothesis": hypothesis, **dag})
 
 
 async def test_agent_reads_the_catalogue_and_fixes_a_rejected_dag():
@@ -63,7 +63,7 @@ async def test_agent_reads_the_catalogue_and_fixes_a_rejected_dag():
         if turn < 2:
             name, args = [("list_nodes", {}), ("describe_node", {"name": "dna_to_protein"})][turn]
             return ModelResponse(parts=[ToolCallPart(name, args)])
-        return _submit(info, [BAD, GOOD][turn - 2])
+        return _submit(info, [BAD, GOOD][turn - 2], "convert DNA to protein")
 
     agent = build_agent(FunctionModel(script))
     hyp = Hypothesis(goal="convert DNA to protein", inputs={"seq": Dna(sequence="ATG")})
@@ -81,7 +81,7 @@ async def test_run_hypothesis_builds_runs_and_verifies():
     """The verifier gets the outcome of the run, and its verdict lands on the Hypothesis."""
 
     def builder(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
-        return _submit(info, DOUBLE)
+        return _submit(info, DOUBLE, "convert DNA to protein")
 
     def verifier(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         prompt = next(

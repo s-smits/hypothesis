@@ -18,9 +18,9 @@ from temporalio.service import RPCError
 
 from node_dag.agent import Hypothesis
 from node_dag.dag import DagProgress
+from node_dag.types import Value
 from temporal.dag.activities import SaveWorkflowInput
 from temporal.dag.workflow import DagWorkflow
-from node_dag.types import Value
 from temporal.run_hypothesis import hypotheses_dir, run_hypothesis
 
 logger = logging.getLogger(__name__)
