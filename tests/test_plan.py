@@ -25,8 +25,8 @@ OK = VerifyOpinion(agrees=True, covers_goal=True, reason="r")
 
 def _plan(**kw) -> Plan:
     step = {
-        "node": "recode_codons",
-        "config": {"targets": ["TCG"]},
+        "node": "recode_targeted",
+        "config": {"targeted_codons": ["TCG"]},
         "inputs": {"sequence": "seqs"},
         "why": "w",
     }
@@ -89,8 +89,8 @@ def test_fingerprint_ignores_prose_not_wiring():
     base = _plan().fingerprint()
     assert _plan(hypothesis="reworded", expected="x").fingerprint() == base
     other = {
-        "node": "recode_codons",
-        "config": {"targets": ["TCA"]},
+        "node": "recode_targeted",
+        "config": {"targeted_codons": ["TCA"]},
         "inputs": {"sequence": "seqs"},
         "why": "w",
     }

@@ -73,7 +73,7 @@ def test_an_id_that_is_not_a_node_id_is_never_read_as_a_file(results_dir):
     root.mkdir()
     (results_dir / "secret.json").write_text('{"api_key": "hunter2"}')
     registry = Registry(root)
-    for bad in ["../secret", "x" * 300, "recode_codons", "a/b__12345678", ""]:
+    for bad in ["../secret", "x" * 300, "recode_targeted", "a/b__12345678", ""]:
         assert registry.get(bad) is None
 
 

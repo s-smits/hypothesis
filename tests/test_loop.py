@@ -14,7 +14,8 @@ from node_dag.agent import Hypothesis, plan_prompt
 from node_dag.dag import Dag
 from node_dag.nodes.filters.at_most.config import AtMostConfig
 from node_dag.nodes.tools.codon_count.config import CodonCountConfig
-from node_dag.nodes.tools.recode_codons.config import RecodeCodonsConfig
+from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
+from node_dag.nodes.tools.esmfold2_fold.config import Esmfold2FoldConfig
 from node_dag.plan import Critique, Observation, Plan, ToolRequest, VerifyOpinion
 from node_dag.types import Dna
 from temporal.dag.activities import run_filter, run_score, run_tool, save_workflow
@@ -48,10 +49,14 @@ RAISES = Dag.model_validate(
     {
         "inputs": {"seq": "dna"},
         "steps": {
-            "recode": {
-                "config": RecodeCodonsConfig(targets=("ATG",)).model_dump(mode="json"),
+            "protein": {
+                "config": DnaToProteinConfig().model_dump(mode="json"),
                 "inputs": {"sequence": "seq"},
-            }
+            },
+            "fold": {
+                "config": Esmfold2FoldConfig().model_dump(mode="json"),
+                "inputs": {"sequence": "protein"},
+            },
         },
     }
 )
@@ -245,11 +250,13 @@ async def test_the_observations_on_the_hypothesis_are_the_current_rounds_plans(
 
 
 async def test_a_node_that_raises_becomes_a_critique_not_a_crash():
-    done = await _drive(_fakes({}, [PLAN], [ResolveOut(dag=RAISES)], []), max_rounds=1)
+    stops = HYP.model_copy(update={"inputs": {"seq": [Dna(sequence="ATGTAAGCT")]}})
+    fakes = _fakes({}, [PLAN], [ResolveOut(dag=RAISES)], [])
+    done = await _drive(fakes, hyp=stops, max_rounds=1)
     (att,) = done.attempts
     assert (
         done.state == "not achieved"
-        and "Every synonym" in (att.error or "")
+        and "stop codon mid-sequence" in (att.error or "")
         and att.critique == CRITIQUE
     )
 

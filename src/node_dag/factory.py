@@ -43,8 +43,6 @@ from node_dag.nodes.tools.mutate_synonymous.config import MutateSynonymousConfig
 from node_dag.nodes.tools.mutate_synonymous.function import MutateSynonymous
 from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
 from node_dag.nodes.tools.ostir_expression.function import OstirExpression
-from node_dag.nodes.tools.recode_codons.config import RecodeCodonsConfig
-from node_dag.nodes.tools.recode_codons.function import RecodeCodons
 from node_dag.nodes.tools.recode_targeted.config import RecodeTargetedConfig
 from node_dag.nodes.tools.recode_targeted.function import RecodeTargeted
 from node_dag.nodes.tools.resample_synonymous.config import ResampleSynonymousConfig
@@ -72,7 +70,6 @@ NodeConfig = Annotated[
     | Mrna5primeMfeConfig
     | MutateSynonymousConfig
     | OstirExpressionConfig
-    | RecodeCodonsConfig
     | RecodeTargetedConfig
     | ResampleSynonymousConfig
     | RnaBackTranscribeConfig,
@@ -99,7 +96,6 @@ MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
     Mrna5primeMfeConfig: Mrna5primeMfe,
     MutateSynonymousConfig: MutateSynonymous,
     OstirExpressionConfig: OstirExpression,
-    RecodeCodonsConfig: RecodeCodons,
     RecodeTargetedConfig: RecodeTargeted,
     ResampleSynonymousConfig: ResampleSynonymous,
     RnaBackTranscribeConfig: RnaBackTranscribe,

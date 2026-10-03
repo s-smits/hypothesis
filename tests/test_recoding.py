@@ -44,6 +44,13 @@ def test_removes_every_occurrence_of_a_target():
     assert str(Seq(out.sequence).translate()) == str(Seq(seq.sequence).translate())
 
 
+def test_a_partial_codon_at_the_end_is_left_alone():
+    (out,) = RecodeTargeted(
+        RecodeTargetedConfig(targeted_codons=("TCG",), strategy="first")
+    ).run(sequence=[Dna(sequence="ATGTCGTC")])
+    assert out.sequence.endswith("TC") and "TCG" not in codons(out.sequence)
+
+
 def test_leaves_untargeted_codons_alone():
     out = recode(SEQ, ("CTG",))
     before, after = codons(SEQ.sequence), codons(out.sequence)

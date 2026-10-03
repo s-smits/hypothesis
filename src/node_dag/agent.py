@@ -250,7 +250,7 @@ Shapes that usually fit a goal:
 - Measure or convert given sequences: input -> scorer or converter.
 - Screen sequences against a threshold: input -> scorer -> filter.
 - Find, improve, raise or lower something: input -> generator (e.g. mutate_synonymous or
-  recode_codons) -> scorer -> filter. Scoring and filtering alone cannot find what the
+  recode_targeted) -> scorer -> filter. Scoring and filtering alone cannot find what the
   inputs do not already hold. Work out the inputs' baseline score and set the threshold
   relative to it: a threshold every entity passes decides nothing.
 
