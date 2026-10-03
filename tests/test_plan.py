@@ -66,7 +66,7 @@ WANTS_TOOL = {
     "steps": {
         "recoded": REAL["steps"]["recoded"],
         "clean": {
-            "node": "gc_in_range",
+            "node": "homopolymer_free",
             "config": {"low": 0.4, "high": 0.6},
             "inputs": {"sequence": "recoded"},
             "why": "check the GC content stayed in a viable range",
@@ -74,18 +74,18 @@ WANTS_TOOL = {
     },
     "requests": [
         {
-            "name": "gc_in_range",
+            "name": "homopolymer_free",
             "node": "decision",
-            "purpose": "Yes when the GC fraction of a sequence is within a range.",
+            "purpose": "Yes when no base repeats more than a given number of times.",
             "category": "filter",
             "inputs": {"sequence": "dna"},
             "forwards": "sequence",
-            "why_needed": "the goal needs a GC window and nothing measures GC content",
+            "why_needed": "long single-base runs break synthesis and nothing here counts them",
             "why_not_composable": (
                 "codons_absent only tests for whole codons, dna_atom_score counts atoms "
                 "rather than bases, and at_least needs a score no node produces for GC"
             ),
-            "example": "ATGGCC with low=0.4 high=0.8 -> yes",
+            "example": "ATGGCC with limit=3 -> yes; ATGAAAAGCC -> no, four As in a row",
         }
     ],
 }
@@ -147,9 +147,9 @@ async def test_a_plan_may_name_a_tool_that_does_not_exist():
     agent, retries, deps = _run([WANTS_TOOL], ["recode_codons", "dna_atom_score"])
     out = (await agent.run("plan it", deps=deps)).output
     assert retries == [], retries
-    assert "gc_in_range" in out.requests
-    assert out.requests["gc_in_range"].node == "decision"
-    assert out.steps["clean"].node == "gc_in_range"
+    assert "homopolymer_free" in out.requests
+    assert out.requests["homopolymer_free"].node == "decision"
+    assert out.steps["clean"].node == "homopolymer_free"
 
 
 async def test_a_plan_over_existing_nodes_still_builds_a_real_dag():

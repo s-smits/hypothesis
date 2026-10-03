@@ -9,6 +9,8 @@ from node_dag.nodes.decisions.at_most.config import AtMostConfig
 from node_dag.nodes.decisions.at_most.function import AtMost
 from node_dag.nodes.decisions.codons_absent.config import CodonsAbsentConfig
 from node_dag.nodes.decisions.codons_absent.function import CodonsAbsent
+from node_dag.nodes.decisions.gc_in_range.config import GcInRangeConfig
+from node_dag.nodes.decisions.gc_in_range.function import GcInRange
 from node_dag.nodes.tools.amino_acid_changes.config import AminoAcidChangesConfig
 from node_dag.nodes.tools.amino_acid_changes.function import AminoAcidChanges
 from node_dag.nodes.tools.dna_atom_score.config import DnaAtomScoreConfig
@@ -31,6 +33,12 @@ from node_dag.nodes.tools.recode_codons.config import RecodeCodonsConfig
 from node_dag.nodes.tools.recode_codons.function import RecodeCodons
 from node_dag.nodes.tools.rna_back_transcribe.config import RnaBackTranscribeConfig
 from node_dag.nodes.tools.rna_back_transcribe.function import RnaBackTranscribe
+from node_dag.nodes.tools.start_region_composition.config import (
+    StartRegionCompositionConfig,
+)
+from node_dag.nodes.tools.start_region_composition.function import (
+    StartRegionComposition,
+)
 
 NodeConfig = Annotated[
     AtLeastConfig
@@ -50,6 +58,8 @@ NodeConfig = Annotated[
 ]
 
 MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
+    GcInRangeConfig: GcInRange,
+    StartRegionCompositionConfig: StartRegionComposition,
     AtLeastConfig: AtLeast,
     AtMostConfig: AtMost,
     CodonsAbsentConfig: CodonsAbsent,

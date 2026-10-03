@@ -86,6 +86,34 @@ than producing evidence — an `Assertion` cannot name one. Score the candidate 
 original, pass it to `at_most` with a threshold of 0, and the branch that decision takes
 is the proof, exactly as `codons_absent` proves a codon is gone.
 
+### The exam a recoding has to pass
+
+Five criteria, each backed by a node rather than an opinion. Run against a real pair:
+
+| criterion | node | | evidence |
+|---|---|---|---|
+| `no_tcg_tca` | `codons_absent` | pass | no target codon in frame |
+| `protein_unchanged` | `amino_acid_changes` → `at_most(0)` | pass | 0 amino acids differ |
+| `still_translates` | `ostir_expression` → `at_least` | **fail** | 37,551 → 6,206 (0.17x) |
+| `good_start` | `start_region_composition` → `at_least` | pass | A−G +0.07 → +0.07 |
+| `synthesisable` | `gc_in_range` | pass | 33% GC |
+
+`ATGTCGTCAGCTTAA` → `ATGTCTTCTGCTTAA` is protein-identical and holds no target codon.
+Four checks pass. It still translates six times worse, and only a node that measures
+that can say so — which is the whole reason acceptance rests on checks rather than on a
+model's reading of the output.
+
+`start_region_composition` carries a rule worth knowing before writing any recoder: in
+E. coli the base composition of the **first six codons** governs expression almost on its
+own, and not through GC. Synonymous changes confined to those eighteen bases move protein
+output by up to ten-fold — A helps the initiation complex form, G gets the mRNA degraded
+first ([NAR 53(22) gkaf1262](https://academic.oup.com/nar/article/53/22/gkaf1262/8349197)).
+A recoder reaches that window like any other, and every check about codon content and
+protein identity passes a swap there perfectly.
+
+`gc_in_range` takes a `window`: a sequence averaging 50% GC can still carry a GC-rich
+patch that defeats synthesis, and the figure for the whole sequence hides it.
+
 ### Finding a node
 
 `list_nodes` dumps the catalogue, which is fine at thirteen nodes and will not be at
@@ -112,7 +140,9 @@ intent. Each conversion node is now phrased from its own input side, and a test 
 | `dna_atom_score` | dna, dna -> score | atom count; raises when the protein differs from the reference |
 | `amino_acid_changes` | dna, dna -> score | how many amino acids differ; 0 means the change was synonymous |
 | `ostir_expression` | dna -> score | translation initiation rate, via OSTIR and ViennaRNA |
+| `start_region_composition` | dna -> score | A minus G over the first six codons; the largest lever on expression |
 | `codons_absent` | dna -> yes/no | none of the named codons appear, in frame |
+| `gc_in_range` | dna -> yes/no | GC inside a window, globally or over every N bases |
 | `at_least` / `at_most` | score -> yes/no | threshold filters |
 
 `ostir_expression` is the one that measures what "the protein is unchanged" does not.

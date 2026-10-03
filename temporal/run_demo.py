@@ -112,9 +112,9 @@ PLAN = Plan.model_validate(
 #: The node the stubbed builder asks for, to show the blocked card and the resume cycle.
 WANTED = ToolRequest.model_validate(
     {
-        "name": "gc_in_range",
+        "name": "restriction_sites_absent",
         "node": "decision",
-        "purpose": "Yes when the GC fraction of a sequence falls within a range.",
+        "purpose": "Yes when a sequence carries none of the named restriction sites.",
         "category": "filter",
         "inputs": {"sequence": "dna"},
         "forwards": "sequence",
@@ -131,14 +131,14 @@ WANTED = ToolRequest.model_validate(
             },
         ],
         "why_needed": (
-            "The goal asks for a viable GC window, and nothing here measures base "
-            "composition at all."
+            "The recoded gene has to be cloned, and nothing here can tell whether a "
+            "recoding introduced a restriction site that would cut it."
         ),
         "why_not_composable": (
-            "codons_absent only tests whole codons, dna_atom_score counts atoms rather "
-            "than bases, and at_least needs a score no existing node produces for GC."
+            "codons_absent only matches in frame, and a restriction site can sit "
+            "across a codon boundary; restriction_sites_absent measures composition, not motifs."
         ),
-        "example": "ATGGCC with low=0.4 high=0.8 -> yes, forwarding the DNA on <step>.yes",
+        "example": "ATGTCTTAA with sites=[GAATTC] -> yes, forwarding the DNA on <step>.yes",
     }
 )
 
@@ -148,14 +148,14 @@ BLOCKED = PLAN.model_copy(
             **PLAN.steps,
             "gc": PLAN.steps["clean"].model_copy(
                 update={
-                    "node": "gc_in_range",
-                    "config": {"low": 0.3, "high": 0.7},
+                    "node": "restriction_sites_absent",
+                    "config": {"sites": ["GAATTC"]},
                     "inputs": {"sequence": "recoded"},
-                    "why": "keep the GC content inside a viable window",
+                    "why": "prove the recoding introduced no restriction site",
                 }
             ),
         },
-        "requests": {"gc_in_range": WANTED},
+        "requests": {"restriction_sites_absent": WANTED},
     }
 )
 
@@ -201,11 +201,11 @@ def stub_resolve(inp: ResolveInput) -> ResolveOutput:
     key = inp.plan.fingerprint()
     _seen[key] = _seen.get(key, 0) + 1
     if _seen[key] == 1:
-        click.echo("  resolve   gc_in_range is missing -> blocking for a human")
+        click.echo("  resolve   restriction_sites_absent is missing -> blocking for a human")
         return ResolveOutput(
-            missing=[inp.plan.requests["gc_in_range"]], registry_version="before"
+            missing=[inp.plan.requests["restriction_sites_absent"]], registry_version="before"
         )
-    click.echo("  resolve   gc_in_range is here now -> running the DAG")
+    click.echo("  resolve   restriction_sites_absent is here now -> running the DAG")
     # Same rewiring as the plan stub: the DAG has to declare the input name the
     # hypothesis actually used, or it cannot be given its inputs.
     runnable = _rewire(PLAN, inp.plan.inputs)
