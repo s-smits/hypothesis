@@ -43,6 +43,14 @@ def test_id_is_the_same_for_the_same_sequence_and_differs_by_kind():
     assert REF.model_dump()["id"] == REF.id
 
 
+def test_each_type_has_a_display_string():
+    assert str(REF) == REF.display == "ATG GCT CTG AAA TAA"  # Codons, spaced.
+    protein = AminoAcidSequence(sequence="MALK*")
+    assert str(protein) == protein.display == "MALK*"
+    assert REF.model_dump()["display"] == "ATG GCT CTG AAA TAA"  # The UI reads it.
+    assert Dna.model_validate_json(REF.model_dump_json()) == REF
+
+
 def test_table_merges_repeats_and_keeps_scores_of_what_is_left():
     a, b = Dna(sequence="ATG"), Dna(sequence="AAA")
     t = Table.of([a, b, a], {"c": {a.id: 1.0, b.id: 2.0}})
@@ -87,6 +95,13 @@ def test_config_hash_says_what_the_node_does():
     assert (
         MutateSynonymousConfig(seed=1).config_hash != DnaToProteinConfig().config_hash
     )
+
+
+def test_config_hash_ignores_how_sequences_are_displayed():
+    # Saved runs, registries and DAG columns hold these hashes, so they must not change
+    # when an entity gains a field that is only for display.
+    assert DnaAtomScoreConfig(reference=REF).config_hash == "3745d4af"
+    assert "display" in DnaAtomScoreConfig(reference=REF).model_dump()["reference"]
 
 
 def test_at_most_keeps_values_up_to_the_threshold():

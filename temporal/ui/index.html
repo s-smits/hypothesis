@@ -40,6 +40,8 @@
   .s-FAILED, .s-TERMINATED, .s-TIMED_OUT, .s-CANCELED, .s-failed { background: var(--failed); }
   .s-pending { background: var(--pending); }
   .s-skipped { background: var(--skipped); color: var(--muted); }
+  .s-kept { background: var(--done); }
+  .s-out { background: var(--failed); }
   #detail { overflow: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
   .empty { color: var(--muted); padding: 20px; }
   .summary { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -49,7 +51,16 @@
   .counts { display: flex; gap: 14px; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
   .counts i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
   .error { background: color-mix(in srgb, var(--failed) 12%, transparent); border: 1px solid var(--failed); border-radius: 6px; padding: 8px 12px; font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; }
-  #graph { position: relative; height: 240px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+
+  /* The two views, and the toggle inside the node panel. */
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
+  .seg button { font: inherit; font-size: 13px; color: var(--muted); background: none; border: 0; padding: 4px 14px; cursor: pointer; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.on { background: var(--accent-bg); color: var(--text); font-weight: 600; }
+  #tabs { display: flex; align-items: center; gap: 12px; }
+
+  /* The graph gets a fixed share of the screen, and the drawing is scaled to fit it. */
+  #graph { position: relative; height: clamp(280px, 46vh, 520px); flex: none; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
   .node { width: 100%; height: 100%; border: 2px solid var(--pending); border-radius: 8px; background: var(--panel); padding: 6px 10px; cursor: pointer; display: flex; flex-direction: column; justify-content: center; }
   .node .k { font-weight: 600; font-family: ui-monospace, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .node .n { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -60,13 +71,32 @@
   .node.skipped { border-color: var(--skipped); opacity: .55; }
   .node.picked { box-shadow: 0 0 0 3px var(--accent-bg), 0 0 0 5px var(--running); }
   @keyframes pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--running) 25%, transparent); } }
-  #table { overflow-x: auto; }
+
   table { border-collapse: collapse; width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
   th, td { text-align: left; padding: 7px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { color: var(--muted); font-weight: 500; font-size: 12px; }
   td code { font-size: 12px; }
-  tr.picked td { background: var(--accent-bg); }
-  tbody tr { cursor: pointer; }
+
+  #data { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  #data .scroll { overflow-x: auto; }
+  .dhead { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .dhead h3 { margin: 0; font-size: 14px; }
+  .dhead .toggle { margin-left: auto; display: flex; gap: 8px; }
+  .dhead .plain { font: inherit; font-size: 12px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+  .meta { color: var(--muted); font-size: 12px; }
+  .hint { color: var(--muted); padding: 14px 4px; }
+  table.frame td, table.frame th { padding: 5px 12px; }
+  table.frame th .sub { font-size: 10px; font-weight: 400; }
+  table.frame th.hl { color: var(--text); box-shadow: inset 0 -2px var(--running); }
+  table.frame .id { font-size: 11px; color: var(--muted); }
+  table.frame .seq { font-size: 12px; }
+  table.frame .kind, table.frame .na { color: var(--muted); font-size: 11px; }
+  table.frame tr.out td { opacity: .55; }
+  table.frame tr.out .seq { text-decoration: line-through; }
+  table.kv { width: auto; min-width: 360px; }
+  table.kv th { width: 1%; white-space: nowrap; color: var(--muted); font-weight: 500; }
+  table.kv td { word-break: break-all; }
+  h4 { margin: 10px 0 2px; font-size: 12px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
 </style>
 </head>
 <body>
@@ -83,10 +113,14 @@
 const POLL_MS = 2000;
 const STATUSES = ["done", "running", "pending", "skipped", "failed"];
 const NODE_SIZE = { width: 150, height: 52 };
-let selected = new URLSearchParams(location.search).get("run");
+const params = new URLSearchParams(location.search);
+let selected = params.get("run");
+let view = params.get("view") === "table" ? "table" : "graph";   // "table" or "graph".
+let tab = "data";        // In the graph view, what a picked node shows: "data" or "config".
 let picked = null;       // The step or input the user clicked.
 let dag = null;          // The nice-dag instance.
 let lastRender = "";     // What the graph last drew, to redraw only on change.
+let lastData = "";       // What the data panel last drew.
 let detail = null;       // The last RunDetail for the selected run.
 
 const $ = (sel) => document.querySelector(sel);
@@ -96,7 +130,13 @@ const ago = (t) => {
   const s = Math.round((Date.now() - new Date(t)) / 1000);
   return s < 60 ? `${s}s ago` : s < 3600 ? `${Math.round(s / 60)}m ago` : s < 86400 ? `${Math.round(s / 3600)}h ago` : new Date(t).toLocaleString();
 };
-const showValue = (v) => v == null ? "" : Array.isArray(v) ? `${v.length} × ${v[0]?.kind ?? "empty"}` : v.items ? `${v.items.length} × ${v.items[0]?.kind ?? "empty"}${Object.keys(v.scores).length ? `, scores: ${Object.keys(v.scores).join(", ")}` : ""}` : JSON.stringify(v);
+// A config value for people: a sequence by its display string, the rest as JSON.
+const argText = (v) => v && typeof v === "object" && v.display ? v.display : JSON.stringify(v);
+const countOf = (t) => t ? `${t.items.length} × ${t.items[0]?.kind ?? "empty"}` : "waiting";
+
+function syncUrl() {
+  history.replaceState(null, "", `?run=${encodeURIComponent(selected)}&view=${view}`);
+}
 
 async function getJSON(url) {
   const r = await fetch(url);
@@ -116,26 +156,20 @@ async function loadRuns() {
 
 function select(id) {
   if (id === selected) return;
-  selected = id; picked = null; lastRender = "";
-  history.replaceState(null, "", `?run=${encodeURIComponent(id)}`);
+  selected = id; picked = null; lastRender = ""; lastData = "";
+  syncUrl();
   document.querySelectorAll(".run").forEach((el) => el.classList.toggle("selected", el.dataset.id === id));
   $("#detail").innerHTML = `<div class="empty">Loading…</div>`;
   loadDetail();
 }
 
-// One row per DAG input and step: its key, status, node, sources and value.
+// One entry per DAG input and step: its key, status and a one-line description of the node.
 function rows(p) {
-  const out = Object.entries(p.dag.inputs).map(([k, kind]) => ({
-    key: k, status: "input", node: `input: ${kind}`, sources: {}, value: p.values[k],
-  }));
+  const out = Object.entries(p.dag.inputs).map(([k, kind]) => ({ key: k, status: "input", node: `input: ${kind}` }));
   for (const [k, step] of Object.entries(p.dag.steps)) {
-    const { name, ...args } = step.config;
-    const params = Object.entries(args).map(([a, v]) => `${a}=${JSON.stringify(v)}`).join(", ");
-    const branch = ["yes", "no"].find((b) => `${k}.${b}` in p.values);
-    out.push({
-      key: k, status: p.steps[k], node: params ? `${name}(${params})` : name, sources: step.inputs,
-      value: branch ? `→ ${branch}: ${showValue(p.values[`${k}.${branch}`])}` : p.values[k],
-    });
+    const { name, config_hash, ...args } = step.config;
+    const text = Object.entries(args).map(([a, v]) => `${a}=${argText(v)}`).join(", ");
+    out.push({ key: k, status: p.steps[k], node: text ? `${name}(${text})` : name });
   }
   return out;
 }
@@ -165,23 +199,154 @@ function renderGraph(p) {
       const r = byKey[id];
       const el = document.createElement("div");
       el.className = `node ${r.status}${id === picked ? " picked" : ""}`;
-      el.title = `${id}: ${r.status}`;
+      el.title = `${id}: ${r.status}\n${r.node}`;
       el.innerHTML = `<div class="k">${esc(id)}</div><div class="n">${esc(r.node)}</div>`;
       el.onclick = () => pick(id);
       return el;
     },
   });
   dag.withNodes(nodes).render();
-  // Shrink a wide DAG to fit, and size the box to the drawing.
+  fitGraph();
+}
+
+// Scale the drawing down to fit the box, in both directions. Never scale it up.
+function fitGraph() {
   const box = $("#graph"), content = dag.getRootContentElement();
-  const scale = Math.min(1, box.clientWidth / content.scrollWidth);
+  dag.setScale(1);
+  const scale = Math.min(1, box.clientWidth / content.scrollWidth, box.clientHeight / content.scrollHeight);
   dag.setScale(scale);
-  box.style.height = `${Math.min(560, Math.max(160, content.scrollHeight * scale + 4))}px`;
 }
 
 function pick(id) {
   picked = picked === id ? null : id;
   if (detail) renderDetail(detail);
+}
+
+// ---- Tables: sequences as rows, score columns as columns. ----
+const MAX_ROWS = 500;
+const fmt = (v) => v == null ? `<span class="na">–</span>` : Number.isInteger(v) ? String(v) : v.toFixed(3);
+// "dna_atom_score__3745d4af__atom_count" is the score atom_count of node dna_atom_score, config 3745d4af.
+const colLabel = (col) => {
+  const [node, hash, ...rest] = col.split("__");
+  return rest.length ? { label: rest.join("__"), sub: `${node} · ${hash}`, title: col } : { label: col, title: col };
+};
+
+// An HTML table. cols are {label, sub?, title?, hl?}; rows are {cells: [html], cls?}.
+function frame(cols, rows) {
+  const head = cols.map((c) => `<th title="${esc(c.title ?? c.label)}"${c.hl ? ' class="hl"' : ""}>${esc(c.label)}${c.sub ? `<div class="sub">${esc(c.sub)}</div>` : ""}</th>`).join("");
+  const body = rows.slice(0, MAX_ROWS).map((r) => `<tr${r.cls ? ` class="${r.cls}"` : ""}>${r.cells.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("");
+  return `<div class="scroll"><table class="frame"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>
+    ${rows.length > MAX_ROWS ? `<div class="meta">Showing the first ${MAX_ROWS} of ${rows.length} rows.</div>` : ""}`;
+}
+
+// Entities as rows: id, kind, str, then a column for each of `cols`, then any `extra` cells.
+function entities(items, scores, cols, { hl, extraCols = [], extra = () => [], cls = () => "" } = {}) {
+  return frame(
+    [{ label: "id" }, { label: "kind" }, { label: "str" }, ...cols.map((c) => ({ ...colLabel(c), hl: c === hl })), ...extraCols],
+    items.map((it) => ({
+      cells: [`<code class="id">${esc(it.id)}</code>`, `<span class="kind">${esc(it.kind)}</span>`, `<code class="seq">${esc(it.display ?? it.sequence)}</code>`,
+        ...cols.map((c) => fmt(scores[c]?.[it.id])), ...extra(it)],
+      cls: cls(it),
+    })),
+  );
+}
+
+// A two-column table of names and values.
+const kv = (pairs) => `<table class="kv"><tbody>${pairs.map(([k, v]) => `<tr><th>${esc(k)}</th><td><code>${esc(v)}</code></td></tr>`).join("")}</tbody></table>`;
+
+// Table view: every sequence the run touched, with every score column.
+function tableView(p) {
+  const byId = new Map(), cols = [], scores = {};
+  for (const t of Object.values(p.values)) {
+    for (const it of t.items) if (!byId.has(it.id)) byId.set(it.id, it);
+    for (const [c, by] of Object.entries(t.scores)) {
+      if (!cols.includes(c)) cols.push(c);
+      scores[c] = { ...scores[c], ...by };
+    }
+  }
+  const items = [...byId.values()];
+  return `<div class="dhead"><h3>All sequences</h3><span class="meta">${items.length} sequences × ${cols.length} score columns</span></div>`
+    + (items.length ? entities(items, scores, cols) : `<div class="hint">No sequences yet.</div>`);
+}
+
+// What went through a picked step or input: the sequences in and out, and their scores.
+function nodeData(p, key) {
+  if (key in p.dag.inputs) {
+    const t = p.values[key] ?? { items: [], scores: {} };
+    return { meta: `${t.items.length} × ${p.dag.inputs[key]}`, html: entities(t.items, {}, []) };
+  }
+  const step = p.dag.steps[key], { name, ...args } = step.config;
+  const [src] = Object.values(step.inputs);
+  const inT = p.values[src];
+  if (!inT) return { meta: p.steps[key], html: `<div class="hint">Waiting for <code>${esc(src)}</code>.</div>` };
+  const inCols = Object.keys(inT.scores);
+  const yes = p.values[`${key}.yes`], no = p.values[`${key}.no`], out = p.values[key];
+  const empty = `<div class="hint">No sequences reached this step, so it was skipped.</div>`;
+
+  if ("column" in args) {  // A filter: every input row, and whether it was kept.
+    if (!yes) return { meta: `${inT.items.length} in · ${p.steps[key]}`, html: inT.items.length ? entities(inT.items, inT.scores, inCols, { hl: args.column }) : empty };
+    const kept = new Set(yes.items.map((i) => i.id));
+    const op = name === "at_most" ? "≤" : name === "at_least" ? "≥" : "vs";
+    return {
+      meta: `${colLabel(args.column).label} ${op} ${args.threshold} · ${yes.items.length} kept, ${no.items.length} filtered out`,
+      html: entities(inT.items, inT.scores, inCols, {
+        hl: args.column,
+        extraCols: [{ label: "result" }],
+        extra: (it) => [kept.has(it.id) ? `<span class="badge s-kept">kept</span>` : `<span class="badge s-out">filtered out</span>`],
+        cls: (it) => (kept.has(it.id) ? "" : "out"),
+      }),
+    };
+  }
+  const added = out ? Object.keys(out.scores).filter((c) => !(c in inT.scores)) : [];
+  if (out && added.length) {  // A scorer: the inputs and the scores it added.
+    return { meta: `${inT.items.length} in · ${added.length} score columns added`, html: entities(inT.items, out.scores, added) };
+  }
+  const inputs = `<h4>Inputs · ${inT.items.length} from ${esc(src)}</h4>` + entities(inT.items, {}, []);
+  if (!out) return { meta: p.steps[key], html: inT.items.length ? inputs : empty };
+  return { meta: `${inT.items.length} in · ${out.items.length} out`, html: inputs + `<h4>Outputs · ${out.items.length}</h4>` + entities(out.items, {}, []) };
+}
+
+// A picked step's node config, what feeds it, and what it made.
+function nodeConfig(p, key) {
+  if (key in p.dag.inputs) {
+    return { meta: "DAG input", html: kv([["kind", p.dag.inputs[key]], ["sequences", countOf(p.values[key])]]) };
+  }
+  const step = p.dag.steps[key], { name, config_hash, ...args } = step.config;
+  const made = Object.keys(p.values).filter((k) => k === key || k.startsWith(`${key}.`));
+  return {
+    meta: p.steps[key],
+    html: `<h4>Config</h4>` + kv([["node", name], ["config_hash", config_hash], ...Object.entries(args).map(([a, v]) => [a, argText(v)])])
+      + `<h4>Inputs</h4>` + kv(Object.entries(step.inputs).map(([port, src]) => [`${port} ←`, `${src} · ${countOf(p.values[src])}`]))
+      + `<h4>Outputs</h4>` + (made.length ? kv(made.map((k) => [k, countOf(p.values[k])])) : `<div class="meta">Not run yet.</div>`),
+  };
+}
+
+// Graph view, below the drawing: the picked node as its data or its config.
+function nodePanel(p) {
+  if (picked == null || !(picked in p.dag.inputs || picked in p.dag.steps)) {
+    return `<div class="hint">Click a node to see its config and inputs, or its sequences and scores.</div>`;
+  }
+  const step = p.dag.steps[picked];
+  const { meta, html } = tab === "config" ? nodeConfig(p, picked) : nodeData(p, picked);
+  return `
+    <div class="dhead">
+      <h3><code>${esc(picked)}</code>${step ? ` · ${esc(step.config.name)}` : ""}</h3>
+      <span class="meta">${esc(meta)}</span>
+      <div class="toggle">
+        <div class="seg">
+          <button data-tab="data" class="${tab === "data" ? "on" : ""}">Sequences × scores</button>
+          <button data-tab="config" class="${tab === "config" ? "on" : ""}">Config &amp; inputs</button>
+        </div>
+        <button class="plain" id="clear" title="Esc">Deselect</button>
+      </div>
+    </div>` + html;
+}
+
+function renderData(p) {
+  const html = view === "table" ? tableView(p) : nodePanel(p);
+  if (html === lastData) return;
+  lastData = html;
+  $("#data").innerHTML = html;
 }
 
 function renderDetail(d) {
@@ -204,29 +369,27 @@ function renderDetail(d) {
     </div>` : ""}
     ${d.error ? `<div class="error">${esc(d.error)}</div>` : ""}`;
 
-  let el = $("#detail");
+  const el = $("#detail");
   if (!$("#graph") || el.dataset.run !== d.id) {
     el.dataset.run = d.id;
-    el.innerHTML = `<div id="summary"></div><div id="graph"></div><div id="table"></div>`;
-    lastRender = "";
+    el.innerHTML = `<div id="summary"></div><div id="tabs"></div><div id="graph"></div><div id="data"></div>`;
+    lastRender = ""; lastData = "";
   }
   $("#summary").innerHTML = summary;
-  if (!p) { $("#graph").style.display = "none"; $("#table").innerHTML = ""; return; }
-  $("#graph").style.display = "";
-  renderGraph(p);
-  $("#table").innerHTML = `
-    <table>
-      <thead><tr><th>Step</th><th>Status</th><th>Node</th><th>Inputs</th><th>Value</th></tr></thead>
-      <tbody>${rows(p).map((r) => `
-        <tr data-key="${esc(r.key)}" class="${r.key === picked ? "picked" : ""}">
-          <td><code>${esc(r.key)}</code></td>
-          <td>${r.status === "input" ? "" : `<span class="badge s-${r.status}">${r.status}</span>`}</td>
-          <td><code>${esc(r.node)}</code></td>
-          <td>${Object.entries(r.sources).map(([port, src]) => `<code>${esc(port)} ← ${esc(src)}</code>`).join("<br>")}</td>
-          <td><code>${esc(typeof r.value === "string" ? r.value : showValue(r.value))}</code></td>
-        </tr>`).join("")}</tbody>
-    </table>`;
-  document.querySelectorAll("#table tbody tr").forEach((tr) => tr.onclick = () => pick(tr.dataset.key));
+  if (!p) { $("#tabs").innerHTML = ""; $("#graph").style.display = "none"; $("#data").innerHTML = ""; lastData = ""; return; }
+  $("#tabs").innerHTML = `<div class="seg">
+    <button data-view="graph" class="${view === "graph" ? "on" : ""}">Graph</button>
+    <button data-view="table" class="${view === "table" ? "on" : ""}">Table</button></div>`;
+  $("#graph").style.display = view === "graph" ? "" : "none";
+  if (view === "graph") renderGraph(p);
+  renderData(p);
+}
+
+function setView(v) {
+  if (v === view) return;
+  view = v; lastRender = ""; lastData = "";
+  syncUrl();
+  if (detail) renderDetail(detail);
 }
 
 async function loadDetail() {
@@ -242,6 +405,15 @@ async function loadDetail() {
   }
 }
 
+$("#detail").addEventListener("click", (e) => {
+  const v = e.target.closest("[data-view]"), t = e.target.closest("[data-tab]");
+  if (v) return setView(v.dataset.view);
+  if (t) { tab = t.dataset.tab; lastData = ""; return detail && renderDetail(detail); }
+  if (e.target.closest("#clear")) return pick(null);
+  // Clicking on nothing in the graph view deselects.
+  if (view === "graph" && picked != null && !e.target.closest(".node, #data, #tabs")) pick(null);
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && view === "graph" && picked != null) pick(null); });
 $("#runs").onclick = (e) => { const r = e.target.closest(".run"); if (r) select(r.dataset.id); };
 
 async function tick() {

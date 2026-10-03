@@ -1,7 +1,15 @@
 import hashlib
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self
 
-from pydantic import BaseModel, Discriminator, computed_field, field_validator
+from pydantic import (
+    BaseModel,
+    Discriminator,
+    SerializationInfo,
+    SerializerFunctionWrapHandler,
+    computed_field,
+    field_validator,
+    model_serializer,
+)
 
 from node_dag.dna import ATOMS_PER_BASE, CODON_TABLE
 
@@ -24,6 +32,27 @@ class Entity(BaseModel):
     def id(self) -> str:
         """A short, stable hash of the kind and the sequence."""
         return hashlib.sha256(f"{self.kind}:{self.sequence}".encode()).hexdigest()[:12]
+
+    @computed_field
+    @property
+    def display(self) -> str:
+        """The sequence as people read it. Subclasses lay it out for their kind."""
+        return self.sequence
+
+    def __str__(self) -> str:
+        """The display string."""
+        return self.display
+
+    @model_serializer(mode="wrap")
+    def _serialize(
+        self, handler: SerializerFunctionWrapHandler, info: SerializationInfo
+    ) -> dict[str, Any]:
+        data = handler(self)
+        # A config hash is made from what a config is, not from how its sequences are
+        # shown, so that changing a display string never changes a hash.
+        if info.context and info.context.get("hashing"):
+            data.pop("display", None)
+        return data
 
 
 class AminoAcidSequence(Entity):
@@ -64,6 +93,12 @@ class Dna(Entity):
     """
 
     kind: Literal["dna"] = "dna"
+
+    @computed_field
+    @property
+    def display(self) -> str:
+        """The codons, separated by spaces: ``ATG GCT CTG``."""
+        return " ".join(c.codon for c in self.codons())
 
     @field_validator("sequence")
     @classmethod

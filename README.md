@@ -131,6 +131,17 @@ Each step shows its status: pending, running, done, skipped or failed. The page 
 the workflow's `progress` query every 2 seconds, so a worker must be running to answer
 it. `--step-delay` makes each step sleep first, so you can watch a run progress.
 
+A run has two views, switched at the top and kept in the URL (`?run=…&view=table`).
+**Table** is every sequence the run touched as rows (its `id`, kind and display string,
+which for DNA is the codons spaced out) by one column per score, named by score, node and
+config hash. **Graph** is the DAG. Click a node and the panel below it shows either
+**Sequences × scores** or **Config & inputs**, chosen by a toggle. For sequences: an
+input or a tool shows the sequences in and out, a scorer shows its inputs with the score
+columns it added, and a filter shows every input row as kept or filtered out, with the
+column it filters on highlighted. Config & inputs shows the node's name, `config_hash` and
+fields, what feeds each port, and what the step produced. Deselect with the button, Esc or
+a click on nothing.
+
 http://127.0.0.1:8000/hypotheses lists every goal with a count of its hypotheses by
 status. Click a goal to list its hypotheses, each with its status, a summary and its
 inputs. Click a hypothesis to see all of it: inputs, hypothesis, outcome, verdict, its

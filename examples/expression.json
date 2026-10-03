@@ -16,37 +16,23 @@
       },
       "scored": {
         "config": {
-          "name": "dna_atom_score",
-          "config_hash": "3745d4af",
-          "reference": {
-            "kind": "dna",
-            "sequence": "ATGGCTCTGAAATAA",
-            "id": "1e142be77490",
-            "display": "ATG GCT CTG AAA TAA"
-          }
+          "name": "ostir_expression",
+          "config_hash": "1463740e",
+          "utr": "TTCTAGAAAGGAGGTAAAAAA",
+          "anti_sd": "ACCTCCTTA"
         },
         "inputs": {
           "sequence": "mutated"
         }
       },
-      "same_protein": {
+      "well_translated": {
         "config": {
-          "name": "at_most",
-          "column": "dna_atom_score__3745d4af__amino_acid_changes",
-          "threshold": 0
+          "name": "at_least",
+          "column": "ostir_expression__1463740e__expression",
+          "threshold": 500000
         },
         "inputs": {
           "items": "scored"
-        }
-      },
-      "smaller": {
-        "config": {
-          "name": "at_most",
-          "column": "dna_atom_score__3745d4af__atom_count",
-          "threshold": 494
-        },
-        "inputs": {
-          "items": "same_protein.yes"
         }
       }
     }

@@ -54,7 +54,9 @@ class BaseNodeConfig(BaseModel):
 
     @model_validator(mode="after")
     def _set_hash(self) -> "BaseNodeConfig":
-        fields = self.model_dump(mode="json", exclude={"config_hash"})
+        fields = self.model_dump(
+            mode="json", exclude={"config_hash"}, context={"hashing": True}
+        )
         key = json.dumps({"version": self.version, **fields}, sort_keys=True)
         digest = hashlib.sha256(key.encode()).hexdigest()[:8]
         if self.config_hash not in ("", digest):

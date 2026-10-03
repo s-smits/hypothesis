@@ -13,13 +13,16 @@ from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
 from node_dag.nodes.tools.dna_to_protein.function import DnaToProtein
 from node_dag.nodes.tools.mutate_synonymous.config import MutateSynonymousConfig
 from node_dag.nodes.tools.mutate_synonymous.function import MutateSynonymous
+from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
+from node_dag.nodes.tools.ostir_expression.function import OstirExpression
 
 NodeConfig = Annotated[
     AtLeastConfig
     | AtMostConfig
     | DnaAtomScoreConfig
     | DnaToProteinConfig
-    | MutateSynonymousConfig,
+    | MutateSynonymousConfig
+    | OstirExpressionConfig,
     Discriminator("name"),
 ]
 
@@ -29,6 +32,7 @@ MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
     DnaAtomScoreConfig: DnaAtomScore,
     DnaToProteinConfig: DnaToProtein,
     MutateSynonymousConfig: MutateSynonymous,
+    OstirExpressionConfig: OstirExpression,
 }
 
 
