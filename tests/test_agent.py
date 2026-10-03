@@ -316,7 +316,10 @@ def test_search_nodes_finds_and_ranks_by_intent():
     expr_results = search_nodes(query="score expression translation", input_type="dna")
     assert len(expr_results) >= 1
     assert expr_results[0]["name"] == "ostir_expression"
-    assert "score sequences via expression / translation initiation" in expr_results[0]["intents"]
+    assert (
+        "score sequences via expression / translation initiation"
+        in expr_results[0]["intents"]
+    )
 
     # A port that takes any nucleic acid matches RNA, and a DNA-only one does not.
     rna_names = [r["name"] for r in search_nodes(input_type="rna")]
@@ -324,14 +327,23 @@ def test_search_nodes_finds_and_ranks_by_intent():
     assert "dna_to_protein" not in rna_names
 
     # Query matching expression
-    expr_results = search_nodes(query="measure translation initiation", input_type="dna")
+    expr_results = search_nodes(
+        query="measure translation initiation", input_type="dna"
+    )
     assert len(expr_results) >= 1
     assert expr_results[0]["name"] == "ostir_expression"
 
     # Category filtering
     gen_results = search_nodes(category="generation")
-    assert {"mutate_synonymous", "recode_targeted"} <= {r["name"] for r in gen_results}
-    assert "ostir_expression" not in {r["name"] for r in gen_results}
+    assert [r["name"] for r in gen_results] == [
+        "codon_optimise",
+        "domesticate",
+        "gc_target_recode",
+        "mutate_synonymous",
+        "protlib_design",
+        "recode_targeted",
+        "resample_synonymous",
+    ]
 
     # Removing a codon finds the nodes that recode and count codons.
     codon_results = search_nodes(query="remove codon", input_type="dna")
@@ -340,6 +352,140 @@ def test_search_nodes_finds_and_ranks_by_intent():
     # Translation
     trans_results = search_nodes(query="translate to protein")
     assert trans_results[0]["name"] == "dna_to_protein"
+
+
+async def test_agent_rejects_optimization_goal_without_generation(results_dir):
+    seen_errors: list[str] = []
+    scorer_id = f"ostir_expression__{SCORE.config_hash}"
+
+    calls = [
+        ("list_registry", {}),
+        (
+            "create_node",
+            {
+                "config": {"name": "ostir_expression", "utr": "TTCTAGAAAGGAGGTAAAAAA"},
+                "description": "score expression",
+            },
+        ),
+    ]
+
+    def builder(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        for p in _returns(messages):
+            if isinstance(p, RetryPromptPart):
+                seen_errors.append(str(p.content))
+        turn = _turn(messages)
+        if turn < len(calls):
+            return _call(*calls[turn])
+        return _reply(
+            info,
+            {
+                "hypothesis": "score only",
+                "expected": "a score",
+                "inputs": {"seq": "dna"},
+                "steps": {
+                    "scored": {
+                        "node": scorer_id,
+                        "inputs": {"sequence": "seq"},
+                        "why": "score it",
+                    }
+                },
+                "assertions": [
+                    {
+                        "criterion": "up",
+                        "step": "scored",
+                        "branch": "produced",
+                        "claim": "scored",
+                    }
+                ],
+            },
+        )
+
+    agent = build_agent(FunctionModel(builder), Registry(results_dir))
+    hyp = Hypothesis(
+        goal="increase the expression of the sequence",
+        inputs={"seq": [REF]},
+        criteria=[Criterion(id="up", claim="expression rises")],
+    )
+    with pytest.raises(Exception):
+        await agent.run("build", deps=hyp)
+
+    assert any("no generation node" in err for err in seen_errors)
+
+
+async def test_agent_rejects_trivial_expression_threshold(results_dir):
+    seen_errors: list[str] = []
+    calls = [
+        (
+            "create_node",
+            {
+                "config": {"name": "ostir_expression", "utr": "AGGAGGTAAAAA"},
+                "description": "score expression",
+            },
+        ),
+        (
+            "create_node",
+            {
+                "config": {
+                    "name": "at_least",
+                    "column": "ostir_expression__mock__expression",
+                    "threshold": 0.0,
+                },
+                "description": "filter expression",
+            },
+        ),
+    ]
+
+    def builder(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        for p in _returns(messages):
+            if isinstance(p, RetryPromptPart):
+                seen_errors.append(str(p.content))
+        turn = _turn(messages)
+        if turn < len(calls):
+            return _call(*calls[turn])
+        # Find created filter node id
+        filter_id = [n.id for n in Registry(results_dir).all() if "at_least" in n.id][0]
+        return _reply(
+            info,
+            {
+                "hypothesis": "filter at 0.0",
+                "expected": "all pass",
+                "inputs": {"seq": "dna"},
+                "steps": {
+                    "filt": {
+                        "node": filter_id,
+                        "inputs": {"items": "seq"},
+                        "why": "keep the better ones",
+                    }
+                },
+                "assertions": [
+                    {
+                        "criterion": "up",
+                        "step": "filt",
+                        "branch": "yes",
+                        "claim": "kept",
+                    }
+                ],
+            },
+        )
+
+    registry = Registry(results_dir)
+    # Pre-register scorer so filter column is accepted by registry
+    from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
+
+    ostir = OstirExpressionConfig(utr="AGGAGGTAAAAA")
+    registry.register(ostir, "score expression")
+    calls[1][1]["config"]["column"] = ostir.columns()["expression"]
+
+    agent = build_agent(FunctionModel(builder), registry)
+    hyp = Hypothesis(
+        goal="measure expression",
+        inputs={"seq": [REF]},
+        criteria=[Criterion(id="up", claim="expression rises")],
+    )
+    with pytest.raises(Exception):
+        await agent.run("build", deps=hyp)
+
+    assert any("allows every sequence to pass trivially" in err for err in seen_errors)
 
 
 LACZ = """\

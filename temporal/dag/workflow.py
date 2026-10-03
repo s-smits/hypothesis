@@ -85,12 +85,14 @@ class DagWorkflow:
                         items=table.items, scores={**table.scores, **new}
                     )
                 elif isinstance(config, BaseFilterConfig):
+                    cols = config.score_columns()
+                    by_col = {
+                        c: [table.scores[c][i.id] for i in table.items] for c in cols
+                    }
+                    # One column stays a bare list, so a single-column filter's
+                    # activity input, and therefore its cache key, is unchanged.
                     node_inp = node_inp.model_copy(
-                        update={
-                            "values": [
-                                table.scores[config.column][i.id] for i in table.items
-                            ]
-                        }
+                        update={"values": by_col[cols[0]] if len(cols) == 1 else by_col}
                     )
                     keep = await workflow.execute_activity(
                         run_filter,

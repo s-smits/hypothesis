@@ -320,6 +320,15 @@ Cost comes from GPU seconds, so keep the list short the first time, and lower
 `num_loops` and `num_sampling_steps` for a cheaper, rougher structure. `seed` keeps
 the same sequence folding to the same structure, so a run stays reproducible.
 
+`protlib_design` takes `ProteinStructure`s and gives a library of
+`AminoAcidSequence` variants for each, designed with
+[protlib-designer](https://github.com/LLNL/protlib-designer): ProteinMPNN scores
+every point mutation at the configured `positions` on the structure, each PLM in
+`plm_models` scores them on the sequence, and a PuLP/CBC integer programme picks
+`library_size` variants that Pareto-minimise the scores under diversity
+constraints (`min_mut`, `max_mut`, `schedule`, `forbidden_aa` and friends). The
+GPU work lives in `nodes/tools/protlib_design/modal_app.py` on a T4.
+
 A node whose work runs somewhere else calls `node_dag.links.report(label, url)` as it
 starts it. The activity writes what it reports to
 `results/links/<workflow id>/<step>.json`, and the runs page offers it: next to the

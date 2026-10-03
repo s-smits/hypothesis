@@ -7,6 +7,12 @@ from node_dag.nodes.filters.at_least.config import AtLeastConfig
 from node_dag.nodes.filters.at_least.function import AtLeast
 from node_dag.nodes.filters.at_most.config import AtMostConfig
 from node_dag.nodes.filters.at_most.function import AtMost
+from node_dag.nodes.filters.pareto_front.config import ParetoFrontConfig
+from node_dag.nodes.filters.pareto_front.function import ParetoFront
+from node_dag.nodes.filters.top_k.config import TopKConfig
+from node_dag.nodes.filters.top_k.function import TopK
+from node_dag.nodes.tools.chain_contacts.config import ChainContactsConfig
+from node_dag.nodes.tools.chain_contacts.function import ChainContacts
 from node_dag.nodes.tools.codon_adaptation.config import CodonAdaptationConfig
 from node_dag.nodes.tools.codon_adaptation.function import CodonAdaptation
 from node_dag.nodes.tools.codon_count.config import CodonCountConfig
@@ -43,6 +49,10 @@ from node_dag.nodes.tools.mutate_synonymous.config import MutateSynonymousConfig
 from node_dag.nodes.tools.mutate_synonymous.function import MutateSynonymous
 from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
 from node_dag.nodes.tools.ostir_expression.function import OstirExpression
+from node_dag.nodes.tools.pdbfixer_fix.config import PdbfixerFixConfig
+from node_dag.nodes.tools.pdbfixer_fix.function import PdbfixerFix
+from node_dag.nodes.tools.protlib_design.config import ProtlibDesignConfig
+from node_dag.nodes.tools.protlib_design.function import ProtlibDesign
 from node_dag.nodes.tools.recode_targeted.config import RecodeTargetedConfig
 from node_dag.nodes.tools.recode_targeted.function import RecodeTargeted
 from node_dag.nodes.tools.resample_synonymous.config import ResampleSynonymousConfig
@@ -53,6 +63,7 @@ from node_dag.nodes.tools.rna_back_transcribe.function import RnaBackTranscribe
 NodeConfig = Annotated[
     AtLeastConfig
     | AtMostConfig
+    | ChainContactsConfig
     | CodonCountConfig
     | CodonAdaptationConfig
     | CodonOptimiseConfig
@@ -70,15 +81,20 @@ NodeConfig = Annotated[
     | Mrna5primeMfeConfig
     | MutateSynonymousConfig
     | OstirExpressionConfig
+    | ProtlibDesignConfig
+    | PdbfixerFixConfig
     | RecodeTargetedConfig
     | ResampleSynonymousConfig
-    | RnaBackTranscribeConfig,
+    | ParetoFrontConfig
+    | RnaBackTranscribeConfig
+    | TopKConfig,
     Discriminator("name"),
 ]
 
 MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
     AtLeastConfig: AtLeast,
     AtMostConfig: AtMost,
+    ChainContactsConfig: ChainContacts,
     CodonCountConfig: CodonCount,
     CodonAdaptationConfig: CodonAdaptation,
     CodonOptimiseConfig: CodonOptimise,
@@ -96,9 +112,13 @@ MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
     Mrna5primeMfeConfig: Mrna5primeMfe,
     MutateSynonymousConfig: MutateSynonymous,
     OstirExpressionConfig: OstirExpression,
+    ProtlibDesignConfig: ProtlibDesign,
+    PdbfixerFixConfig: PdbfixerFix,
     RecodeTargetedConfig: RecodeTargeted,
     ResampleSynonymousConfig: ResampleSynonymous,
+    ParetoFrontConfig: ParetoFront,
     RnaBackTranscribeConfig: RnaBackTranscribe,
+    TopKConfig: TopK,
 }
 
 

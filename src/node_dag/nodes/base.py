@@ -164,15 +164,30 @@ class BaseFilterConfig(BaseNodeConfig):
 
     ``run`` gets the entities and that column's ``values``, aligned, and returns a bool
     for each: True keeps it on ``<step>.yes``, False sends it to ``<step>.no``.
+
+    A filter that weighs several objectives against each other overrides
+    ``score_columns`` to name all of them and sets ``values_type`` to
+    ``dict[str, list[float]]``. ``run`` then gets ``values`` as that dict, one aligned
+    list per column, instead of a single list. ``Dag`` checks every column it names,
+    and the runner reads every one, so the two must agree: a column left out of
+    ``score_columns`` is not validated and does not arrive.
     """
 
     column: str
+    # What ``run``'s ``values`` parameter takes. A single-column filter is given the
+    # one column's values as a list; a multi-column filter is given a dict keyed by
+    # column. This is a ClassVar, so declaring it does not change any config_hash.
+    values_type: ClassVar[Any] = list[float]
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:  # noqa: ANN401
         """Reject a filter config without exactly one input port."""
         super().__pydantic_init_subclass__(**kwargs)
         _check_one_port(cls)
+
+    def score_columns(self) -> tuple[str, ...]:
+        """Every score column this filter reads. ``column`` first."""
+        return (self.column,)
 
     @classmethod
     def outputs(cls) -> dict[str, type[Entity]]:

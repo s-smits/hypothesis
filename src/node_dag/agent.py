@@ -16,6 +16,7 @@ from pydantic_ai.models import Model
 from node_dag import amass, entrez
 from node_dag.factory import MAPPING, NodeConfig
 from node_dag.nodes.base import BaseFilterConfig, BaseNodeConfig
+from node_dag.nodes.filters.at_least.config import AtLeastConfig
 from node_dag.plan import (
     Attempt,
     Criterion,
@@ -153,7 +154,7 @@ def search_nodes(
 
     Args:
         query: Words or phrase describing what you want to do (e.g. "score expression", "mutate", "lower atoms", "translate").
-        input_type: Input entity kind to filter by ('dna', 'rna', 'amino_acid_sequence', 'protein_structure', 'entity').
+        input_type: Input entity kind to filter by ('dna', 'rna', 'amino_acid_sequence', 'protein_structure', 'protein_contacts', 'entity').
         category: Node category to filter by ('scoring', 'filter', 'generation', 'conversion').
 
     Returns a list of matching nodes with their intents, when to use them, and input/output contracts.
@@ -316,6 +317,21 @@ CRITERIA_INSTRUCTIONS = """\
 Turn the goal into one to four criteria that decide whether it was met. Each is a claim a
 filter over the DAG's output could check. State what must be true, not how to do it."""
 
+COMPARATIVE_WORDS = (
+    "higher",
+    "lower",
+    "reduce",
+    "decrease",
+    "increase",
+    "fewer",
+    "less",
+    "more",
+    "optimize",
+    "better",
+    "beat",
+    "minimize",
+    "maximize",
+)
 MAX_REQUESTS = 3
 ADAPTER: TypeAdapter[NodeConfig] = TypeAdapter(NodeConfig)
 
@@ -460,6 +476,36 @@ def build_agent(
                 )
         try:
             configs = {k: step_config(plan, k, registry) for k in plan.steps}
+        except (ValidationError, ValueError, TypeError) as e:
+            raise ModelRetry(str(e)) from e
+        if (
+            any(w in hyp.goal.lower() for w in COMPARATIVE_WORDS)
+            and sum(len(v) for v in hyp.inputs.values()) == 1
+            and not any(
+                "generation" in [c.value for c in cfg.categories]
+                for cfg in configs.values()
+            )
+        ):
+            raise ModelRetry(
+                f"The goal asks to optimize or find improved sequences ({hyp.goal!r}), "
+                "but only 1 input sequence was provided and the DAG has no generation node "
+                "(e.g. mutate_synonymous) to create candidate variants. A DAG that only "
+                "measures the input cannot find sequences with higher/lower metrics. "
+                "Add a generation step (e.g. mutate_synonymous with variants_per_sequence > 1) "
+                "to generate variants, score them, and filter for those that beat the baseline."
+            )
+        for step, cfg in configs.items():
+            if (
+                isinstance(cfg, AtLeastConfig)
+                and "expression" in cfg.column
+                and cfg.threshold <= 0.0
+            ):
+                raise ModelRetry(
+                    f"Step {step!r} filters on expression with threshold {cfg.threshold}, "
+                    "which allows every sequence to pass trivially. Determine the baseline score "
+                    "and set a threshold that requires candidates to beat the baseline."
+                )
+        try:
             plan.typecheck(configs)
         except (ValidationError, ValueError, TypeError) as e:
             raise ModelRetry(str(e)) from e
