@@ -23,6 +23,7 @@ class BashSession:
 
     def __init__(self) -> None:
         self.process: asyncio.subprocess.Process | None = None
+        self._lock = asyncio.Lock()
 
     async def start(self) -> None:
         """Spawn the interactive bash subprocess if not already running."""
@@ -39,20 +40,21 @@ class BashSession:
 
     async def run(self, command: str) -> str:
         """Send a command to the persistent shell and read until the completion marker."""
-        await self.start()
-        assert self.process is not None
-        assert self.process.stdin is not None
-        assert self.process.stdout is not None
+        async with self._lock:
+            await self.start()
+            assert self.process is not None
+            assert self.process.stdin is not None
+            assert self.process.stdout is not None
 
-        # Unique marker lets us know when the command has finished.
-        marker = "__PYDANTIC_AI_DONE_7f3a9c__"
-        payload = f"{command}\nprintf '\\n{marker}\\n'\n"
+            # Unique marker lets us know when the command has finished.
+            marker = "__PYDANTIC_AI_DONE_7f3a9c__"
+            payload = f"{command}\nprintf '\\n{marker}\\n'\n"
 
-        self.process.stdin.write(payload.encode())
-        await self.process.stdin.drain()
+            self.process.stdin.write(payload.encode())
+            await self.process.stdin.drain()
 
-        output = await self.process.stdout.readuntil(f"\n{marker}\n".encode())
-        return output.decode(errors="replace").rstrip()
+            output = await self.process.stdout.readuntil(f"\n{marker}\n".encode())
+            return output.decode(errors="replace").rstrip()
 
     async def close(self) -> None:
         """Terminate the persistent shell session cleanly."""

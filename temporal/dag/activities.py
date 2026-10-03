@@ -1,18 +1,23 @@
 import hashlib
 import json
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, TypeAdapter, ValidationError
 from temporalio import activity
 
-from node_dag import factory
+from node_dag import factory, links
 from node_dag.dag import DagProgress
 from node_dag.factory import NodeConfig
+from node_dag.links import Link
 from node_dag.nodes.base import BaseScoreConfig
 from node_dag.storage import write_atomic
 from node_dag.types import Score, Value
+
+_LINKS: TypeAdapter[list[Link]] = TypeAdapter(list[Link])
 
 
 def results_root() -> Path:
@@ -27,29 +32,82 @@ class RunNodeInput(BaseModel):
 
     Args:
         config: The node to run.
-        inputs: The list of entities for the node's input port.
+        inputs: The list of entities for each of the node's input ports.
         values: For a filter, the score of each entity, in order.
+        step: Which step of the run this is, for the links a node reports. It says
+            nothing about what the node computes, so it is left out of the cache key:
+            the same work in another step, or another run, is still a cache hit.
     """
 
     config: NodeConfig
     inputs: dict[str, list[Value]]
     values: list[float] | None = None
+    step: str = ""
 
     def cache_path(self) -> Path:
         """``$NODE_DAG_RESULTS/nodes/<node name>/<hash>.json``. The root defaults to ``results``.
 
         The hash covers the config, the inputs and the config's ``version``.
         """
-        key = {**self.model_dump(mode="json"), "version": self.config.version}
+        key = {
+            **self.model_dump(mode="json", exclude={"step"}),
+            "version": self.config.version,
+        }
         digest = hashlib.sha256(json.dumps(key, sort_keys=True).encode()).hexdigest()
         return results_root() / "nodes" / self.config.name / f"{digest}.json"
+
+
+def links_dir(workflow_id: str) -> Path:
+    """``$NODE_DAG_RESULTS/links/<workflow id>``: where a run's steps report links."""
+    return results_root() / "links" / workflow_id
+
+
+def links_path(workflow_id: str, step: str) -> Path:
+    """A step's reported links. One file per step, so parallel steps never clash."""
+    return links_dir(workflow_id) / f"{step}.json"
+
+
+def step_links(workflow_id: str) -> dict[str, list[Link]]:
+    """Every link the steps of a run have reported, keyed by step."""
+    found = {}
+    for path in sorted(links_dir(workflow_id).glob("*.json")):
+        try:
+            found[path.stem] = _LINKS.validate_json(path.read_bytes())
+        except ValidationError:
+            continue  # A file from an older schema says nothing useful now.
+    return found
+
+
+@contextmanager
+def _reporting(step: str) -> Iterator[None]:
+    """Save the links the node reports, so the UI can offer them while it runs.
+
+    Each link is written as it is reported, not when the step ends, because a link to
+    work in progress is worth having while that work is still going.
+    """
+    try:
+        workflow_id = activity.info().workflow_id
+    except (
+        RuntimeError
+    ):  # Not in an activity: a test or a script, with no run to key on.
+        yield
+        return
+    reported: list[Link] = []
+
+    def sink(link: Link) -> None:
+        reported.append(link)
+        write_atomic(links_path(workflow_id, step), _LINKS.dump_json(reported))
+
+    with links.collecting(sink):
+        yield
 
 
 def _cached[T](inp: RunNodeInput, adapter: TypeAdapter[T], run: Callable[[], T]) -> T:
     path = inp.cache_path()
     if path.exists():
         return adapter.validate_json(path.read_bytes())
-    out = run()
+    with _reporting(inp.step):
+        out = run()
     write_atomic(path, adapter.dump_json(out))
     return out
 
@@ -106,16 +164,36 @@ def run_filter(inp: RunNodeInput) -> list[bool]:
     return _cached(inp, _KEEP, lambda: _run_aligned(inp, values=inp.values))
 
 
+class SavedRun(DagProgress):
+    """A finished DagWorkflow run as save_workflow writes it.
+
+    Enough to show the run without Temporal. Files saved before the run fields were
+    added have only the DagProgress fields, so those default to None.
+
+    Args:
+        status: ``COMPLETED``, ``FAILED`` or ``CANCELED``, as Temporal names them.
+        start_time: When the run started.
+        close_time: When it finished.
+        error: Why it failed, if it did.
+    """
+
+    status: str | None = None
+    start_time: datetime | None = None
+    close_time: datetime | None = None
+    error: str | None = None
+
+
 class SaveWorkflowInput(BaseModel):
     """Input to save_workflow.
 
     Args:
         workflow_id: The ID of the DagWorkflow run.
-        progress: The run's DAG, the status of each step and every value it produced.
+        progress: The run's DAG, the status of each step, every value it produced
+            and how it ended.
     """
 
     workflow_id: str
-    progress: DagProgress
+    progress: SavedRun
 
     def path(self) -> Path:
         """``$NODE_DAG_RESULTS/workflows/<workflow id>.json``."""

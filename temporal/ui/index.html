@@ -50,6 +50,11 @@
   .bar > div { height: 100%; transition: width .3s; }
   .counts { display: flex; gap: 14px; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
   .counts i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+  /* Somewhere to watch a step's work, e.g. its GPU run on Modal. */
+  .links { display: flex; gap: 8px; flex-wrap: wrap; }
+  .links a { font-size: 12px; text-decoration: none; color: var(--running); border: 1px solid var(--running); border-radius: 10px; padding: 1px 10px; }
+  .links a:hover { background: var(--accent-bg); }
+  .links .step { font-family: ui-monospace, monospace; color: var(--muted); }
   .error { background: color-mix(in srgb, var(--failed) 12%, transparent); border: 1px solid var(--failed); border-radius: 6px; padding: 8px 12px; font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; }
 
   /* The two views, and the toggle inside the node panel. */
@@ -82,7 +87,7 @@
   .dhead { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .dhead h3 { margin: 0; font-size: 14px; }
   .dhead .toggle { margin-left: auto; display: flex; gap: 8px; }
-  .dhead .plain { font: inherit; font-size: 12px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+  .plain { font: inherit; font-size: 12px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 10px; cursor: pointer; }
   .meta { color: var(--muted); font-size: 12px; }
   .hint { color: var(--muted); padding: 14px 4px; }
   table.frame td, table.frame th { padding: 5px 12px; }
@@ -97,18 +102,38 @@
   table.kv th { width: 1%; white-space: nowrap; color: var(--muted); font-weight: 500; }
   table.kv td { word-break: break-all; }
   h4 { margin: 10px 0 2px; font-size: 12px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
+
+  /* A structure, full screen, in Mol*. */
+  table.frame .view { font: inherit; font-size: 11px; background: var(--panel); color: var(--running); border: 1px solid var(--running); border-radius: 6px; padding: 1px 10px; cursor: pointer; }
+  table.frame .view:hover { background: var(--accent-bg); }
+  #viewer { position: fixed; inset: 0; z-index: 50; background: var(--panel); display: none; flex-direction: column; }
+  #viewer.on { display: flex; }
+  #viewer .vhead { display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid var(--line); }
+  #viewer .vhead h3 { margin: 0; font: 600 13px ui-monospace, monospace; }
+  #viewer .vhead button { margin-left: auto; }
+  /* Mol* sizes itself to this box, and draws its own light theme inside it. */
+  #vmount { position: relative; flex: 1; min-height: 0; background: #fff; }
+  #vmount .msg { padding: 20px; color: var(--muted); }
 </style>
 </head>
 <body>
 <header>
   <h1>node-dag</h1>
-  <nav><a href="/" class="here">Runs</a><a href="/hypotheses">Hypotheses</a><a href="/new">New</a><a href="/nodes">Nodes</a></nav>
+  <nav><a href="/" class="here">Runs</a><a href="/hypotheses">Hypotheses</a><a href="/observations">Observations</a><a href="/new">New</a><a href="/nodes">Nodes</a></nav>
   <span id="updated"></span>
 </header>
 <main>
   <nav id="runs"><div class="empty">Loading…</div></nav>
   <section id="detail"><div class="empty">Select a run.</div></section>
 </main>
+<div id="viewer" aria-hidden="true">
+  <div class="vhead">
+    <h3 id="vtitle"></h3>
+    <span class="meta" id="vmeta"></span>
+    <button class="plain" id="vclose" title="Esc">Close</button>
+  </div>
+  <div id="vmount"></div>
+</div>
 <script>
 const POLL_MS = 2000;
 const STATUSES = ["done", "running", "pending", "skipped", "failed"];
@@ -122,6 +147,7 @@ let dag = null;          // The nice-dag instance.
 let lastRender = "";     // What the graph last drew, to redraw only on change.
 let lastData = "";       // What the data panel last drew.
 let detail = null;       // The last RunDetail for the selected run.
+let links = {};          // Where to watch each step's work, keyed by step.
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -225,11 +251,62 @@ function pick(id) {
 // ---- Tables: sequences as rows, score columns as columns. ----
 const MAX_ROWS = 500;
 const fmt = (v) => v == null ? `<span class="na">–</span>` : Number.isInteger(v) ? String(v) : v.toFixed(3);
-// "dna_atom_score__3745d4af__atom_count" is the score atom_count of node dna_atom_score, config 3745d4af.
+// "ostir_expression__1463740e__expression" is the score expression of node ostir_expression, config 1463740e.
 const colLabel = (col) => {
   const [node, hash, ...rest] = col.split("__");
   return rest.length ? { label: rest.join("__"), sub: `${node} · ${hash}`, title: col } : { label: col, title: col };
 };
+
+// ---- Structures, full screen, in Mol*. ----
+// The viewer is 5 MB, so it is fetched the first time someone asks to see a
+// structure, and the plugin it makes is then kept and reloaded for the next one.
+const MOLSTAR = "https://cdn.jsdelivr.net/npm/molstar@4.18.0/build/viewer/molstar";
+const structures = new Map();   // Entity id -> the entity, for everything drawn so far.
+let plugin = null;              // The Mol* viewer, once someone has opened one.
+let loading = null;             // The in-flight fetch of the Mol* bundle.
+
+const hasStructure = (it) => typeof it.structure === "string" && it.structure !== "";
+
+function loadMolstar() {
+  loading ??= new Promise((resolve, reject) => {
+    const css = document.createElement("link");
+    css.rel = "stylesheet"; css.href = `${MOLSTAR}.css`;
+    const js = document.createElement("script");
+    js.src = `${MOLSTAR}.js`;
+    js.onload = resolve;
+    js.onerror = () => reject(new Error(`Could not load Mol* from ${MOLSTAR}.js`));
+    document.head.append(css, js);
+  });
+  return loading;
+}
+
+async function showStructure(id) {
+  const it = structures.get(id);
+  if (!it) return;
+  $("#viewer").classList.add("on");
+  $("#viewer").setAttribute("aria-hidden", "false");
+  $("#vtitle").textContent = id;
+  $("#vmeta").textContent = `${it.kind} · ${it.sequence.length} residues`;
+  try {
+    await loadMolstar();
+    plugin ??= await molstar.Viewer.create($("#vmount"), {
+      layoutIsExpanded: false, layoutShowControls: false, layoutShowLog: false,
+      layoutShowLeftPanel: false, viewportShowAnimation: false,
+    });
+    await plugin.plugin.clear();  // Whatever was shown last is not this structure.
+    await plugin.loadStructureFromData(it.structure, "mmcif");
+    // clear() leaves the camera where the last structure left it, which on a reused
+    // viewer opens the next one zoomed into wherever you happened to be.
+    plugin.plugin.managers.camera.reset();
+  } catch (e) {
+    $("#vmount").innerHTML = `<div class="msg">${esc(e.message)}</div>`;
+  }
+}
+
+function closeStructure() {
+  $("#viewer").classList.remove("on");
+  $("#viewer").setAttribute("aria-hidden", "true");
+}
 
 // An HTML table. cols are {label, sub?, title?, hl?}; rows are {cells: [html], cls?}.
 function frame(cols, rows) {
@@ -240,12 +317,17 @@ function frame(cols, rows) {
 }
 
 // Entities as rows: id, kind, str, then a column for each of `cols`, then any `extra` cells.
+// An entity that carries a structure also gets a button that shows it in Mol*.
 function entities(items, scores, cols, { hl, extraCols = [], extra = () => [], cls = () => "" } = {}) {
+  const foldable = items.filter(hasStructure);
+  foldable.forEach((it) => structures.set(it.id, it));
   return frame(
-    [{ label: "id" }, { label: "kind" }, { label: "str" }, ...cols.map((c) => ({ ...colLabel(c), hl: c === hl })), ...extraCols],
+    [{ label: "id" }, { label: "kind" }, { label: "str" }, ...cols.map((c) => ({ ...colLabel(c), hl: c === hl })), ...extraCols,
+      ...(foldable.length ? [{ label: "structure" }] : [])],
     items.map((it) => ({
       cells: [`<code class="id">${esc(it.id)}</code>`, `<span class="kind">${esc(it.kind)}</span>`, `<code class="seq">${esc(it.display ?? it.sequence)}</code>`,
-        ...cols.map((c) => fmt(scores[c]?.[it.id])), ...extra(it)],
+        ...cols.map((c) => fmt(scores[c]?.[it.id])), ...extra(it),
+        ...(foldable.length ? [hasStructure(it) ? `<button class="view" data-view-id="${esc(it.id)}">View</button>` : `<span class="na">–</span>`] : [])],
       cls: cls(it),
     })),
   );
@@ -306,6 +388,15 @@ function nodeData(p, key) {
   return { meta: `${inT.items.length} in · ${out.items.length} out`, html: inputs + `<h4>Outputs · ${out.items.length}</h4>` + entities(out.items, {}, []) };
 }
 
+// Where to watch a step's work: the links it reported, e.g. its GPU run on Modal.
+// withStep labels each one, for a list that mixes steps.
+function linkList(step, withStep = false) {
+  const here = links[step] ?? [];
+  if (!here.length) return "";
+  return `<div class="links">${here.map((l) => `
+    <a href="${esc(l.url)}" target="_blank" rel="noopener">${withStep ? `<span class="step">${esc(step)}</span> ` : ""}${esc(l.label)} ↗</a>`).join("")}</div>`;
+}
+
 // A picked step's node config, what feeds it, and what it made.
 function nodeConfig(p, key) {
   if (key in p.dag.inputs) {
@@ -317,7 +408,8 @@ function nodeConfig(p, key) {
     meta: p.steps[key],
     html: `<h4>Config</h4>` + kv([["node", name], ["config_hash", config_hash], ...Object.entries(args).map(([a, v]) => [a, argText(v)])])
       + `<h4>Inputs</h4>` + kv(Object.entries(step.inputs).map(([port, src]) => [`${port} ←`, `${src} · ${countOf(p.values[src])}`]))
-      + `<h4>Outputs</h4>` + (made.length ? kv(made.map((k) => [k, countOf(p.values[k])])) : `<div class="meta">Not run yet.</div>`),
+      + `<h4>Outputs</h4>` + (made.length ? kv(made.map((k) => [k, countOf(p.values[k])])) : `<div class="meta">Not run yet.</div>`)
+      + (links[key]?.length ? `<h4>Running elsewhere</h4>` + linkList(key) : ""),
   };
 }
 
@@ -351,6 +443,10 @@ function renderData(p) {
 
 function renderDetail(d) {
   const p = d.progress;
+  links = d.links ?? {};
+  // A step whose work is on a GPU somewhere else: offer it while it runs, without
+  // making you find the node first.
+  const watching = p ? Object.keys(p.steps).filter((k) => p.steps[k] === "running" && links[k]?.length) : [];
   const counts = p ? STATUSES.map((s) => [s, Object.values(p.steps).filter((x) => x === s).length]) : [];
   const total = p ? Object.keys(p.steps).length : 0;
   const finished = counts.filter(([s]) => s !== "pending" && s !== "running").reduce((a, [, n]) => a + n, 0);
@@ -367,6 +463,7 @@ function renderDetail(d) {
         ${counts.filter(([, n]) => n).map(([s, n]) => `<span><i class="s-${s}"></i>${n} ${s}</span>`).join("")}
       </div>
     </div>` : ""}
+    ${watching.length ? `<div class="links">${watching.map((k) => linkList(k, true)).join("")}</div>` : ""}
     ${d.error ? `<div class="error">${esc(d.error)}</div>` : ""}`;
 
   const el = $("#detail");
@@ -406,6 +503,8 @@ async function loadDetail() {
 }
 
 $("#detail").addEventListener("click", (e) => {
+  const s = e.target.closest("[data-view-id]");
+  if (s) return showStructure(s.dataset.viewId);
   const v = e.target.closest("[data-view]"), t = e.target.closest("[data-tab]");
   if (v) return setView(v.dataset.view);
   if (t) { tab = t.dataset.tab; lastData = ""; return detail && renderDetail(detail); }
@@ -413,7 +512,13 @@ $("#detail").addEventListener("click", (e) => {
   // Clicking on nothing in the graph view deselects.
   if (view === "graph" && picked != null && !e.target.closest(".node, #data, #tabs")) pick(null);
 });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && view === "graph" && picked != null) pick(null); });
+$("#vclose").onclick = closeStructure;
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  // The structure is on top of everything, so Esc closes that first.
+  if ($("#viewer").classList.contains("on")) return closeStructure();
+  if (view === "graph" && picked != null) pick(null);
+});
 $("#runs").onclick = (e) => { const r = e.target.closest(".run"); if (r) select(r.dataset.id); };
 
 async function tick() {

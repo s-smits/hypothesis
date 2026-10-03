@@ -86,9 +86,16 @@ against the chosen provider. `temporal/run_hypothesis.py` loads the repository's
 | Builder, verifier and persistence | `src/node_dag/agent.py`, `temporal/run_hypothesis.py` | `tests/test_agent.py` |
 | UI and API | `temporal/ui/app.py`, adjacent HTML, `temporal/run_ui.py` | `tests/test_ui.py`, UI cases in `test_agent.py` |
 | Translation initiation prediction | `nodes/tools/ostir_expression/` under `src/node_dag/` | `tests/test_ostir.py` |
+| Sequence lookup for inputs | `src/node_dag/entrez.py` | `tests/test_entrez.py` |
 
 The current path is `Hypothesis → build_agent → validated Dag → DagWorkflow →
-DagOutput → verify_agent`. The builder's `create_node` registers a **configuration
+DagOutput → verify_agent`. `Hypothesis.inputs` starts empty: the `/new` page asks
+only for a goal, and the builder chooses the inputs with `add_input`, fetching
+sequences from NCBI with `search_sequences` and `fetch_sequences`. A caller that
+supplies `inputs` keeps them; `add_input` refuses to shadow one. Treat a sequence
+the model wrote out rather than fetched as unverified: `input_sources` records
+what each input was taken from, and is the only provenance a run carries today.
+The builder's `create_node` registers a **configuration
 of existing Python code**. It does not author an implementation. The registry
 persists those configurations across hypotheses; this alone is not an iterative
 search loop or research memory.

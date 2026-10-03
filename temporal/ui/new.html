@@ -29,19 +29,16 @@
   .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
   input, select, textarea { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; }
   textarea { width: 100%; resize: vertical; }
-  .input { display: grid; grid-template-columns: 1fr 120px 2fr auto; gap: 8px; margin-bottom: 8px; }
-  .input input[name=name] { font-family: ui-monospace, monospace; }
   button { font: inherit; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: inherit; padding: 6px 12px; cursor: pointer; }
   button.primary { background: var(--running); border-color: var(--running); color: #fff; font-weight: 600; align-self: flex-start; }
   button:disabled { opacity: .6; cursor: default; }
   #error { color: var(--failed); white-space: pre-wrap; }
-  @media (max-width: 600px) { .input { grid-template-columns: 1fr 1fr; } }
 </style>
 </head>
 <body>
 <header>
   <h1>node-dag</h1>
-  <nav><a href="/">Runs</a><a href="/hypotheses">Hypotheses</a><a href="/new" class="here">New</a><a href="/nodes">Nodes</a></nav>
+  <nav><a href="/">Runs</a><a href="/hypotheses">Hypotheses</a><a href="/observations">Observations</a><a href="/new" class="here">New</a><a href="/nodes">Nodes</a></nav>
 </header>
 <main>
   <form id="form">
@@ -49,84 +46,32 @@
     <div>
       <label for="goal-pick">Goal</label>
       <select id="goal-pick" style="width: 100%"><option value="">New goal…</option></select>
-      <textarea id="goal" rows="2" required placeholder="Lower the atom count of the sequence without changing its protein." style="margin-top: 8px"></textarea>
+      <textarea id="goal" rows="2" required placeholder="Increase the expression of the coding sequence without changing its protein." style="margin-top: 8px"></textarea>
       <div class="hint" id="goal-hint"></div>
     </div>
     <div>
       <label for="hypothesis">Hypothesis (optional)</label>
       <textarea id="hypothesis" rows="3" placeholder="How you think the goal can be met. The builder agent starts from this."></textarea>
     </div>
-    <div>
-      <div class="label">Inputs</div>
-      <div id="inputs"></div>
-      <button type="button" id="add">+ Add input</button>
-    </div>
     <div id="error"></div>
     <button class="primary" id="go">Start</button>
-    <div class="hint">The builder agent writes the DAG, it runs on Temporal, then the verifier judges the outcome. You can close this page; follow progress under Hypotheses.</div>
+    <div class="hint">The builder agent works out which sequences the goal is about and fetches them from NCBI, writes the DAG, it runs on Temporal, then the verifier judges the outcome. Name the gene, organism or accession in the goal so it can find the right record. You can close this page; follow progress under Hypotheses.</div>
   </form>
 </main>
 <script>
-// How to read each kind's value from one text box. Mirrors node_dag/types.py.
-const KINDS = {
-  dna: { field: "sequence", placeholder: "ATGGCC…", parse: (s) => s.trim().toUpperCase() },
-  rna: { field: "sequence", placeholder: "AUGGCC…", parse: (s) => s.trim().toUpperCase() },
-  amino_acid_sequence: { field: "sequence", placeholder: "MA…", parse: (s) => s.trim().toUpperCase() },
-};
 const $ = (sel) => document.querySelector(sel);
-
-function addInput(name = "", kind = "dna", value = "") {
-  const row = document.createElement("div");
-  row.className = "input";
-  row.innerHTML = `
-    <input name="name" placeholder="name" required>
-    <select name="kind">${Object.keys(KINDS).map((k) => `<option>${k}</option>`).join("")}</select>
-    <textarea name="value" rows="2" required></textarea>
-    <button type="button" title="Remove">✕</button>`;
-  const $k = row.querySelector("[name=kind]"), $v = row.querySelector("[name=value]");
-  row.querySelector("[name=name]").value = name;
-  $k.value = kind;
-  $v.value = value;
-  const sync = () => { $v.placeholder = KINDS[$k.value].placeholder; };
-  $k.addEventListener("change", sync);
-  sync();
-  row.querySelector("button").addEventListener("click", () => row.remove());
-  $("#inputs").append(row);
-}
-
-function readInputs() {
-  const inputs = {};
-  for (const row of document.querySelectorAll(".input")) {
-    const name = row.querySelector("[name=name]").value.trim();
-    const kind = row.querySelector("[name=kind]").value;
-    const text = row.querySelector("[name=value]").value;
-    if (name in inputs) throw new Error(`Input name "${name}" is used twice.`);
-    try {
-      // One entity per line.
-      const lines = text.split("\n").filter((l) => l.trim() !== "");
-      if (!lines.length) throw new Error("needs at least one");
-      inputs[name] = lines.map((l) => ({ kind, [KINDS[kind].field]: KINDS[kind].parse(l) }));
-    } catch (e) {
-      throw new Error(`Input "${name}" (${kind}): ${e.message}`);
-    }
-  }
-  return inputs;
-}
 
 // The error body is FastAPI's: {detail: "…"} or {detail: [{loc, msg}, …]}.
 const explain = (d) => typeof d === "string" ? d : Array.isArray(d) ? d.map((e) => `${e.loc.slice(1).join(".")}: ${e.msg}`).join("\n") : JSON.stringify(d);
 
 let GOALS = [];
 
-// Picking a previous goal hides the text box and copies in that goal's latest inputs.
+// Picking a previous goal hides the text box: that goal is used as it stands.
 function pickGoal() {
   const g = GOALS[$("#goal-pick").value];
   $("#goal").hidden = !!g;
   $("#goal").required = !g;
-  $("#goal-hint").textContent = g ? `${g.hypotheses} hypothesis${g.hypotheses === 1 ? "" : "es"} so far. Inputs copied from the latest; edit them freely.` : "";
-  if (!g) return;
-  $("#inputs").replaceChildren();
-  for (const [name, items] of Object.entries(g.inputs)) addInput(name, items[0].kind, items.map((v) => String(v[KINDS[v.kind]?.field] ?? "")).join("\n"));
+  $("#goal-hint").textContent = g ? `${g.hypotheses} hypothesis${g.hypotheses === 1 ? "" : "es"} so far.` : "";
 }
 
 async function loadGoals() {
@@ -147,13 +92,12 @@ async function loadGoals() {
 const goalText = () => GOALS[$("#goal-pick").value]?.goal ?? $("#goal").value;
 
 $("#goal-pick").addEventListener("change", pickGoal);
-$("#add").addEventListener("click", () => addInput());
 $("#form").addEventListener("submit", async (e) => {
   e.preventDefault();
   $("#error").textContent = "";
   $("#go").disabled = true;
   try {
-    const body = { goal: goalText(), hypothesis: $("#hypothesis").value, inputs: readInputs() };
+    const body = { goal: goalText(), hypothesis: $("#hypothesis").value };
     const r = await fetch("/api/hypotheses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(explain(data.detail ?? `${r.status}`));
@@ -164,7 +108,6 @@ $("#form").addEventListener("submit", async (e) => {
   }
 });
 
-addInput("seq");
 loadGoals();
 </script>
 </body>

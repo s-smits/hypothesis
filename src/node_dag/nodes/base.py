@@ -27,12 +27,19 @@ def _add_contract(schema: dict[str, Any], cls: type["BaseNodeConfig"]) -> None:
     schema["x-node"] = cls.contract()
 
 
+def _check_one_port(cls: type["BaseNodeConfig"]) -> None:
+    # A score or filter passes its entities on, so they must all come from one source.
+    if len(cls.inputs) != 1:
+        raise TypeError(f"{cls.__name__} must have one input port, not {cls.inputs}")
+
+
 class BaseNodeConfig(BaseModel):
     """Base for every node config.
 
-    A node runs once on the whole list of entities that flows into its one input port.
-    A subclass sets a unique ``name`` literal, ``categories``, and ``inputs``: the port
-    name and entity type that the node's ``run`` takes, as a list, by keyword.
+    A node runs once on the whole list of entities that flows into each input port. A
+    subclass sets a unique ``name`` literal, ``categories``, and ``inputs``: each port
+    name and entity type that the node's ``run`` takes, as a list, by keyword. Only a
+    tool may have more than one port.
 
     ``config_hash`` is a hash of the name, version and every other field. It is set when
     the config is made, so it says what the node does. A config that arrives with a
@@ -54,6 +61,9 @@ class BaseNodeConfig(BaseModel):
     # Part of the cache key and the config hash. Raise it when a change to run()
     # changes its results.
     version: ClassVar[int] = 1
+    # How long a step of this node may take before the run gives up on it. Raise it
+    # for a node whose work happens elsewhere, e.g. on a GPU that has to start first.
+    timeout_minutes: ClassVar[int] = 5
 
     @model_validator(mode="after")
     def _set_hash(self) -> "BaseNodeConfig":
@@ -88,8 +98,13 @@ class BaseNodeConfig(BaseModel):
         }
 
     @classmethod
+    def takes(cls, t: type[Entity]) -> bool:
+        """Whether some input port takes entities of type ``t``."""
+        return any(issubclass(t, want) for want in cls.inputs.values())
+
+    @classmethod
     def port(cls) -> tuple[str, type[Entity]]:
-        """The one input port and its entity type."""
+        """The one input port and its entity type, for a score or filter."""
         ((port, t),) = cls.inputs.items()
         return port, t
 
@@ -97,8 +112,9 @@ class BaseNodeConfig(BaseModel):
 class BaseToolConfig(BaseNodeConfig):
     """A tool config. ``output`` is the entity type of the list that ``run`` returns.
 
-    ``run`` returns one output entity per input, or any number. The step's table has
-    only these entities and no scores, since they are new entities.
+    A tool may have several input ports, each getting the whole list from its source;
+    ``run`` decides how to pair them up. It returns any number of output entities. The
+    step's table has only these entities and no scores, since they are new entities.
     """
 
     output: ClassVar[type[Entity]]
@@ -118,6 +134,12 @@ class BaseScoreConfig(BaseNodeConfig):
     """
 
     output: ClassVar[dict[str, type[Score]]]
+
+    @classmethod
+    def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:  # noqa: ANN401
+        """Reject a scoring config without exactly one input port."""
+        super().__pydantic_init_subclass__(**kwargs)
+        _check_one_port(cls)
 
     @classmethod
     def outputs(cls) -> dict[str, type[Entity]]:
@@ -145,6 +167,12 @@ class BaseFilterConfig(BaseNodeConfig):
     """
 
     column: str
+
+    @classmethod
+    def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:  # noqa: ANN401
+        """Reject a filter config without exactly one input port."""
+        super().__pydantic_init_subclass__(**kwargs)
+        _check_one_port(cls)
 
     @classmethod
     def outputs(cls) -> dict[str, type[Entity]]:
