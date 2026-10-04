@@ -76,6 +76,19 @@ def test_codon_optimise_keeps_what_the_table_says_nothing_about():
     assert node.run(sequence=[Dna(sequence="ATGGCT")]) == [Dna(sequence="ATGGCT")]
 
 
+@pytest.mark.parametrize("strategy", ["most_frequent", "least_frequent"])
+def test_codon_optimise_keeps_the_stop_codon(strategy):
+    table = {**WEIGHTS, "TAA": 1.0, "TGA": 0.4, "TAG": 0.1}
+    node = CodonOptimise(CodonOptimiseConfig(codon_weights=table, strategy=strategy))
+    for stop in ("TAA", "TGA", "TAG"):
+        (out,) = node.run(sequence=[Dna(sequence="ATGGCC" + stop)])
+        assert out.sequence.endswith(stop)
+    # The sense codon is still respelled.
+    assert node.run(sequence=[Dna(sequence="ATGGCCTGA")])[0] != Dna(
+        sequence="ATGGCCTGA"
+    )
+
+
 def test_codon_optimise_weighted_sample_is_seeded_per_sequence():
     table = {**WEIGHTS, "CTG": 1.0, "TTA": 1.0}
     config = CodonOptimiseConfig(codon_weights=table, strategy="weighted_sample")

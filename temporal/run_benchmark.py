@@ -32,6 +32,7 @@ from node_dag.benchmark import (
     exact_codon_pair,
     greedy_chain,
     manifest,
+    mean_gap_closed,
     pair_weights_from,
     random_synonymous,
     record_attempt,
@@ -78,10 +79,9 @@ def _table(
     click.echo("-" * 78)
     click.echo(f"{'mean':<12}{'':>7}  ", nl=False)
     for name in names:
-        present = [r.gap_closed for r in out[name] if r.gap_closed is not None]
+        mean = mean_gap_closed(out[name])
         click.echo(
-            f"{(sum(present) / len(present)):>13.1%} " if present else "          n/a ",
-            nl=False,
+            f"{mean:>13.1%} " if mean is not None else "          n/a ", nl=False
         )
     click.echo("")
     click.echo(f"{'passed':<12}{'':>7}  ", nl=False)
