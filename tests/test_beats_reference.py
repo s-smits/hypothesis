@@ -111,3 +111,12 @@ def test_the_scoring_step_runs_before_the_filter_and_must_hold_the_column():
     wrong["steps"]["better"]["config"]["scored_in"] = "nowhere"
     with pytest.raises(ValidationError, match="Unknown source"):
         Dag.model_validate(wrong)
+
+
+def test_a_scored_in_that_names_no_step_says_which_step_and_which_node():
+    # A registered node keeps its plan-local scored_in, so a later plan may lack the step.
+    with pytest.raises(ValidationError) as e:
+        Dag.model_validate(_dag(scored_in="cai_in"))
+    msg = str(e.value)
+    assert "Unknown source 'cai_in'" in msg and "Step 'better'" in msg
+    assert "scored_in" in msg and "beats_reference__" in msg

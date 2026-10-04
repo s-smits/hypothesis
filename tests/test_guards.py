@@ -9,7 +9,7 @@ from node_dag.nodes.base import BaseScoreConfig
 from node_dag.nodes.tools.codon_count.config import CodonCountConfig
 from node_dag.plan import Attempt, Criterion, Critique, Plan, ToolRequest
 from node_dag.registry import Registry
-from node_dag.types import Dna
+from node_dag.types import AminoAcidSequence, Dna, Entity
 
 HYP = Hypothesis(
     goal="remove TCG",
@@ -243,3 +243,38 @@ async def test_the_plan_tool_is_not_strict_so_its_dicts_can_have_keys(results_di
         .get("additionalProperties")
         is not False
     )
+
+
+def _beats_plan(reference: Entity) -> dict:
+    better = _step(
+        "beats_reference",
+        "counted",
+        "items",
+        column=COLUMN,
+        reference=reference.model_dump(mode="json"),
+        scored_in="counted",
+    )
+    ask = {"criterion": "no_tcg", "step": "better", "branch": "produced", "claim": "c"}
+    steps = {**_plan()["steps"], "better": better}
+    return _plan(steps=steps, assertions=[ask])
+
+
+async def test_a_beats_reference_plan_whose_reference_is_an_input_is_accepted(
+    results_dir,
+):
+    _, errors = await _run(results_dir, _beats_plan(HYP.inputs["seq"][0]))
+    assert errors == []
+
+
+async def test_a_beats_reference_plan_whose_reference_is_not_an_input_is_sent_back(
+    results_dir,
+):
+    good = _beats_plan(HYP.inputs["seq"][0])
+    made_up = Dna(sequence="ATGTCCTAA")  # The right kind, but not an input.
+    wrong_kind = AminoAcidSequence(sequence="MS")
+    for bad in (made_up, wrong_kind):
+        _, errors = await _run(results_dir, _beats_plan(bad), good)
+        assert len(errors) == 1, errors
+        assert "Step 'better'" in errors[0] and "one of the input entities" in errors[0]
+        assert "dna ATGTCGTAA" in errors[0] and "'counted'" in errors[0]
+        assert "scored_in" in errors[0]

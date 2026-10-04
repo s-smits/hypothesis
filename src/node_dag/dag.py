@@ -49,6 +49,23 @@ class Dag(BaseModel):
         """A sorter over steps and inputs, keyed by name."""
         return TopologicalSorter({k: s.deps() for k, s in self.steps.items()})
 
+    def _unknown_source(self, name: str) -> str:
+        """The error for a source nothing defines. A ``scored_in`` is named as one."""
+        for key, step in self.steps.items():
+            cfg = step.config
+            if (
+                isinstance(cfg, BaseFilterConfig)
+                and (ref := cfg.reads_reference())
+                and ref[0].split(".")[0] == name
+            ):
+                return (
+                    f"Unknown source {name!r}. Step {key!r} ({cfg.name}__{cfg.config_hash}) "
+                    f"reads it from its scored_in field, but this plan has no step or "
+                    f"input of that name. Set scored_in to the step that scores the "
+                    f"reference with the same node as the entities."
+                )
+        return f"Unknown source {name!r}"
+
     @model_validator(mode="after")
     def _check(self) -> Self:
         if bad := [k for k in self.steps if "." in k or k in self.inputs]:
@@ -68,7 +85,7 @@ class Dag(BaseModel):
             if key in self.inputs:
                 continue
             if key not in self.steps:
-                raise ValueError(f"Unknown source {key!r}")
+                raise ValueError(self._unknown_source(key))
             step, config = self.steps[key], self.steps[key].config
             if step.inputs.keys() != config.inputs.keys():
                 raise ValueError(

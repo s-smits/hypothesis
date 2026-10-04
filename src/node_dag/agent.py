@@ -571,6 +571,22 @@ def build_agent(
             plan.typecheck(configs)
         except (ValidationError, ValueError, TypeError) as e:
             raise ModelRetry(str(e)) from e
+        inputs = {i.id: i for items in hyp.inputs.values() for i in items}
+        for step, cfg in configs.items():
+            # A reference that is no input is never scored, and fails the run later.
+            if (
+                isinstance(cfg, BaseFilterConfig)
+                and (ref := cfg.reads_reference())
+                and ref[1] not in inputs
+            ):
+                shown = [
+                    f"{i.kind} {i.sequence[:20]}" for i in list(inputs.values())[:20]
+                ]
+                raise ModelRetry(
+                    f"Step {step!r}: the reference {ref[1]!r} must be one of the input "
+                    f"entities: {shown}. It must be scored in step {ref[0]!r} (its "
+                    "scored_in) by the same node as the entities."
+                )
         ids = {c.id for c in hyp.criteria}
         for a in plan.assertions:
             if a.criterion not in ids:
