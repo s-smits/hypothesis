@@ -56,6 +56,38 @@ def _pick(records: list[dict], n: int) -> list[dict]:
     return [by_length[i * step] for i in range(n)]
 
 
+def goal_for(instance: Instance, weights: Mapping[str, float]) -> dict:
+    """The loop's goal for one instance, in the words of what the gate checks.
+
+    The sequence and weight table are the benchmark's own, and the codons that must not
+    change come from ``Instance.fixed``, so the loop is asked what the gate scores. The
+    optimum, a gap and the held-out split are never written. The dict is a
+    ``Hypothesis`` without an id, which the loop fills in.
+    """
+    table = json.dumps(dict(sorted(weights.items())), separators=(",", ":"))
+    cs = codons(instance.parent.sequence)
+    keep = ", ".join(f"{cs[i]} at index {i}" for i in sorted(instance.fixed()))
+    claims = {
+        "protein_preserved": "Every kept output DNA sequence translates to exactly the same protein as the input sequence: only synonymous codon changes were made.",
+        "higher_cai": "Every kept output sequence has a codon adaptation index, scored with the given weight table, strictly higher than that of the first input sequence.",
+        "only_improved_kept": "Any sequence whose codon adaptation index is not higher than the first sequence's is excluded from the output.",
+        "length_preserved": "Every kept output sequence has the same length as the input sequence.",
+        "fixed_codons_kept": f"Every kept output sequence keeps the input's codon at each fixed position ({keep}; codon indices count from 0). A synonymous codon there is a change.",
+    }
+    return {
+        "goal": (
+            "Raise the codon adaptation index of the DNA sequence without changing its protein. "
+            f"Score it with this codon weight table: {table} . "
+            f"Leave these codons as they are: {keep}. "
+            "Keep the ones that score higher than the first sequence."
+        ),
+        "inputs": {"seqs": [{"kind": "dna", "sequence": instance.parent.sequence}]},
+        "criteria": [
+            {"id": i, "claim": c, "source": "human"} for i, c in claims.items()
+        ],
+    }
+
+
 def _table(
     title: str,
     instances: Sequence[Instance],
@@ -212,6 +244,12 @@ def loop_line(rows: Sequence[Result]) -> str:
     default=None,
     help="Where to append the attempt. Default $NODE_DAG_RESULTS/ledger.",
 )
+@click.option(
+    "--emit-goals",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Write one loop goal file per instance to this directory, then stop: nothing is scored or recorded.",
+)
 def main(
     accession: str,
     n_instances: int,
@@ -224,6 +262,7 @@ def main(
     frozen: str,
     loop_results: Path | None,
     ledger_root: Path | None,
+    emit_goals: Path | None,
 ) -> None:
     """Compare random, best-of-N, greedy and exact recoding on genes from ACCESSION."""
     release, frozen_raw = release_holdout, frozen
@@ -282,6 +321,13 @@ def main(
         f"split {split.split_hash}: {len(split.dev)} development, "
         f"{len(split.holdout)} held out. Scoring the {which} side.\n"
     )
+    if emit_goals:
+        emit_goals.mkdir(parents=True, exist_ok=True)
+        for i in instances:
+            goal = json.dumps(goal_for(i, cai_w), indent=1)
+            (emit_goals / f"goal_{i.key}.json").write_text(goal)
+        click.echo(f"wrote {len(instances)} goals to {emit_goals}; nothing was scored")
+        return
 
     pair_strategies = {
         "original": lambda i: [i.parent.sequence],
