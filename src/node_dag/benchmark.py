@@ -56,6 +56,7 @@ __all__ = [
     "greedy_chain",
     "ledger_dir",
     "manifest",
+    "mean_gap_closed",
     "pair_weights_from",
     "random_synonymous",
     "record_attempt",
@@ -732,7 +733,7 @@ def record_attempt(
                     "evaluations": sum(r.evaluations for r in rows),
                     "passed": sum(r.passed for r in rows),
                     "n_instances": len(rows),
-                    "mean_gap_closed": _mean([r.gap_closed for r in rows]),
+                    "mean_gap_closed": mean_gap_closed(rows),
                     "per_instance": [
                         {
                             "instance": r.instance,
@@ -757,6 +758,24 @@ def record_attempt(
             },
         },
     )
+
+
+def mean_gap_closed(rows: Sequence[Result]) -> float | None:
+    """The mean ``gap_closed`` over one strategy's instances, a failure counting as 0.0.
+
+    A row that did not pass is worth what leaving the sequence alone is worth, so a
+    strategy cannot raise its mean by failing the instances it did badly on. Dropping
+    those rows instead, which is what averaging ``gap_closed`` alone does since it is
+    None for a failure, lets a gate's rejections vanish from the headline number: a
+    strategy rejected on six of fourteen genes then reports the mean of the eight it
+    passed.
+
+    The one row left out is a passed row with no gap to close, where the original
+    already attains the optimum and the ratio is undefined. None when no row has a gap.
+    """
+    values = [0.0 if not r.passed else r.gap_closed for r in rows]
+    present = [v for v in values if v is not None]
+    return sum(present) / len(present) if present else None
 
 
 def _mean(values: Sequence[float | None]) -> float | None:

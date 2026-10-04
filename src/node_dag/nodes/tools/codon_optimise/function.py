@@ -18,7 +18,9 @@ class CodonOptimise(BaseNode[CodonOptimiseConfig]):
         return Dna(sequence="".join(self._pick(c, rng) for c in codons(s.sequence)))
 
     def _pick(self, codon: str, rng: random.Random) -> str:
-        if len(codon) != 3:
+        if len(codon) != 3 or CODON_TABLE[codon] == "*":
+            # A stop is not spelled by a usage table, and a CAI skips it, so there is
+            # nothing to gain by respelling one and the gene's end would move.
             return codon
         synonyms = SYNONYMS[CODON_TABLE[codon]]
         weights = [self.config.codon_weights.get(s, 0.0) for s in synonyms]
