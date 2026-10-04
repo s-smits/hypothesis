@@ -8,10 +8,11 @@ from dotenv import load_dotenv
 from temporalio.client import Client
 from temporalio.contrib.pydantic import pydantic_data_converter
 
+from temporal.hypothesis.loop import BUILD_MODEL, VERIFY_MODEL
 from temporal.ui.app import make_app
 
 # Load .env from the project root
-load_dotenv(Path(__file__).parent.parent.parent / ".env")
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,15 +35,15 @@ async def _main(
 @click.option("--host", default="127.0.0.1", help="Host to serve the UI on.")
 @click.option("--port", default=8000, help="Port to serve the UI on.")
 @click.option(
-    "--model",
-    help="pydantic-ai model for the builder. Needed to start hypotheses from the UI.",
+    "--model", default=BUILD_MODEL, show_default=True, help="Model for the builder."
 )
 @click.option(
-    "--verify-model", help="pydantic-ai model for the verifier. Default: --model."
+    "--verify-model",
+    default=VERIFY_MODEL,
+    show_default=True,
+    help="Model for the verifier. Keep it different from the builder's.",
 )
-def main(
-    address: str, host: str, port: int, model: str | None, verify_model: str | None
-) -> None:
+def main(address: str, host: str, port: int, model: str, verify_model: str) -> None:
     """Serve pages that show DagWorkflow runs and hypotheses, and start hypotheses."""
     asyncio.run(_main(address, host, port, model, verify_model))
 

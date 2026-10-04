@@ -22,7 +22,14 @@ from node_dag.nodes.tools.mutate_synonymous.config import MutateSynonymousConfig
 from node_dag.nodes.tools.mutate_synonymous.function import MutateSynonymous
 from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
 from node_dag.nodes.tools.ostir_expression.function import OstirExpression
-from node_dag.types import AminoAcidSequence, Dna, ProteinStructure, Table, Value
+from node_dag.types import (
+    AminoAcidSequence,
+    Dna,
+    NucleicAcid,
+    ProteinStructure,
+    Table,
+    Value,
+)
 from temporal.dag.activities import (
     RunNodeInput,
     SavedRun,
@@ -41,7 +48,9 @@ SCORE = OstirExpressionConfig(utr="TTCTAGAAAGGAGGTAAAAAA")
 EXPRESSION = SCORE.columns()["expression"]
 SCORES = {
     m.id: s["expression"].value
-    for m, s in zip(MUTANTS, OstirExpression(SCORE).run(sequence=MUTANTS))
+    for m, s in zip(
+        MUTANTS, OstirExpression(SCORE).run(sequence=list[NucleicAcid](MUTANTS))
+    )
 }
 # Splits the mutants: at least one is at or under it, and at least one is over.
 LIMIT = 600_000.0

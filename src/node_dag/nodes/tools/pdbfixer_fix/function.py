@@ -34,7 +34,7 @@ def seeded_modeller(seed: int) -> Iterator[None]:
     """
     with _SEEDING:
         saved = modeller.random
-        modeller.random = random.Random(seed)
+        modeller.random = random.Random(seed)  # ty: ignore[invalid-assignment]
         try:
             yield
         finally:

@@ -15,6 +15,8 @@ from node_dag.nodes.tools.chain_contacts.config import ChainContactsConfig
 from node_dag.nodes.tools.chain_contacts.function import ChainContacts
 from node_dag.nodes.tools.codon_adaptation.config import CodonAdaptationConfig
 from node_dag.nodes.tools.codon_adaptation.function import CodonAdaptation
+from node_dag.nodes.tools.codon_count.config import CodonCountConfig
+from node_dag.nodes.tools.codon_count.function import CodonCount
 from node_dag.nodes.tools.codon_optimise.config import CodonOptimiseConfig
 from node_dag.nodes.tools.codon_optimise.function import CodonOptimise
 from node_dag.nodes.tools.codon_pair_score.config import CodonPairScoreConfig
@@ -62,6 +64,7 @@ NodeConfig = Annotated[
     AtLeastConfig
     | AtMostConfig
     | ChainContactsConfig
+    | CodonCountConfig
     | CodonAdaptationConfig
     | CodonOptimiseConfig
     | CodonPairScoreConfig
@@ -92,6 +95,7 @@ MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
     AtLeastConfig: AtLeast,
     AtMostConfig: AtMost,
     ChainContactsConfig: ChainContacts,
+    CodonCountConfig: CodonCount,
     CodonAdaptationConfig: CodonAdaptation,
     CodonOptimiseConfig: CodonOptimise,
     CodonPairScoreConfig: CodonPairScore,

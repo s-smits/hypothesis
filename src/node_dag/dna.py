@@ -16,6 +16,13 @@ SYNONYMS: dict[str, tuple[str, ...]] = {
 }
 
 
+def codon_set(v: tuple[str, ...]) -> tuple[str, ...]:
+    """Upper-case and de-duplicate codons, in order. Raises ValueError on a non-codon."""
+    if bad := [c for c in v if c.upper() not in CODON_TABLE]:
+        raise ValueError(f"Not a codon: {bad}")
+    return tuple(dict.fromkeys(c.upper() for c in v))
+
+
 def codons(sequence: str) -> list[str]:
     """The in-frame codons of a coding sequence; the last is partial if unaligned."""
     return [sequence[i : i + 3] for i in range(0, len(sequence), 3)]

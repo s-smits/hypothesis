@@ -44,6 +44,13 @@ def test_removes_every_occurrence_of_a_target():
     assert str(Seq(out.sequence).translate()) == str(Seq(seq.sequence).translate())
 
 
+def test_a_partial_codon_at_the_end_is_left_alone():
+    (out,) = RecodeTargeted(
+        RecodeTargetedConfig(targeted_codons=("TCG",), strategy="first")
+    ).run(sequence=[Dna(sequence="ATGTCGTC")])
+    assert out.sequence.endswith("TC") and "TCG" not in codons(out.sequence)
+
+
 def test_leaves_untargeted_codons_alone():
     out = recode(SEQ, ("CTG",))
     before, after = codons(SEQ.sequence), codons(out.sequence)
@@ -348,3 +355,15 @@ def test_codon_table_assumption_behind_the_unreachable_tests():
     """The tests above rely on these amino acids having exactly one codon."""
     assert CODON_TABLE["ATG"] == "M"
     assert CODON_TABLE["TGG"] == "W"
+
+
+def test_a_variant_is_never_its_own_source_but_can_equal_another_input():
+    """Two inputs two synonymous swaps apart reach each other; neither is copied through."""
+    one, three = Dna(sequence="ATGGCTCTGAAATAA"), Dna(sequence="ATGGCCCTGAAATGA")
+    node = MutateSynonymous(
+        MutateSynonymousConfig(seed=7, count=2, variants_per_sequence=30)
+    )
+    from_one = {d.sequence for d in node.run([one])}
+    from_three = {d.sequence for d in node.run([three])}
+    assert one.sequence not in from_one and three.sequence not in from_three
+    assert three.sequence in from_one and one.sequence in from_three

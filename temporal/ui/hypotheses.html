@@ -35,8 +35,7 @@
   .id { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); word-break: break-all; }
   .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
   .plan { white-space: pre-wrap; }
-  .crits { margin: 2px 0 0; padding-left: 18px; }
-  .crits .kind { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+  pre { margin: 0; white-space: pre-wrap; font: 12px ui-monospace, monospace; }
   .chips { display: flex; gap: 6px; flex-wrap: wrap; }
   .chip { font: 12px ui-monospace, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 1px 8px; }
   .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; }
@@ -45,12 +44,14 @@
   .s-achieved, .s-done { background: var(--done); }
   .s-not-achieved { background: var(--amber); }
   .s-failed { background: var(--failed); }
-  .s-interrupted { background: var(--muted); }
+  .s-blocked { background: var(--amber); }
+  .s-critiquing { background: var(--running); }
+  .s-abandoned { background: var(--skipped); color: var(--muted); }
+  button { font: inherit; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: inherit; padding: 4px 12px; cursor: pointer; }
   .s-skipped { background: var(--skipped); color: var(--muted); }
   .verdict { border-left: 3px solid var(--line); padding: 6px 10px; background: var(--bg); border-radius: 0 6px 6px 0; }
   .verdict.yes { border-color: var(--done); }
   .verdict.no { border-color: var(--amber); }
-  .verdict.error { border-color: var(--failed); white-space: pre-wrap; }
   .table { overflow-x: auto; }
   table { border-collapse: collapse; width: 100%; }
   th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
@@ -84,8 +85,7 @@
 <main id="view"><div class="empty">Loading…</div></main>
 <script>
 const POLL_MS = 3000;
-const STATUSES = ["achieved", "not achieved", "failed", "interrupted", "verifying", "running", "building"];
-const STOPPED = new Set(["failed", "interrupted"]);
+const STATUSES = ["achieved", "not achieved", "failed", "abandoned", "blocked", "critiquing", "verifying", "running", "building"];
 let rows = null;    // The last /api/hypotheses response.
 let last = "";      // What was last drawn, to redraw only on change.
 
@@ -95,33 +95,17 @@ const cls = (status) => `s-${status.replace(" ", "-")}`;
 const badge = (status) => `<span class="badge ${cls(status)}">${status}</span>`;
 const when = (t) => new Date(t).toLocaleString();
 const showValue = (v) => v == null ? "" : Array.isArray(v) ? `${v.length} × ${v[0]?.kind ?? "empty"}` : v.items ? `${v.items.length} × ${v.items[0]?.kind ?? "empty"}${Object.keys(v.scores).length ? `, scores: ${Object.keys(v.scores).join(", ")}` : ""}` : JSON.stringify(v);
+// This round's attempt: its plan, DAG, outcome and verdict. Missing while the builder plans.
+const cur = (h) => h.attempts.find((a) => a.round === h.round);
+// The builder's plan once there is one, else the idea the user gave.
+const idea = (h) => cur(h)?.plan?.hypothesis ?? h.hypothesis;
+const noIdea = (status) => status === "building" ? "The builder agent is writing it…" : "No plan was written.";
+const STOPPED = new Set(["achieved", "not achieved", "abandoned", "failed"]);
+// The inputs, with where each came from when the agent fetched it, or why there are none yet.
+const inputChips = (h) => Object.keys(h.inputs).length
+  ? Object.entries(h.inputs).map(([k, v]) => `<span class="chip"${h.input_sources?.[k] ? ` title="${esc(h.input_sources[k])}"` : ""}>${esc(k)}: ${esc(showValue(v))}</span>`).join("")
+  : `<span class="meta">${STOPPED.has(h.state) ? "No inputs were found." : "The agent is fetching them…"}</span>`;
 const chips = (values) => Object.entries(values).map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(showValue(v))}</span>`).join("");
-
-// One criterion with the critic's call on it, when the verifier judged it.
-const criterionLine = (c, judgements = [], i) => {
-  const j = (judgements ?? []).find((x) => x.criterion === i);
-  const mark = j ? `<span class="badge ${j.met === true ? "s-achieved" : j.met === false ? "s-not-achieved" : "s-skipped"}">${j.met === true ? "met" : j.met === false ? "not met" : "unclear"}</span> ` : "";
-  return `<li>${mark}<span class="kind">${c.kind}</span> ${esc(c.text)}${j?.reason ? `<div class="meta">${esc(j.reason)}</div>` : ""}</li>`;
-};
-
-// The inputs, with where each came from, or why there are none yet: the builder
-// chooses them, so a hypothesis has none until it has submitted its DAG.
-const inputChips = (row) => {
-  const h = row.hypothesis;
-  if (Object.keys(h.inputs).length) {
-    return Object.entries(h.inputs).map(([k, v]) => {
-      const from = h.input_sources?.[k];
-      return `<span class="chip" ${from ? `title="${esc(from)}"` : ""}>${esc(k)}: ${esc(showValue(v))}</span>`;
-    }).join("");
-  }
-  return `<span class="meta">${STOPPED.has(row.status) ? "The builder agent did not choose any." : "The builder agent is choosing them…"}</span>`;
-};
-
-// The plan, or why there is none yet.
-const plan = (row) => row.hypothesis.hypothesis ? esc(row.hypothesis.hypothesis)
-  : `<span class="meta">${STOPPED.has(row.status) ? "The builder agent did not finish one." : "The builder agent is writing it…"}</span>`;
-// Why it stopped: its own error, else its run's.
-const why = (row) => row.hypothesis.error ?? row.progress?.error;
 
 const obsHref = (o) => `/observations?${new URLSearchParams({ core: o.core, id: o.amass_id })}`;
 const obsSource = (o) => [o.source, o.date].filter(Boolean).map(esc).join(", ");
@@ -162,7 +146,7 @@ function tally(rs) {
 function goalsView() {
   const gs = goals();
   if (!gs.length) return `<div class="empty">No hypotheses yet. Run one with<br>
-    <code>uv run python -m temporal.run_hypothesis examples/score.json --model …</code></div>`;
+    <code>uv run python -m temporal.run_hypothesis examples/simple.json</code></div>`;
   return `
     <div class="counts"><span><b>${gs.length}</b> goals, <b>${rows.length}</b> hypotheses</span></div>
     <div class="rows">${gs.map((g) => `
@@ -193,10 +177,10 @@ function goalView(goal) {
       const h = r.hypothesis;
       return `
       <a class="row" href="${href({ id: h.id })}">
-        <div class="line">${badge(r.status)}<span class="summary">${plan(r)}</span></div>
+        <div class="line">${badge(r.status)}<span class="summary">${idea(h) ? esc(idea(h)) : `<span class="meta">${noIdea(r.status)}</span>`}</span></div>
         <div class="side"><span class="meta">${when(r.updated)}</span></div>
-        <div class="chips">${inputChips(r)}</div>
-        <div class="side">${h.verdict ? `<span class="meta">${h.verdict.achieved ? "goal achieved" : "goal not achieved"}</span>` : ""}</div>
+        <div class="chips">${inputChips(h)}</div>
+        <div class="side">${cur(h)?.verdict ? `<span class="meta">${cur(h).verdict.achieved ? "goal achieved" : "goal not achieved"}</span>` : ""}</div>
       </a>`;
     }).join("")}
     </div>
@@ -215,10 +199,10 @@ function goalObservations(rs) {
 
 // One row per step: its node, sources, status and value.
 function steps(row) {
-  const h = row.hypothesis, p = row.progress;
-  const values = h.outcome?.values ?? p?.values ?? {};
-  const skipped = new Set(h.outcome?.skipped ?? []);
-  return Object.entries(h.dag.steps).map(([k, step]) => {
+  const a = cur(row.hypothesis), p = row.progress;
+  const values = a.outcome?.values ?? p?.values ?? {};
+  const skipped = new Set(a.outcome?.skipped ?? []);
+  return Object.entries(a.dag.steps).map(([k, step]) => {
     const { name, ...args } = step.config;
     const params = Object.entries(args).map(([a, v]) => `${a}=${JSON.stringify(v)}`).join(", ");
     const branch = ["yes", "no"].find((b) => `${k}.${b}` in values);
@@ -230,11 +214,55 @@ function steps(row) {
   });
 }
 
+// What the latest round's assertions say about each criterion.
+function criteriaView(h) {
+  if (!h.criteria.length) return "";
+  const att = cur(h), ran = att && Object.keys(att.held).length > 0;
+  const state = (c) => {
+    const a = att?.plan?.assertions.find((x) => x.criterion === c.id);
+    if (!a) return att?.plan ? "no assertion covers it" : "no plan yet";
+    return !ran ? "not run yet" : att.held[`${a.step}.${a.branch}`] ? "holds" : "did not hold";
+  };
+  return `<div><div class="label">Criteria</div><table><tbody>${h.criteria.map((c) => `
+    <tr><td><code>${esc(c.id)}</code></td><td>${esc(c.claim)}</td><td>${esc(state(c))}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function roundsView(h) {
+  if (!h.attempts.length) return "";
+  return `<div><div class="label">Rounds</div><table><thead><tr><th>#</th><th>Result</th><th>What happened</th></tr></thead><tbody>${h.attempts.map((a) => `
+    <tr><td>${a.round}</td><td>${a.verdict ? badge(a.verdict.achieved ? "achieved" : "not achieved") : a.error ? badge("failed") : ""}</td>
+    <td>${esc(a.critique?.fix ?? a.error ?? a.verdict?.reason ?? "")}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+// A requested node's contract, as the builder wrote it, and how to start writing it.
+function requestView(r) {
+  const fields = r.config_fields.map((f) => `
+    <tr><td><code>${esc(f.name)}</code></td><td><code>${esc(f.type)}</code></td><td>${f.required ? "yes" : "no"}</td><td>${esc(f.description)}</td></tr>`).join("");
+  return `<div><b>${esc(r.name)}</b> (${esc(r.node)}): ${esc(r.purpose)}
+    <div class="meta">takes <code>${esc(r.port)}</code>: ${esc(r.kind)}${r.output ? `, gives ${esc([r.output].flat().join(", "))}` : ""}</div>
+    ${fields ? `<div class="table"><table><thead><tr><th>Config field</th><th>Type</th><th>Required</th><th>What it controls</th></tr></thead><tbody>${fields}</tbody></table></div>` : ""}
+    <div class="label">Why it is needed</div>${esc(r.why_needed)}
+    <div class="label">Why it cannot be composed</div>${esc(r.why_not_composable)}
+    <div class="label">Example</div><pre>${esc(r.example)}</pre>
+    <div class="label">Scaffold it</div><pre>uv run python -m temporal.scaffold_node ${esc(r.name)}</pre></div>`;
+}
+
+function blockedView(h) {
+  if (h.state !== "blocked") return "";
+  const att = cur(h), pending = att?.requests ?? [], note = att?.error;
+  const button = (signal, text) => `<button data-signal="${signal}" data-id="${esc(h.id)}">${text}</button>`;
+  return `<div class="verdict no"><div class="label">Blocked: waiting for ${pending.map((r) => esc(r.name)).join(", ")}</div>
+    ${pending.map(requestView).join("")}
+    ${note ? `<div class="meta">${esc(note)}</div>` : ""}
+    <p>Write <code>run</code>, register the node in <code>factory.py</code> (the NodeConfig union and MAPPING), and <b>restart the worker</b>: the registry is read at import. Then resume, and the same plan is resolved again.</p>
+    ${button("tool_added", "Resume")} ${button("abandon", "Abandon")} <span class="meta" id="signal-error"></span></div>`;
+}
+
 function detailView(id) {
   const row = rows.find((r) => r.hypothesis.id === id);
   if (!row) return `${crumbs(null, id)}<div class="empty">No hypothesis ${esc(id)}.</div>`;
-  const h = row.hypothesis;
-  const produced = h.outcome ? Object.fromEntries(Object.entries(h.outcome.values).filter(([k]) => !(k in h.inputs))) : null;
+  const h = row.hypothesis, a = cur(h);
+  const produced = a?.outcome ? Object.fromEntries(Object.entries(a.outcome.values).filter(([k]) => !(k in h.inputs))) : null;
   return `
     ${crumbs(h.goal, id)}
     <article class="card">
@@ -244,24 +272,22 @@ function detailView(id) {
         <span class="meta">updated ${when(row.updated)}</span>
       </div>
       <div class="id">${esc(h.id)}</div>
-      ${h.criteria?.length ? `<div><div class="label">Success criteria</div><ul class="crits">${h.criteria.map((c, i) => criterionLine(c, h.verdict?.criteria, i)).join("")}</ul></div>` : ""}
-      <div><div class="label">Inputs</div><div class="chips">${inputChips(row)}</div></div>
-      ${STOPPED.has(row.status) && why(row) ? `
-      <div class="verdict error">
-        <div class="label">${row.status === "interrupted" ? "Interrupted" : "Failed"}</div>
-        <div>${esc(why(row))}</div>
-      </div>` : ""}
-      <div><div class="label">Hypothesis</div><div class="plan">${plan(row)}</div></div>
+      <div><div class="label">Inputs</div><div class="chips">${inputChips(h)}</div></div>
+      <div><div class="label">Hypothesis</div><div class="plan">${idea(h) ? esc(idea(h)) : `<span class="meta">${noIdea(row.status)}</span>`}</div></div>
       ${h.observations?.length ? `<div><div class="label">Observations from the literature</div>${observations(h.observations, false)}</div>` : ""}
+      ${blockedView(h)}
+      ${criteriaView(h)}
+      ${roundsView(h)}
+      ${h.stopped_because ? `<div class="meta">Stopped: ${esc(h.stopped_because)}${h.usage.total ? ` · ${h.usage.total} tokens` : ""}</div>` : ""}
       ${produced ? `<div><div class="label">Outcome</div><div class="chips">${Object.keys(produced).length ? chips(produced) : `<span class="meta">No step produced a value.</span>`}</div></div>` : ""}
-      ${h.verdict ? `
-      <div class="verdict ${h.verdict.achieved ? "yes" : "no"}">
-        <div class="label">Verdict: ${h.verdict.achieved ? "goal achieved" : "goal not achieved"}</div>
-        <div>${esc(h.verdict.reason)}</div>
+      ${a?.verdict ? `
+      <div class="verdict ${a.verdict.achieved ? "yes" : "no"}">
+        <div class="label">Verdict: ${a.verdict.achieved ? "goal achieved" : "goal not achieved"}</div>
+        <div>${esc(a.verdict.reason)}</div>
       </div>` : ""}
-      ${h.dag ? `
+      ${a?.dag ? `
       <div>
-        <div class="label">DAG: ${Object.keys(h.dag.steps).length} steps${h.outcome?.skipped.length ? `, ${h.outcome.skipped.length} skipped` : ""}</div>
+        <div class="label">DAG: ${Object.keys(a.dag.steps).length} steps${a.outcome?.skipped.length ? `, ${a.outcome.skipped.length} skipped` : ""}</div>
         <div class="table"><table>
           <thead><tr><th>Step</th><th>Status</th><th>Node</th><th>Inputs</th><th>Value</th></tr></thead>
           <tbody>${steps(row).map((s) => `
@@ -273,7 +299,7 @@ function detailView(id) {
               <td><code>${esc(s.value)}</code></td>
             </tr>`).join("")}</tbody>
         </table></div>
-        ${h.workflow_id ? `<p style="margin:8px 0 0"><a href="/?run=${encodeURIComponent(h.workflow_id)}">Open the run's graph →</a></p>` : ""}
+        ${a.workflow_id ? `<p style="margin:8px 0 0"><a href="/?run=${encodeURIComponent(a.workflow_id)}">Open the run's graph →</a></p>` : ""}
       </div>` : ""}
     </article>`;
 }
@@ -287,8 +313,19 @@ function render() {
   $("#view").innerHTML = r.id ? detailView(r.id) : r.goal != null ? goalView(r.goal) : goalsView();
 }
 
-// Follow links inside the page without a reload, so the back button still works.
-$("#view").addEventListener("click", (e) => {
+$("#view").addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-signal]");
+  if (b) {
+    b.disabled = true;
+    const r = await fetch(`/api/hypotheses/${encodeURIComponent(b.dataset.id)}/${b.dataset.signal}`, { method: "POST" });
+    if (!r.ok) {
+      b.disabled = false;
+      const why = await r.json().then((d) => d.detail).catch(() => null);
+      $("#signal-error").textContent = `${b.textContent} failed: ${why ?? r.status}`;
+    }
+    return;
+  }
+  // Follow links inside the page without a reload, so the back button still works.
   const a = e.target.closest("a[href^='/hypotheses']");
   if (!a || e.metaKey || e.ctrlKey || e.shiftKey) return;
   e.preventDefault();
