@@ -257,7 +257,8 @@ Shapes that usually fit a goal:
 - Find, improve, raise or lower something: input -> generator (e.g. mutate_synonymous or
   recode_targeted) -> scorer -> filter. Scoring and filtering alone cannot find what the
   inputs do not already hold. Work out the inputs' baseline score and set the threshold
-  relative to it: a threshold every entity passes decides nothing.
+  relative to it: a threshold that lets through entities at or below the baseline decides
+  nothing.
 
 1. Call search_nodes (by intent and input_type) or list_nodes, list_registry for nodes
    already made, and describe_node for each kind you use. When a choice depends on
@@ -267,13 +268,18 @@ Shapes that usually fit a goal:
    in `config`. Connect its input port to a source whose kind is the kind of that port.
    Register a scorer with create_node before the filter on its column, and copy the column
    name from the reply.
-3. Every criterion needs an assertion on a step. On a filter, say "yes" if every entity must
-   pass it (the assertion holds only if the yes branch took every entity and the no branch
-   none), or "no" for the reverse. To keep only the best of a pool, so some pass and some
-   fail, assert "produced" on the filter: it holds when the filter kept at least one entity.
-   Never assert both yes and no of one filter: they cannot both hold. On any other step,
-   "produced" holds when the step gave output, which is all a goal that only measures or
-   converts needs.
+3. Every criterion needs an assertion on a step, and one check may be asserted for each
+   criterion it covers. On a filter, say "yes" if every entity must pass it (the assertion
+   holds only if the yes branch took every entity and the no branch none), or "no" for the
+   reverse. When every candidate is expected to pass, assert "yes" on the filter itself.
+   On a filter, "produced" shows only that it kept at least one entity: it never covers a
+   criterion about what the kept entities hold, such as "every kept sequence scores above
+   the first". When some of a pool fail the filter, hold such a criterion by putting the
+   filter's yes branch (`<filter>.yes`) through a second filter that every kept entity must
+   pass, and assert "yes" on that one. beats_reference reads the baseline from the run, so
+   no number is copied. Never assert both yes and no of one filter: they cannot both hold.
+   On any other step, "produced" holds when the step gave output, which is all a goal that
+   only measures or converts needs.
 4. If no existing node can do a step, put its contract in `requests`, keyed by name, and use
    that name in a step. Name the existing nodes you considered in why_not_composable. A
    filter on a requested scorer's column gets that column name from the error you are shown.
@@ -285,6 +291,10 @@ Every source is a list of entities, and a node runs once on the whole list that 
 - A tool step makes new entities, under its key. They have no scores.
 - A scoring step passes its entities on under its key, and adds its score columns.
 - A filter step splits its entities into <step>.yes and <step>.no by its `column`.
+A kind refuses anything outside its alphabet (dna holds only A, C, G, T), so an alphabet
+criterion on DNA holds by type: "produced" on the step that makes the DNA is enough for it,
+and no node is needed to check it. Assert what a node does measure, such as length, for
+the rest of the criterion.
 Known kinds: {sorted(TYPES)}."""
 
 VERIFY_INSTRUCTIONS = """\
@@ -299,17 +309,24 @@ covers_goal to true only if the assertions genuinely test every criterion. Do no
 to have checked by eye what no assertion covers: say in reason what went unchecked. A
 "produced" assertion only shows its step gave output, or a filter kept something: set
 covers_goal to false if the criterion is about what that output holds, such as the
-filter's threshold being right. Take what a node does from `nodes`, not from a guess:
+filter's threshold being right. A "yes" assertion that held, on a filter that measures it
+(such as beats_reference against the baseline), does cover a criterion about what is
+kept: every entity the filter saw passed. A type guarantees its own alphabet, so "produced"
+on the step that makes DNA covers an alphabet criterion on DNA. Take what a node does
+from `nodes`, not from a guess:
 do not say a node returns its inputs unchanged unless `nodes` says it can. You cannot declare success: false is a veto and
 true grants nothing.
 Set agrees to false, whatever else the DAG did, when:
 - The goal names a measure, a method or a node that the DAG did not use. A different
   node is not a substitute, and the hypothesis calling it one does not make it one.
 - The goal asks to find or choose something, and the DAG chose nothing: it returns its
-  inputs unchanged, or every entity passed its filter, or none did.
+  inputs unchanged, or none passed the filter that makes the choice.
 - The goal asks for higher, lower, more, less or optimized values, but the outcome holds
   only the original inputs, without improvement.
-- A threshold let everything through, so the filter decided nothing."""
+- A threshold let through entities the goal says to leave out, such as ones at or below
+  the baseline, so the filter decided nothing. Every entity passing is no fault when none
+  is one the goal says to leave out, as when each clears the baseline or the plan asserted
+  "yes" on a check that every entity meets."""
 
 CRITIQUE_INSTRUCTIONS = """\
 You get a round that missed its goal as JSON: the plan, the outcome, the verdict and earlier
@@ -320,7 +337,11 @@ something the goal needs, say so with root_cause "missing_tool" and name the too
 it becomes a request for a person to write that node. Use "missing_tool" for a need that no
 node meets, not for a result you did not expect. Before you say a node misbehaves, read what
 it does in `nodes` and check the claim against the outcome's values. Entities with the same
-sequence are one entity, so a variant can equal an input without being a copy of it."""
+sequence are one entity, so a variant can equal an input without being a copy of it. Blame a
+threshold only when the values show it let through entities the goal says to leave out,
+such as ones at or below the baseline: every entity passing is no fault when none is one the
+goal says to leave out, as when each clears the baseline or the plan asserted "yes" on a
+check that every entity meets."""
 
 CRITERIA_INSTRUCTIONS = """\
 Turn the goal into one to four criteria that decide whether it was met. Each is a claim a
