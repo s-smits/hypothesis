@@ -129,8 +129,10 @@ of the goal selects one run.
 
 Each line starts with a mark:
 
-- `◆` something happened: criteria fixed, a round opened, a plan accepted, blocked, a
-  verdict, the run ended. Report it; no action needed.
+- `◆` something happened: criteria fixed, a round opened, a plan accepted, how many
+  assertions held (`r1 assertions 2/4; did not hold: improved.produced`: the count is per
+  assertion, the names are each failed `step.branch`), blocked, a verdict, the run ended.
+  Report it; no action needed.
 - `⚠` something to act on or decide (below).
 - `·` a detail, such as a model call that went through, or an alert that cleared.
 
@@ -162,7 +164,9 @@ Every run that ends, achieved or not, abandoned or failed, adds one line to
 as its last step, and `temporal/ledger.py` builds the line from pulse's reading of the run, so
 the ledger and `pulse` always agree on what a run did. Nothing in it is judged by a model: each
 value is read from the saved Hypothesis and the saved model calls. A line has the run, its goal,
-how it ended and why, the rounds and what held in each, the tokens and seconds spent, the guard
+how it ended and why, the rounds and the assertions that held in each (`3/4`, counted per
+assertion, so two criteria asserted on one step and branch count twice; a line written before
+that counted each step and branch once), the tokens and seconds spent, the guard
 retries, errors and repeated wirings, the nodes used and the ones it asked for, the model per
 stage, and a one-line summary. A ledger that cannot be written never changes how a run ended. A
 worker that predates the activity must be restarted before runs it starts will be recorded.

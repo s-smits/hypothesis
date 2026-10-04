@@ -148,6 +148,11 @@ class Assertion(BaseModel):
     branch: Literal["yes", "no", "produced"]
     claim: str
 
+    @property
+    def key(self) -> str:
+        """Where ``Attempt.held`` records it. Assertions on one step and branch share a key."""
+        return f"{self.step}.{self.branch}"
+
 
 class DraftObservation(BaseModel):
     """A finding from an Amass record that bears on the hypothesis.
@@ -343,7 +348,7 @@ def holds(assertions: list[Assertion], outcome: DagOutput | None) -> dict[str, b
         other = "no" if a.branch == "yes" else "yes"
         return n(f"{a.step}.{a.branch}") > 0 and n(f"{a.step}.{other}") == 0
 
-    return {f"{a.step}.{a.branch}": holds_one(a) for a in assertions}
+    return {a.key: holds_one(a) for a in assertions}
 
 
 def accepted(

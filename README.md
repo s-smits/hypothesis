@@ -320,13 +320,15 @@ different frames, which no registered node can recode in both, so it is meant to
 
 **Watching runs.** `uv run python -m temporal.pulse` prints a status line per open run, and on
 every later look what moved since the last: criteria fixed, a round opened, a plan accepted,
-blocked, the verdict. It warns about a model call sent back three or more times (and says what
+the assertions (`r1 assertions 3/4`, counted per assertion, naming each `step.branch` that did not
+hold), blocked, the verdict. It warns about a model call sent back three or more times (and says what
 for), a run blocked for a long time, and a budget nearly spent. For a blocked run it says what
 each requested node still needs. It only reads files; `--every 30` keeps looking, and `--json`
 prints the look for another program. Readings are kept in `results/pulse.json`. `AGENTS.md` says what each alert means and what to do.
 
 **Ledger.** Every run that ends adds one line to `results/ledger.jsonl`: its goal, how and why it
-ended, the rounds and what held in each, tokens and seconds, guard retries, errors and repeated
+ended, the rounds and the assertions that held in each (`3/4`, counted per assertion, so two
+criteria asserted on one step and branch count twice), tokens and seconds, guard retries, errors and repeated
 wirings, the nodes it used and asked for, and the model per stage. The values are read from the
 saved files the way `pulse` reads them, with no model involved. List it with
 `jq -r '[.ended[:16], .hypothesis, .state, .rounds, .tokens, .summary] | @tsv' results/ledger.jsonl`.

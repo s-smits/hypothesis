@@ -100,6 +100,7 @@ class Round(BaseModel):
     asked: list[str] = []
     requests: list[str] = []
     held: dict[str, bool] = {}
+    assertions: list[bool] = []
     achieved: bool | None = None
     reason: str | None = None
     cause: str | None = None
@@ -254,6 +255,9 @@ def read_round(a: Attempt) -> Round:
         asked=sorted(plan.requests) if plan else [],
         requests=[r.name for r in a.requests],
         held=a.held,
+        assertions=[a.held.get(x.key, False) for x in plan.assertions]
+        if plan and a.held
+        else [],
         achieved=verdict.achieved if verdict else None,
         reason=verdict.reason if verdict else None,
         cause=critique.root_cause if critique else None,
@@ -350,9 +354,13 @@ def in_flight(r: Reading) -> str:
 
 
 def held_text(x: Round) -> str:
-    """``3/4`` for a round whose assertions ran, ``error`` for one that failed, else empty."""
-    if x.held:
-        return f"{sum(x.held.values())}/{len(x.held)}"
+    """``3/4`` for a round whose assertions ran, ``error`` for one that failed, else empty.
+
+    It counts assertions, so two on one step and branch count twice, though ``held`` has one key.
+    A round read without its plan counts the keys.
+    """
+    if each := x.assertions or list(x.held.values()):
+        return f"{sum(each)}/{len(each)}"
     return "error" if x.error else ""
 
 
