@@ -146,3 +146,15 @@ async def test_a_reference_that_was_never_scored_is_not_retried(results_dir):
     with pytest.raises(WorkflowFailureError) as e:
         await _run(dag, SEQS)
     assert getattr(e.value.cause, "non_retryable", False)
+
+
+async def test_a_scored_in_past_a_tool_says_which_input_holds_the_reference(
+    results_dir,
+):
+    # The reference is an input, but this step scores the tool's output, not the input.
+    with pytest.raises(WorkflowFailureError) as e:
+        await _run(_dag(scored_in="scored"), SEQS)
+    msg = str(e.value.cause)
+    assert "ATGGCTCTGAAATAA" in msg and REF.id in msg  # What it typed, and its id.
+    assert "in input ['seqs']" in msg and "'scored' reads" in msg
+    assert "output of a tool" in msg and "Score the reference" in msg

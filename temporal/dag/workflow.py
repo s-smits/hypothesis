@@ -10,7 +10,7 @@ from temporalio.exceptions import (
 )
 
 with workflow.unsafe.imports_passed_through():
-    from node_dag.dag import DagInput, DagOutput, DagProgress, StepStatus
+    from node_dag.dag import Dag, DagInput, DagOutput, DagProgress, StepStatus
     from node_dag.nodes.base import BaseFilterConfig, BaseScoreConfig
     from node_dag.types import Table
     from temporal.dag.activities import (
@@ -26,6 +26,31 @@ with workflow.unsafe.imports_passed_through():
 TASK_QUEUE = "node-dag"
 # A node that raises will raise again, so give up fast rather than retry until timeout.
 RETRY = RetryPolicy(maximum_attempts=3)
+
+
+def _unscored(
+    dag: Dag, values: dict[str, Table], key: str, source: str, ref_id: str, column: str
+) -> str:
+    """Why ``source`` has no score for a filter's reference, and what to change."""
+    held = {n: {i.id: i for i in values[n].items} for n in dag.inputs}
+    holders = [n for n, ids in held.items() if ref_id in ids]
+    shown = (
+        f"{held[holders[0]][ref_id].sequence[:20]} ({ref_id})" if holders else ref_id
+    )
+    read = dag.inputs_read(source)
+    reads = (
+        f"reads input {sorted(read)}"
+        if read is not None
+        else "reads the output of a tool step, not an input"
+    )
+    where = f"is in input {holders}" if holders else "is in none of the inputs"
+    return (
+        f"Step {key!r} compares with {shown}, but {source!r} has no score for it in "
+        f"{column!r}. {source!r} {reads}, and the reference "
+        f"{where}. Score the reference with the same node as the entities it is "
+        "compared with, in a step that runs first and reads the input that holds it, "
+        "and name that step in scored_in."
+    )
 
 
 @workflow.defn
@@ -104,10 +129,9 @@ class DagWorkflow:
                         score = values[source].scores.get(config.column, {}).get(ref_id)
                         if score is None:
                             raise ApplicationError(
-                                f"Step {key!r} compares with {ref_id!r}, but {source!r} "
-                                f"has no score for it in {config.column!r}. Score the "
-                                "reference with the same node as the entities it is "
-                                "compared with, in a step that runs first.",
+                                _unscored(
+                                    dag, values, key, source, ref_id, config.column
+                                ),
                                 non_retryable=True,
                             )
                         node_inp = node_inp.model_copy(update={"reference": score})
