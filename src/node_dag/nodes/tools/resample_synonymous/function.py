@@ -28,6 +28,8 @@ class ResampleSynonymous(BaseNode[ResampleSynonymousConfig]):
         rng = random.Random(seed_key)
         out = []
         for c in codons(s.sequence):
-            synonyms = SYNONYMS[CODON_TABLE[c]] if len(c) == 3 else (c,)
+            # A stop codon stays: swapping it for another stop changes where the gene ends.
+            keep = len(c) != 3 or CODON_TABLE[c] == "*"
+            synonyms = (c,) if keep else SYNONYMS[CODON_TABLE[c]]
             out.append(rng.choice(synonyms))
         return Dna(sequence="".join(out))

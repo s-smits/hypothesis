@@ -174,13 +174,24 @@ def test_mutation_is_deterministic_per_seed_and_per_sequence():
 
 
 def test_mutation_swaps_all_it_can_when_count_is_more_than_swappable():
-    # M has no synonym, so only A, L, K and stop can change.
+    # M has no synonym and the stop is not swapped, so only A, L and K can change.
     (out,) = MutateSynonymous(MutateSynonymousConfig(seed=0, count=5)).run(
         sequence=[REF]
     )
     ref_codons = [REF.sequence[i : i + 3] for i in range(0, len(REF.sequence), 3)]
     out_codons = [out.sequence[i : i + 3] for i in range(0, len(out.sequence), 3)]
-    assert [a != b for a, b in zip(ref_codons, out_codons)] == [False] + [True] * 4
+    changed = [a != b for a, b in zip(ref_codons, out_codons)]
+    assert changed == [False, True, True, True, False]
+
+
+def test_mutation_never_swaps_the_stop_codon():
+    # TAA, TAG and TGA are synonyms, but swapping one moves where the gene ends. With
+    # count=5 every swappable codon goes, so the stop is the test.
+    for seed in range(30):
+        node = MutateSynonymous(
+            MutateSynonymousConfig(seed=seed, count=5, variants_per_sequence=4)
+        )
+        assert {v.sequence[-3:] for v in node.run(sequence=[REF])} == {"TAA"}
 
 
 def test_mutation_can_generate_multiple_variants_per_sequence():
