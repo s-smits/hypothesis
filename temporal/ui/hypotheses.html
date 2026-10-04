@@ -42,6 +42,10 @@
   .record { line-height: 1.6; max-width: 72ch; }
   .record p { margin: 0 0 .7em; }
   .actions { display: flex; gap: 14px; align-items: center; font-size: 13px; flex-wrap: wrap; }
+  /* A step's config can hold a whole sequence. Keep each step on one line and let
+     the table scroll, rather than wrapping one cell and leaving the row tall and blank. */
+  table.dag td, table.dag th { white-space: nowrap; }
+  table.dag td.node { max-width: 68ch; overflow: hidden; text-overflow: ellipsis; }
   /* A blocked run: what it is waiting for, and the two ways out. */
   .request + .request { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
   .request pre { margin: 4px 0 0; padding: 8px 10px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); overflow-x: auto; font-size: 12px; white-space: pre-wrap; }
@@ -130,13 +134,13 @@ function steps(row) {
 
 function dagTable(row) {
   const a = cur(row.hypothesis);
-  return `<div class="scroll"><table>
+  return `<div class="scroll"><table class="dag">
     <thead><tr><th>Step</th><th>Status</th><th>Node</th><th>Inputs</th><th>Value</th></tr></thead>
     <tbody>${steps(row).map((s) => `
       <tr>
         <td><code>${esc(s.key)}</code></td>
         <td>${badge(s.status)}</td>
-        <td><code>${esc(s.node)}</code></td>
+        <td class="node" title="${esc(s.node)}"><code>${esc(s.node)}</code></td>
         <td>${Object.entries(s.sources).map(([port, src]) => `<code>${esc(port)} ← ${esc(src)}</code>`).join("<br>")}</td>
         <td><code>${esc(s.value)}</code></td>
       </tr>`).join("")}</tbody>
