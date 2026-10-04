@@ -9,7 +9,7 @@ from temporalio.contrib.pydantic import pydantic_data_converter
 from temporalio.exceptions import ApplicationError, CancelledError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
-from test_guards import ASK, COLUMN, _plan
+from test_guards import ASK, COLUMN, _plan, _step
 from test_guards import HYP as GUARD_HYP
 
 from node_dag.agent import Hypothesis, plan_prompt
@@ -20,6 +20,7 @@ from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
 from node_dag.nodes.tools.esmfold2_fold.config import Esmfold2FoldConfig
 from node_dag.plan import (
     Attempt,
+    Criterion,
     Critique,
     Observation,
     Plan,
@@ -34,6 +35,7 @@ from temporal.hypothesis.activities import (
     ResolveOut,
     Stage,
     _view,
+    resolve_plan,
     save_requests,
     save_state,
 )
@@ -84,6 +86,7 @@ def _fakes(
     resolves: list,
     agrees: list[bool],
     cited: list[list[Observation]] | None = None,
+    covers: bool = True,
 ) -> list:
     cited = list(cited or [])
 
@@ -105,7 +108,7 @@ def _fakes(
         calls.setdefault("verify", []).append(inp)
         return Out(
             opinion=VerifyOpinion(
-                agrees=agrees.pop(0), covers_goal=True, reason="the opinion"
+                agrees=agrees.pop(0), covers_goal=covers, reason="the opinion"
             ),
             tokens=5,
         )
@@ -462,3 +465,145 @@ async def test_a_cancel_during_the_ledger_write_still_cancels_the_run():
             30,
         )
     assert isinstance(raised.value.cause, CancelledError)
+
+
+# The accept path against plans that look right. The verifier here is scripted: acceptance
+# is code, so each case says what the code must do whatever the verifier says.
+def _none_achieved(done: Hypothesis) -> bool:
+    return not any(a.verdict and a.verdict.achieved for a in done.attempts)
+
+
+@pytest.mark.parametrize(("agrees", "covers"), [(False, True), (True, False)])
+async def test_assertions_that_all_hold_do_not_achieve_a_goal_the_verifier_vetoes(
+    agrees, covers
+):
+    fakes = _fakes(
+        {}, [PLAN] * 3, [ResolveOut(dag=DAG)] * 3, [agrees] * 3, covers=covers
+    )
+    done = await _drive(fakes)
+    assert done.state == "not achieved" and len(done.attempts) == 3
+    assert all(a.held == {"small.yes": True} for a in done.attempts)
+    assert _none_achieved(done)  # The code was content; the verifier stopped it.
+
+
+# Nothing is filtered out, so "the filter produced something" holds whatever the outcome.
+LENIENT = {
+    **STEPS,
+    "small": {
+        "config": AtMostConfig(column=COLUMN, threshold=100).model_dump(mode="json"),
+        "inputs": {"items": "counted"},
+    },
+}
+VACUOUS = Plan.model_validate(
+    _plan(
+        steps={
+            "counted": _step("codon_count", "seq", codons=["TCG"]),
+            "small": _step("at_most", "counted", "items", column=COLUMN, threshold=100),
+        },
+        assertions=[
+            {"criterion": "no_tcg", "step": "small", "branch": "produced", "claim": "c"}
+        ],
+    )
+)
+
+
+async def test_a_vacuous_assertion_alone_does_not_achieve_a_goal_the_verifier_vetoes():
+    dag = Dag.model_validate({"inputs": {"seq": "dna"}, "steps": LENIENT})
+    fakes = _fakes({}, [VACUOUS] * 2, [ResolveOut(dag=dag)] * 2, [False] * 2)
+    done = await _drive(fakes, hyp=GUARD_HYP, max_rounds=2)  # ATGTCGTAA keeps its TCG.
+    first = done.attempts[0]
+    assert first.held == {"small.produced": True}  # The code cannot tell it is vacuous.
+    assert len(first.produced["small.yes"]) == 1 and first.produced["small.no"] == []
+    assert done.state == "not achieved" and _none_achieved(done)
+
+
+async def test_a_criterion_no_assertion_covers_is_not_achieved_when_the_verifier_agrees():
+    unmet = Criterion(id="unmet", claim="a thing no node measures")
+    hyp = HYP.model_copy(update={"criteria": [*HYP.criteria, unmet]})
+    fakes = _fakes({}, [PLAN] * 2, [ResolveOut(dag=DAG)] * 2, [True] * 2)
+    done = await _drive(fakes, hyp=hyp, max_rounds=2)
+    assert done.state == "not achieved" and _none_achieved(done)
+    for a in done.attempts:
+        assert a.verdict and "no assertion covers ['unmet']" in a.verdict.reason
+        assert a.verdict.agrees and a.held == {"small.yes": True}
+
+
+async def test_a_verifier_that_agrees_cannot_achieve_an_assertion_that_did_not_hold():
+    fakes = _fakes({}, [PLAN] * 2, [ResolveOut(dag=DAG)] * 2, [True] * 2)
+    done = await _drive(fakes, hyp=GUARD_HYP, max_rounds=2)  # TCG: nothing is kept.
+    assert done.state == "not achieved" and _none_achieved(done)
+    for a in done.attempts:
+        assert a.held == {"small.yes": False}
+        assert a.verdict and a.verdict.agrees and a.verdict.covers_goal
+        assert "did not hold" in a.verdict.reason
+
+
+# The first sequence has one TCG, the others none and two: keep what has fewer than it.
+FIRST = Dna(sequence="ATGTCGTAA")
+FEWER = HYP.model_copy(
+    update={
+        "inputs": {
+            "seq": [FIRST, Dna(sequence="ATGTCTTAA"), Dna(sequence="ATGTCGTCGTAA")]
+        },
+        "criteria": [
+            Criterion(id="fewer", claim="kept ones have fewer TCG than the first")
+        ],
+    }
+)
+
+
+def _beats(reference: Dna) -> Plan:
+    steps = {
+        "counted": _step("codon_count", "seq", codons=["TCG"]),
+        "better": _step(
+            "beats_reference",
+            "counted",
+            "items",
+            column=COLUMN,
+            reference=reference.model_dump(mode="json"),
+            scored_in="counted",
+            higher=False,
+        ),
+    }
+    ask = [{"criterion": "fewer", "step": "better", "branch": "produced", "claim": "c"}]
+    return Plan.model_validate(_plan(steps=steps, assertions=ask))
+
+
+async def _drive_beats(reference: Dna, agrees: list[bool], calls: dict, **cfg):
+    real = _fakes(calls, [_beats(reference)] * 2, [], agrees)
+    fakes = [real[0], resolve_plan, *real[2:]]  # The plan is resolved by the real one.
+    return await asyncio.wait_for(_drive(fakes, hyp=FEWER, **cfg), 60)
+
+
+@pytest.mark.parametrize(
+    ("agrees", "state"), [(True, "achieved"), (False, "not achieved")]
+)
+async def test_a_beats_reference_plan_that_holds_is_achieved_only_if_the_verifier_agrees(
+    agrees, state
+):
+    done = await _drive_beats(FIRST, [agrees] * 2, {}, max_rounds=2)
+    first = done.attempts[0]
+    assert first.held == {"better.produced": True}  # Kept one, dropped the other two.
+    assert len(first.produced["better.yes"]) == 1
+    assert len(first.produced["better.no"]) == 2
+    assert done.state == state
+
+
+async def test_a_beats_reference_plan_whose_reference_was_never_scored_fails_the_round():
+    unscored = Dna(sequence="ATGTCCTAA")  # Not one of the inputs, so it has no score.
+    calls: dict = {}
+    done = await _drive_beats(unscored, [True] * 2, calls, max_rounds=1)
+    (att,) = done.attempts
+    assert "Score the reference" in (att.error or "") and att.outcome is None
+    assert att.critique == CRITIQUE and "verify" not in calls  # Nothing to verify.
+    assert done.state == "not achieved" and _none_achieved(done)
+
+
+async def test_a_criterion_nothing_can_meet_is_not_achieved_when_the_verifier_agrees():
+    # No input has fewer TCG than the one with none, and a tie is not better.
+    lowest = Dna(sequence="ATGTCTTAA")
+    done = await _drive_beats(lowest, [True] * 2, {}, max_rounds=2)
+    assert done.state == "not achieved" and _none_achieved(done)
+    for a in done.attempts:
+        assert a.held == {"better.produced": False} and a.produced["better.yes"] == []
+        assert a.verdict and a.verdict.agrees and "did not hold" in a.verdict.reason
