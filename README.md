@@ -57,6 +57,7 @@ temporal/
   scaffold_node.py             write a requested node's package, all but run()
   pulse.py                     what changed in the open runs since the last look
   ledger.py                    one line per finished run, read the way pulse reads it
+  run_benchmark.py             compare recoding strategies on fixed genes (node_dag/benchmark.py); no Temporal
 ```
 
 ## Nodes
@@ -84,7 +85,18 @@ There are three kinds of node:
   entities pass through, with a column added for each score.
 - **Filter** (`BaseFilterConfig`): has a `column`. `run(items, values)` gets the
   entities and that column's values and returns a bool for each. The entities that get
-  True go to `<step>.yes`, the rest to `<step>.no`, both with their scores.
+  True go to `<step>.yes`, the rest to `<step>.no`, both with their scores. The filters
+  are `at_least`, `at_most`, `top_k`, `pareto_front` and `beats_reference`.
+
+`beats_reference` is for a goal like "keep the ones that score higher than the first
+sequence". Use it instead of a typed threshold (`at_least`, `at_most`), which would have to be
+copied from an earlier round: the baseline is measured in the run. `reference` is the
+entity, `scored_in` is the step (or DAG input) whose table holds that entity's score in
+`column`, and the filter keeps the entities that score strictly above it, or strictly
+below it with `higher` false. The reference itself only ties, so it goes to `.no`.
+Score the reference with the same node as the entities, for example in a second scoring
+step on the DAG input. `run` then gets that score as `reference`, after `items` and
+`values`.
 
 Every config has a `config_hash`: a hash of its name, version and fields, set when the
 config is made. A config with a different hash is rejected, so leave it out. Two scorers
@@ -114,8 +126,10 @@ To add a node, write `config.py` and `function.py`, then add the config to
 ```
 
 A source is a DAG input, a tool or scoring step, or a filter branch. A step runs once
-its source has a table, and is skipped if the table is empty. Steps that are ready at
-the same time run in parallel. `examples/simple.json` is a full run.
+its source has a table, and is skipped if the table is empty. A `beats_reference` step also
+waits for the step its `scored_in` names. The DAG is rejected if that step's table cannot
+hold `column`, and the run fails if the table has no score for the reference. Steps that
+are ready at the same time run in parallel. `examples/simple.json` is a full run.
 
 Results go under `$NODE_DAG_RESULTS` (default `results/`):
 

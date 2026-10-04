@@ -82,12 +82,13 @@ and `anthropic:claude-haiku-4-5`; a proposed model string must be checked agains
 | Entities, DNA and tables | `src/node_dag/types.py`, `dna.py` | `tests/test_dna.py` |
 | Sequence lookup for inputs | `src/node_dag/entrez.py` | `tests/test_entrez.py` |
 | Node contracts and registration | `nodes/base.py`, `factory.py`, `registry.py` under `src/node_dag/` | `tests/test_dag.py`, `test_registry.py` |
-| DAG validation | `src/node_dag/dag.py` | `tests/test_dag.py` |
+| DAG validation | `src/node_dag/dag.py` | `tests/test_dag.py`, `test_beats_reference.py` |
 | Execution, cache and progress | `temporal/dag/activities.py`, `workflow.py`, `src/node_dag/storage.py` | `tests/test_cache.py`, `test_dag.py` |
 | Builder, verifier and persistence | `src/node_dag/agent.py`, `temporal/hypothesis/activities.py`, `temporal/run_hypothesis.py` | `tests/test_agent.py` |
 | Hypothesis loop, plan checks, node scaffolding | `temporal/hypothesis/`, `src/node_dag/plan.py`, `temporal/scaffold_node.py` | `tests/test_loop.py`, `test_plan.py`, `test_guards.py`, `test_scaffold.py` |
 | Watching runs | `temporal/pulse.py` | `tests/test_pulse.py` |
 | Run ledger | `temporal/ledger.py` | `tests/test_ledger.py`, `test_loop.py` |
+| Benchmark harness | `src/node_dag/benchmark.py`, `temporal/run_benchmark.py` | `tests/test_benchmark.py` |
 | UI and API | `temporal/ui/app.py`, adjacent HTML, `temporal/run_ui.py` | `tests/test_ui.py`, UI cases in `test_agent.py` |
 | Translation initiation prediction | `nodes/tools/ostir_expression/` under `src/node_dag/` | `tests/test_ostir.py` |
 
@@ -172,11 +173,15 @@ To read it: `jq -r '[.ended[:16], .hypothesis, .state, .rounds, .tokens, .summar
 - Tools return entities and clear upstream scores. Scorers return one dictionary
   per input, in order, with exactly the declared score names. Filters return one
   boolean per input, aligned with the selected score values, and expose `.yes`
-  and `.no`. A new runner must preserve these semantics, empty-input skipping,
+  and `.no`. A filter whose config returns `reads_reference()` (`beats_reference`)
+  is also given that entity's score as `reference`. The workflow reads it from the
+  table of the step named in `scored_in`, and `Step.deps()` makes that step run
+  first. A new runner must preserve these semantics, empty-input skipping,
   deduplication and `DagOutput` shape.
 - `Dag` rejects cycles, unknown sources, port/type mismatches and filters whose
-  score column does not reach them. Keep validation at the boundary; do not bypass
-  it to accommodate a generated graph. Builder failures use `ModelRetry` with
+  score column does not reach them, and reference filters whose `scored_in` step
+  lacks that column. Keep validation at the boundary; do not bypass it to
+  accommodate a generated graph. Builder failures use `ModelRetry` with
   actionable errors and bounded retries.
 - `Entity.id` hashes kind and sequence. `Table.of` merges identical entities.
   IDs therefore identify sequences, not genes, loci or parent-child lineage. A
@@ -190,8 +195,9 @@ To read it: `jq -r '[.ended[:16], .hypothesis, .state, .rounds, .tokens, .summar
   `config.columns()` or the registry reply for column names. Do not invent hashes
   or copy a stale score-column suffix after changing configuration fields.
 - Raise a node config's `version` when its implementation changes results. The
-  cache hashes configuration, inputs, filter values and version, rather than the
-  source code or dependency environment. Put every result-affecting parameter,
+  cache hashes configuration, inputs, filter values, a
+  filter's reference score and version, rather than the source code or dependency
+  environment. Put every result-affecting parameter,
   including seeds and biological context, into explicit configuration or input;
   record code and dependency versions for experiments.
 - Keep randomness local and explicit. `mutate_synonymous` seeds by configuration
@@ -201,8 +207,9 @@ To read it: `jq -r '[.ended[:16], .hypothesis, .state, .rounds, .tokens, .summar
   model calls and computational work belong outside workflow replay. Persist with
   `storage.write_atomic`. `$NODE_DAG_RESULTS` defaults to `results/`, containing
   `nodes/`, `workflows/`, `registry/`, `hypotheses/`, `requests/` and `trajectories/`,
-  plus `ledger.jsonl` and `pulse.json`. It is local disk, so workers
-  on different machines do not automatically share a cache.
+  plus `ledger.jsonl`, `pulse.json` and `ledger/` (the benchmark's attempts, one file
+  each). It is local disk, so workers on different machines do not automatically
+  share a cache.
 
 ## Adding a node or changing a model-facing surface
 
@@ -229,7 +236,11 @@ Automatic discovery must never import quarantine or unvalidated generated code.
 
 ## Research rules for recoding work
 
-Apply these when implementing an experiment; the benchmark does not yet exist:
+Apply these when implementing an experiment. A first deterministic harness exists
+(`src/node_dag/benchmark.py`, run by `temporal/run_benchmark.py`): fixed genes, random,
+best-of-N, greedy and exact baselines, a development/held-out split and an append-only
+attempt ledger. It uses no model and runs no DAG, so a search built on it still has to
+meet these:
 
 - Define the organism/genetic code, targeted codons, CDS boundaries, immutable
   context, objectives and metric directions before search. Synonymous mutation
