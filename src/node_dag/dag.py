@@ -23,7 +23,12 @@ class Step(BaseModel):
 
     def deps(self) -> set[str]:
         """The DAG inputs and step keys this step reads from."""
-        return {src.split(".")[0] for src in self.inputs.values()}
+        deps = {src.split(".")[0] for src in self.inputs.values()}
+        if isinstance(self.config, BaseFilterConfig) and (
+            ref := self.config.reads_reference()
+        ):
+            deps.add(ref[0].split(".")[0])
+        return deps
 
 
 class Dag(BaseModel):
@@ -44,6 +49,37 @@ class Dag(BaseModel):
         """A sorter over steps and inputs, keyed by name."""
         return TopologicalSorter({k: s.deps() for k, s in self.steps.items()})
 
+    def inputs_read(self, source: str) -> set[str] | None:
+        """The DAG inputs whose entities can reach ``source`` through scores and filters.
+
+        None if a tool is in the way, since a tool can make any entity.
+        """
+        name = source.split(".")[0]
+        if name in self.inputs:
+            return {name}
+        step = self.steps[name]
+        if isinstance(step.config, BaseToolConfig):
+            return None
+        (upstream,) = step.inputs.values()
+        return self.inputs_read(upstream)
+
+    def _unknown_source(self, name: str) -> str:
+        """The error for a source nothing defines. A ``scored_in`` is named as one."""
+        for key, step in self.steps.items():
+            cfg = step.config
+            if (
+                isinstance(cfg, BaseFilterConfig)
+                and (ref := cfg.reads_reference())
+                and ref[0].split(".")[0] == name
+            ):
+                return (
+                    f"Unknown source {name!r}. Step {key!r} ({cfg.name}__{cfg.config_hash}) "
+                    f"reads it from its scored_in field, but this plan has no step or "
+                    f"input of that name. Set scored_in to the step that scores the "
+                    f"reference with the same node as the entities."
+                )
+        return f"Unknown source {name!r}"
+
     @model_validator(mode="after")
     def _check(self) -> Self:
         if bad := [k for k in self.steps if "." in k or k in self.inputs]:
@@ -63,7 +99,7 @@ class Dag(BaseModel):
             if key in self.inputs:
                 continue
             if key not in self.steps:
-                raise ValueError(f"Unknown source {key!r}")
+                raise ValueError(self._unknown_source(key))
             step, config = self.steps[key], self.steps[key].config
             if step.inputs.keys() != config.inputs.keys():
                 raise ValueError(
@@ -100,6 +136,13 @@ class Dag(BaseModel):
                     raise ValueError(
                         f"Step {key!r} filters on {missing[0]!r}, but {src!r} has "
                         f"score columns {sorted(columns[src])}"
+                    )
+                ref = config.reads_reference()
+                if ref and config.column not in (held := columns.get(ref[0], set())):
+                    raise ValueError(
+                        f"Step {key!r} compares with a reference scored in "
+                        f"{ref[0]!r}, which has score columns {sorted(held)} but not "
+                        f"{config.column!r}"
                     )
                 for branch in ("yes", "no"):
                     types[f"{key}.{branch}"] = types[src]

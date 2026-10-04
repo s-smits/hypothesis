@@ -1,7 +1,11 @@
+import hashlib
+import json
+
 import pytest
 
 from node_dag import factory
 from node_dag.nodes.filters.at_least.config import AtLeastConfig
+from node_dag.nodes.filters.beats_reference.config import BeatsReferenceConfig
 from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
 from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
 from node_dag.types import AminoAcidSequence, Dna
@@ -78,3 +82,49 @@ def test_a_filter_caches_what_it_keeps(results_dir, monkeypatch):
     # The scores are part of the key.
     with pytest.raises(RuntimeError):
         run_filter(inp.model_copy(update={"values": [30.0, 12.0]}))
+
+
+def _beats(reference: float | None) -> RunNodeInput:
+    return RunNodeInput(
+        config=BeatsReferenceConfig(
+            column="c", reference=Dna(sequence="ATG"), scored_in="base"
+        ),
+        inputs={"items": [Dna(sequence="ATG"), Dna(sequence="AAA")]},
+        values=[3.0, 12.0],
+        reference=reference,
+    )
+
+
+def test_a_filter_with_a_reference_caches_per_reference_score(results_dir, monkeypatch):
+    inp = _beats(10.0)
+    assert run_filter(inp) == [False, True]
+    monkeypatch.setitem(factory.MAPPING, BeatsReferenceConfig, Broken)
+    assert run_filter(inp) == [False, True]  # Loaded, not run.
+    # Another reference score is another answer, so it is not read from the cache.
+    assert _beats(2.0).cache_path() != inp.cache_path()
+    with pytest.raises(RuntimeError):
+        run_filter(_beats(2.0))
+
+
+def test_a_filter_without_a_reference_keeps_the_key_it_had_before_references():
+    inp = _beats(None)
+    key = {
+        **inp.model_dump(mode="json", exclude={"step", "reference"}),
+        "version": inp.config.version,
+    }
+    digest = hashlib.sha256(json.dumps(key, sort_keys=True).encode()).hexdigest()
+    assert inp.cache_path().name == f"{digest}.json"
+
+
+def test_a_filter_without_a_reference_keeps_its_key_and_hash_from_before_references():
+    # Both literals were taken from the code before beats_reference: a change that moves
+    # either one orphans every saved at_least result.
+    inp = RunNodeInput(
+        config=AtLeastConfig(column="c", threshold=10),
+        inputs={"items": [Dna(sequence="ATG"), Dna(sequence="AAA")]},
+        values=[3.0, 12.0],
+    )
+    assert inp.config.config_hash == "b79fb657"
+    assert inp.cache_path().name == (
+        "7c9e2944895710a84844c5652155609bdd72b9a17244962ec1374358070d3ec9.json"
+    )

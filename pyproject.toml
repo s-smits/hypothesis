@@ -49,3 +49,10 @@ extend-select = ["I", "ANN", "D101", "D102", "D103"]
 [tool.ty.environment]
 python = "./.venv"
 python-version = "3.12"
+
+# A Modal app imports its packages inside the function, and only its image has them.
+[[tool.ty.overrides]]
+include = ["src/node_dag/nodes/tools/*/modal_app.py"]
+
+[tool.ty.overrides.rules]
+unresolved-import = "ignore"

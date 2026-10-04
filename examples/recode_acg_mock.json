@@ -1,0 +1,12 @@
+{
+  "id": "recode-acg-mock",
+  "goal": "Recode the gene to eliminate the ACG codon while maintaining the ORFs of both trpA and trpB",
+  "inputs": {
+    "gene": [
+      {
+        "kind": "dna",
+        "sequence": "ATGCCGAGGCGTACGAATACATGCGCAACTACGGCTAATTTTGAGATTACGACCCTCTAATTAAGGAGGTATGCTAACAACGACCGCCCTCAATTGCGCGAGACAAACGGGGGCTAATGCGGCTACGAATCAATAA"
+      }
+    ]
+  }
+}

@@ -21,11 +21,12 @@ class AtLeastConfig(BaseFilterConfig):
     intents: ClassVar = (
         "keep entities with score at least threshold",
         "filter for higher scores or values above a minimum cutoff",
-        "select candidate sequences that beat a baseline expression or score",
+        "keep entities at or above a bar the goal states as a number",
     )
     when_to_use: ClassVar = (
-        "Use after a scoring node to select entities whose score meets or exceeds a "
-        "threshold (e.g. higher expression >= baseline)."
+        "Use after a scoring node when the goal states the bar as a number, such as "
+        "expression of at least 40. When the bar is another entity's score, use "
+        "beats_reference."
     )
     when_not_to_use: ClassVar = (
         "Do not set threshold to 0.0 or a trivial value that keeps all entities when "

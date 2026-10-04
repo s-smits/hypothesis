@@ -71,7 +71,11 @@
       </div>
       <div id="criteria"></div>
       <button type="button" id="add-criterion">+ Add criterion</button>
-      <div class="hint">What must hold of the outcome for the goal to count as met, qualitative or quantitative. Write your own, or draft them with the agent and edit. Left empty, the verifier judges the goal alone.</div>
+      <div class="hint">What must hold of the outcome for the goal to count as met, qualitative or quantitative. Write your own, or draft them with the agent and edit. Left empty, the agent derives them from the goal.</div>
+    </div>
+    <div>
+      <label for="rounds">Max rounds (optional)</label>
+      <input id="rounds" type="number" min="1" max="10" placeholder="3">
     </div>
     <div>
       <div class="crit-head">
@@ -83,7 +87,7 @@
     </div>
     <div id="error"></div>
     <button class="primary" id="go">Start</button>
-    <div class="hint">The builder agent works out which sequences the goal is about and fetches them from NCBI, writes the DAG, it runs on Temporal, then the verifier judges the outcome against the goal and its criteria. Name the gene, organism or accession in the goal so it can find the right record. You can close this page; follow progress under Hypotheses.</div>
+    <div class="hint">The builder agent works out which sequences the goal is about and fetches them from NCBI, writes the DAG, it runs on Temporal, and the goal is met only when each criterion's assertion holds. A missing node blocks the run until someone adds it. Name the gene, organism or accession in the goal so it can find the right record. You can close this page; follow progress under Hypotheses.</div>
   </form>
 </main>
 <script>
@@ -95,12 +99,12 @@ const explain = (d) => typeof d === "string" ? d : Array.isArray(d) ? d.map((e) 
 let GOALS = [];
 
 // One editable criterion row: its kind, its text, and a way to remove it.
-function criterionRow(c = { kind: "quantitative", text: "" }) {
+function criterionRow(c = { kind: "quantitative", claim: "" }) {
   const row = document.createElement("div");
   row.className = "criterion";
   row.innerHTML = `<select><option value="quantitative">quantitative</option><option value="qualitative">qualitative</option></select><input placeholder="e.g. expression above the input sequences&#39;"><button type="button" title="Remove">×</button>`;
   row.querySelector("select").value = c.kind;
-  row.querySelector("input").value = c.text;
+  row.querySelector("input").value = c.claim;
   row.querySelector("button").addEventListener("click", () => row.remove());
   return row;
 }
@@ -220,6 +224,7 @@ $("#form").addEventListener("submit", async (e) => {
   $("#go").disabled = true;
   try {
     const body = { goal: goalText(), hypothesis: $("#hypothesis").value, criteria: criteria(), observations: observations() };
+    if ($("#rounds").value) body.max_rounds = Number($("#rounds").value);  // Blank means absent, not null.
     const r = await fetch("/api/hypotheses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(explain(data.detail ?? `${r.status}`));

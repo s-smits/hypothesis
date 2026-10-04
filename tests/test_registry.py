@@ -66,3 +66,36 @@ def test_score_columns_are_those_of_registered_scorers(results_dir):
     assert registry.score_columns() == set()
     registry.register(SCORE, "score")
     assert registry.score_columns() == set(SCORE.columns().values())
+
+
+def test_an_id_that_is_not_a_node_id_is_never_read_as_a_file(results_dir):
+    root = results_dir / "registry"
+    root.mkdir()
+    (results_dir / "secret.json").write_text('{"api_key": "hunter2"}')
+    registry = Registry(root)
+    for bad in ["../secret", "x" * 300, "recode_targeted", "a/b__12345678", ""]:
+        assert registry.get(bad) is None
+
+
+def test_one_unreadable_file_does_not_block_the_rest(results_dir, caplog):
+    registry = Registry(results_dir)
+    registry.register(SCORE, "score")
+    # Saved before the scorer's config changed shape, and a write that never finished.
+    (results_dir / "ostir_expression__0badc0de.json").write_text(
+        '{"description": "old", "config": {"name": "ostir_expression", "utr": 5}}'
+    )
+    (results_dir / "garbage__0badc0df.json").write_text("{")
+    assert [n.id for n in registry.all()] == [f"ostir_expression__{SCORE.config_hash}"]
+    assert registry.get("ostir_expression__0badc0de") is None
+    assert "ostir_expression__0badc0de.json" in caplog.text
+    # A filter still finds its scorer's column.
+    registry.register(
+        AtMostConfig(column=SCORE.columns()["expression"], threshold=400), "small"
+    )
+
+
+def test_registering_a_node_replaces_its_own_unreadable_file(results_dir):
+    registry = Registry(results_dir)
+    (results_dir / f"ostir_expression__{SCORE.config_hash}.json").write_text("{")
+    node, new = registry.register(SCORE, "score")
+    assert new and registry.get(node.id) == node

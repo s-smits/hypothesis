@@ -8,9 +8,9 @@ import pytest
 from Bio.Seq import Seq
 from pydantic import ValidationError
 from temporalio import activity
-from temporalio.client import WorkflowFailureError
+from temporalio.client import WorkflowExecutionStatus, WorkflowFailureError
 from temporalio.contrib.pydantic import pydantic_data_converter
-from temporalio.exceptions import ApplicationError
+from temporalio.exceptions import ApplicationError, CancelledError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
@@ -22,10 +22,18 @@ from node_dag.nodes.tools.mutate_synonymous.config import MutateSynonymousConfig
 from node_dag.nodes.tools.mutate_synonymous.function import MutateSynonymous
 from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
 from node_dag.nodes.tools.ostir_expression.function import OstirExpression
-from node_dag.types import AminoAcidSequence, Dna, ProteinStructure, Table, Value
+from node_dag.types import (
+    AminoAcidSequence,
+    Dna,
+    NucleicAcid,
+    ProteinStructure,
+    Table,
+    Value,
+)
 from temporal.dag.activities import (
     RunNodeInput,
     SavedRun,
+    SaveWorkflowInput,
     run_filter,
     run_score,
     run_tool,
@@ -41,7 +49,9 @@ SCORE = OstirExpressionConfig(utr="TTCTAGAAAGGAGGTAAAAAA")
 EXPRESSION = SCORE.columns()["expression"]
 SCORES = {
     m.id: s["expression"].value
-    for m, s in zip(MUTANTS, OstirExpression(SCORE).run(sequence=MUTANTS))
+    for m, s in zip(
+        MUTANTS, OstirExpression(SCORE).run(sequence=list[NucleicAcid](MUTANTS))
+    )
 }
 # Splits the mutants: at least one is at or under it, and at least one is over.
 LIMIT = 600_000.0
@@ -240,10 +250,13 @@ def test_config_declares_what_run_takes(config):
     """The DAG is checked against config.inputs, so it must match run's signature."""
     params = inspect.signature(MAPPING[config].run).parameters
     got = {k: p.annotation for k, p in params.items() if k != "self"}
-    want = {port: list[t] for port, t in config.inputs.items()}
+    want: dict[str, object] = {port: list[t] for port, t in config.inputs.items()}
     if issubclass(config, BaseFilterConfig):
         # One column arrives as a list, several as a dict keyed by column.
         want["values"] = config.values_type
+        # A filter that compares with a reference entity's score is also given it.
+        if "reference" in got:
+            want["reference"] = float
     assert got == want
     assert config.inputs
     assert config.categories
@@ -335,6 +348,117 @@ async def test_a_failed_run_is_saved_with_its_error(results_dir):
     assert saved.status == "FAILED"
     assert saved.error == "out of GPUs"
     assert saved.steps == {"protein": "failed"}
+
+
+async def _run_when_saving_always_fails(tool, tries: list[int]) -> DagOutput:
+    """Run one protein step whose save fails every time, counting the attempts."""
+
+    @activity.defn(name="save_workflow")
+    async def full_disk(inp: SaveWorkflowInput) -> None:
+        tries.append(1)
+        raise OSError("disk full")
+
+    dag = {
+        "inputs": {"seq": "dna"},
+        "steps": {"protein": _step({"name": "dna_to_protein"}, "seq")},
+    }
+    async with (
+        await WorkflowEnvironment.start_time_skipping(
+            data_converter=pydantic_data_converter
+        ) as env,
+        Worker(
+            env.client,
+            task_queue="t",
+            workflows=[DagWorkflow],
+            activities=[tool, full_disk],
+        ),
+    ):
+        # Bounded, so a save that is retried for ever fails the test, not hangs it.
+        return await asyncio.wait_for(
+            env.client.execute_workflow(
+                DagWorkflow.run,
+                DagInput(
+                    dag=Dag.model_validate(dag), inputs={"seq": [Dna(sequence="ATG")]}
+                ),
+                id="no-save",
+                task_queue="t",
+            ),
+            timeout=10,
+        )
+
+
+async def test_a_save_that_keeps_failing_does_not_fail_a_finished_run():
+    @activity.defn(name="run_tool")
+    async def tool(inp: RunNodeInput) -> list[Value]:
+        return run_tool(inp)
+
+    tries: list[int] = []
+    out = await _run_when_saving_always_fails(tool, tries)
+    assert out.values["protein"].items == [AminoAcidSequence(sequence="M")]
+    assert len(tries) == 3
+
+
+async def test_a_save_that_keeps_failing_does_not_hide_why_a_run_failed():
+    @activity.defn(name="run_tool")
+    async def broken_tool(inp: RunNodeInput) -> list[Value]:
+        raise ApplicationError("out of GPUs", non_retryable=True)
+
+    tries: list[int] = []
+    with pytest.raises(WorkflowFailureError) as raised:
+        await _run_when_saving_always_fails(broken_tool, tries)
+    cause: BaseException = raised.value
+    while cause.__cause__:
+        cause = cause.__cause__
+    assert str(cause) == "out of GPUs"
+    assert len(tries) == 3
+
+
+async def test_a_cancel_during_the_final_save_still_cancels_the_run():
+    @activity.defn(name="run_tool")
+    async def tool(inp: RunNodeInput) -> list[Value]:
+        return run_tool(inp)
+
+    saving, release = asyncio.Event(), asyncio.Event()
+
+    @activity.defn(name="save_workflow")
+    async def slow_save(inp: SaveWorkflowInput) -> None:
+        saving.set()
+        await release.wait()
+
+    dag = {
+        "inputs": {"seq": "dna"},
+        "steps": {"protein": _step({"name": "dna_to_protein"}, "seq")},
+    }
+    async with (
+        await WorkflowEnvironment.start_time_skipping(
+            data_converter=pydantic_data_converter
+        ) as env,
+        Worker(
+            env.client,
+            task_queue="t",
+            workflows=[DagWorkflow],
+            activities=[tool, slow_save],
+        ),
+    ):
+        handle = await env.client.start_workflow(
+            DagWorkflow.run,
+            DagInput(
+                dag=Dag.model_validate(dag), inputs={"seq": [Dna(sequence="ATG")]}
+            ),
+            id="cancel-in-save",
+            task_queue="t",
+        )
+        try:
+            await asyncio.wait_for(saving.wait(), timeout=10)
+            await handle.cancel()
+            # Bounded, so a lost cancel fails the test, not hangs it.
+            with pytest.raises(WorkflowFailureError) as raised:
+                await asyncio.wait_for(handle.result(), timeout=10)
+            assert isinstance(raised.value.cause, CancelledError)
+            status = (await handle.describe()).status
+            assert status == WorkflowExecutionStatus.CANCELED
+        finally:
+            release.set()
 
 
 async def test_progress_reports_each_step_while_running():

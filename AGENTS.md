@@ -13,7 +13,9 @@ Read [README.md](README.md) for usage and
 alternatives, priorities and unresolved decisions. Read
 [docs/intended-structure.md](docs/intended-structure.md) for the supplied architecture
 sketches, layer responsibilities and current-versus-proposed behaviour. These notes
-are designs under discussion, not claims that their proposed components exist.
+are designs under discussion, not claims that their proposed components exist. Their
+tables of what exists were checked against `f9d2f50`, before the loop, the run ledger
+and the benchmark harness; this guide and the README describe the current code.
 Follow the user's requested scope; do not implement the whole roadmap during an
 unrelated fix.
 
@@ -70,8 +72,11 @@ uv run python -m temporal.run_workflow examples/simple.json
 
 The default Temporal address is `localhost:7233`, queue `node-dag`, and UI
 `http://127.0.0.1:8000`. Use CLI `--help` for overrides. Agent runs additionally
-need `ANTHROPIC_API_KEY` and `--model`; a proposed model string must be checked
-against the chosen provider. `temporal/run_hypothesis.py` loads the repository's
+need `ANTHROPIC_API_KEY`. `run_hypothesis` and `run_ui` take `--model` (default
+`anthropic:claude-sonnet-5-5`) for the builder and also for the inputs, criteria and critique
+calls, and `--verify-model` (default `anthropic:claude-haiku-4-5`) for the verifier alone; both are
+optional. Nothing checks that they differ, though the help text asks for it. A proposed model
+string must be checked against the chosen provider. `temporal/run_hypothesis.py` loads the repository's
 `.env`. Leave missing credentials missing and report the gap. Never copy `.env*`,
 `AGENTS.md` or configuration from another repository, or print secrets.
 
@@ -80,45 +85,108 @@ against the chosen provider. `temporal/run_hypothesis.py` loads the repository's
 | Area | Files to read first | Related tests |
 | --- | --- | --- |
 | Entities, DNA and tables | `src/node_dag/types.py`, `dna.py` | `tests/test_dna.py` |
+| Sequence lookup for inputs | `src/node_dag/entrez.py` | `tests/test_entrez.py` |
 | Node contracts and registration | `nodes/base.py`, `factory.py`, `registry.py` under `src/node_dag/` | `tests/test_dag.py`, `test_registry.py` |
-| DAG validation | `src/node_dag/dag.py` | `tests/test_dag.py` |
+| DAG validation | `src/node_dag/dag.py` | `tests/test_dag.py`, `test_beats_reference.py` |
 | Execution, cache and progress | `temporal/dag/activities.py`, `workflow.py`, `src/node_dag/storage.py` | `tests/test_cache.py`, `test_dag.py` |
-| Builder, verifier and persistence | `src/node_dag/agent.py`, `temporal/run_hypothesis.py` | `tests/test_agent.py` |
+| Builder, verifier and persistence | `src/node_dag/agent.py`, `temporal/hypothesis/activities.py`, `temporal/run_hypothesis.py` | `tests/test_agent.py` |
+| Hypothesis loop, plan checks, node scaffolding | `temporal/hypothesis/`, `src/node_dag/plan.py`, `check_plan` in `src/node_dag/agent.py`, `temporal/scaffold_node.py` | `tests/test_loop.py`, `test_plan.py`, `test_guards.py`, `test_scaffold.py` |
+| Watching runs | `temporal/pulse.py` | `tests/test_pulse.py` |
+| Run ledger | `temporal/ledger.py` | `tests/test_ledger.py`, `test_loop.py` |
+| Benchmark harness | `src/node_dag/benchmark.py`, `temporal/run_benchmark.py` | `tests/test_benchmark.py` |
 | UI and API | `temporal/ui/app.py`, adjacent HTML, `temporal/run_ui.py` | `tests/test_ui.py`, UI cases in `test_agent.py` |
 | Translation initiation prediction | `nodes/tools/ostir_expression/` under `src/node_dag/` | `tests/test_ostir.py` |
 | Sequence lookup for inputs | `src/node_dag/entrez.py` | `tests/test_entrez.py` |
 | Literature search and observations | `src/node_dag/amass.py` | `tests/test_amass.py` |
 
-The current path is `Hypothesis → build_agent → validated Dag → DagWorkflow →
-DagOutput → verify_agent`. `Hypothesis.inputs` starts empty: the `/new` page asks
-for a goal and its success criteria, and the builder chooses the inputs with
-`add_input`, fetching sequences from NCBI with `search_sequences` and
-`fetch_sequences`. `Hypothesis.criteria` holds the qualitative and quantitative
-criteria the outcome is judged against: the user writes them, or `criteria_agent`
-drafts them through `POST /api/criteria` and the user edits the draft; the builder
-sees them in its prompt and the verifier judges each in `Verdict.criteria`, one
-met/not met/unclear call per criterion shown on the hypotheses page. A caller that
-supplies `inputs` keeps them; `add_input` refuses to shadow one. Treat a sequence
-the model wrote out rather than fetched as unverified: `input_sources` records
-what each input was taken from, and is the only provenance a run carries today.
-`Hypothesis.observations` holds the literature the run is built on. The `/new`
-page gathers it before the build: `observations_agent` searches Amass through
-`POST /api/observations` and the user edits or drops each summary, the builder
-sees the kept list in its prompt and may cite it in `submit_dag`, and an uncited
-one stays on the hypothesis. Both agents can only cite a record Amass actually
-returned to them, so a citation is not invented; it is still only the model's
+One round is `Hypothesis → build_agent → validated Dag → DagWorkflow → DagOutput →
+verify_agent`. The builder's `create_node` registers a **configuration of existing
+Python code**. It does not author an implementation. The registry persists those
+configurations across hypotheses; this alone is not an iterative search loop or
+research memory.
+
+The `/new` page takes a goal and its success criteria, each a row with a kind
+(quantitative or qualitative) and a claim: the user writes them, or `criteria_agent`
+drafts them through `POST /api/criteria` and the user edits the draft. It does not ask
+for inputs: the loop fetches them from NCBI before round 1, and `POST /api/hypotheses`
+still takes `inputs` from a caller who has them. The hypotheses page marks each
+criterion met, not met or unclear from the assertions the plan set against it
+(`Attempt.held`), never from a model's call.
+`Hypothesis.observations` holds the literature the run is built on. The `/new` page
+gathers it before the build: `observations_agent` searches Amass through
+`POST /api/observations` and the user edits or drops each summary. The planner sees the
+kept list in its prompt and may cite it in the plan's observations; `cite` in
+`src/node_dag/agent.py` merges the citations into the list, so a record that goes
+uncited stays on the hypothesis. An agent can only cite a record Amass actually returned
+to it or one the user kept, so a citation is not invented; it is still only the model's
 reading of that record, and it does not establish that the record justifies the
 configuration field or threshold beside it.
-The builder's `create_node` registers a **configuration
-of existing Python code**. It does not author an implementation. The registry
-persists those configurations across hypotheses; this alone is not an iterative
-search loop or research memory.
 
-The intended hypothesis loop may add critique/retry and durable tool requests for
-human resolution. It is distinct from the outer recoding research loop that
-selects reusable algorithms. `HypothesisWorkflow`, `tool_added` signalling and a
-critique agent are proposed, not implemented. Do not treat the diagrams' names as
-existing APIs, or turn an unavailable-tool request into an executable DAG node.
+`HypothesisLoop` (`temporal/hypothesis/`) repeats rounds: it fixes the criteria,
+critiques a missed round, and blocks on a requested node until `tool_added` is
+signalled. It is distinct from the outer recoding research loop that selects
+reusable algorithms. `docs/intended-structure.md` is a design sketch of `main`
+before the loop existed; do not treat its names as APIs, or turn an
+unavailable-tool request into an executable DAG node.
+
+## Watching a run
+
+While a hypothesis run is open, make the last action of each reply a look:
+
+```sh
+uv run python -m temporal.pulse
+```
+
+It reads the saved hypotheses and trajectories under `$NODE_DAG_RESULTS`, and the node sources
+and `factory.py` to see which requested nodes now exist. It never
+calls a model, a worker or the API, so it is safe to run at any time.
+It keeps what it saw in `<results>/pulse.json`, so each look says only what moved since the
+last one. The first look has nothing to differ from and prints status lines only. Do not
+loop it inside a reply; the next reply's look is the next reading. `--every 30` keeps
+looking for a person at a terminal, `--json` is for another program, and an id, label or part
+of the goal selects one run.
+
+Each line starts with a mark:
+
+- `◆` something happened: criteria fixed, a round opened, a plan accepted, blocked, a
+  verdict, the run ended. Report it; no action needed.
+- `⚠` something to act on or decide (below).
+- `·` a detail, such as a model call that went through, or an alert that cleared.
+
+An event ends with `→ path` under the results directory; read that file before guessing.
+An alert is said once when it starts and once when it clears, so silence on a later look
+does not mean it is fixed. The status line keeps showing the state.
+
+| Alert | What it means | What to do |
+| --- | --- | --- |
+| a call `sent back for: …` | A model call was rejected three or more times. | Read the reasons. The same one repeating means a guard message or schema is unclear; fix that, not the run. |
+| `blocked 30m00s on …` | A person has to write a node. | Follow the `↳ waiting on` line (below). |
+| `400k of 500k tokens used` | The budget is 80% spent; reaching it ends the run. | Let it end, or abandon. |
+
+A blocked run lists each requested node as `missing`, `scaffolded`, `unregistered` or
+`ready`, with the next step for it: `python -m temporal.scaffold_node <name>`, then write
+`run()`, then edit `factory.py`. When every node is `ready`, restart the worker if it started
+before the nodes existed, then Resume (or POST `/api/hypotheses/<id>/tool_added`). The same
+plan resolves again without another model call.
+
+The header names any file it could not read as a Hypothesis, with the reason. Usually the
+file predates a change to a node's config and its `config_hash` no longer matches. That is
+not a fault in a run; leave it, and do not edit the hash to make it load. If the look finds no
+run, the header says which results directory it searched; check `NODE_DAG_RESULTS`.
+
+## The run ledger
+
+Every run that ends, achieved or not, abandoned or failed, adds one line to
+`$NODE_DAG_RESULTS/ledger.jsonl`. `HypothesisLoop` calls the `record_ledger` activity by name
+as its last step, and `temporal/ledger.py` builds the line from pulse's reading of the run, so
+the ledger and `pulse` always agree on what a run did. Nothing in it is judged by a model: each
+value is read from the saved Hypothesis and the saved model calls. A line has the run, its goal,
+how it ended and why, the rounds and what held in each, the tokens and seconds spent, the guard
+retries, errors and repeated wirings, the nodes used and the ones it asked for, the model per
+stage, and a one-line summary. A ledger that cannot be written never changes how a run ended. A
+worker that predates the activity must be restarted before runs it starts will be recorded.
+
+To read it: `jq -r '[.ended[:16], .hypothesis, .state, .rounds, .tokens, .summary] | @tsv' results/ledger.jsonl`.
 
 ## Contracts to preserve
 
@@ -129,12 +197,23 @@ existing APIs, or turn an unavailable-tool request into an executable DAG node.
 - Tools return entities and clear upstream scores. Scorers return one dictionary
   per input, in order, with exactly the declared score names. Filters return one
   boolean per input, aligned with the selected score values, and expose `.yes`
-  and `.no`. A new runner must preserve these semantics, empty-input skipping,
+  and `.no`. A filter whose config returns `reads_reference()` (`beats_reference`)
+  is also given that entity's score as `reference`. The workflow reads it from the
+  table of the step named in `scored_in`, and `Step.deps()` makes that step run
+  first. A new runner must preserve these semantics, empty-input skipping,
   deduplication and `DagOutput` shape.
 - `Dag` rejects cycles, unknown sources, port/type mismatches and filters whose
-  score column does not reach them. Keep validation at the boundary; do not bypass
-  it to accommodate a generated graph. Builder failures use `ModelRetry` with
+  score column does not reach them, and reference filters whose `scored_in` step
+  lacks that column. Keep validation at the boundary; do not bypass it to
+  accommodate a generated graph. Builder failures use `ModelRetry` with
   actionable errors and bounded retries.
+- A round is accepted by `accepted()` in `plan.py`, never by a model. Every criterion
+  needs an assertion, every assertion must hold on the outcome, and the verifier, which may
+  only veto, must set both `agrees` and `covers_goal`. `yes` or `no` on a filter holds when
+  that branch took at least one entity and the other none. `produced` holds when the step,
+  or a filter's `yes` branch, gave at least one entity, and on a filter it never covers
+  what the kept entities hold. Keep `holds`, the builder's guards (`check_plan`) and the
+  prompts agreeing on these meanings.
 - `Entity.id` hashes kind and sequence. `Table.of` merges identical entities.
   IDs therefore identify sequences, not genes, loci or parent-child lineage. A
   benchmark needs an explicit instance-to-result mapping so recoding, deduplication
@@ -147,8 +226,9 @@ existing APIs, or turn an unavailable-tool request into an executable DAG node.
   `config.columns()` or the registry reply for column names. Do not invent hashes
   or copy a stale score-column suffix after changing configuration fields.
 - Raise a node config's `version` when its implementation changes results. The
-  cache hashes configuration, inputs, filter values and version, rather than the
-  source code or dependency environment. Put every result-affecting parameter,
+  cache hashes configuration, inputs, filter values, a
+  filter's reference score and version, rather than the source code or dependency
+  environment. Put every result-affecting parameter,
   including seeds and biological context, into explicit configuration or input;
   record code and dependency versions for experiments.
 - Keep randomness local and explicit. `mutate_synonymous` seeds by configuration
@@ -157,8 +237,16 @@ existing APIs, or turn an unavailable-tool request into an executable DAG node.
 - Temporal workflow orchestration must remain replay-safe; filesystem writes,
   model calls and computational work belong outside workflow replay. Persist with
   `storage.write_atomic`. `$NODE_DAG_RESULTS` defaults to `results/`, containing
-  `nodes/`, `workflows/`, `registry/` and `hypotheses/`. It is local disk, so workers
-  on different machines do not automatically share a cache.
+  `nodes/`, `workflows/`, `registry/`, `hypotheses/`, `requests/` and `trajectories/`,
+  plus `ledger.jsonl`, `pulse.json`, `ledger/` (the benchmark's attempts, one file
+  each), `links/` (what nodes report) and the `entrez/` and `amass/` reply caches. It is
+  local disk, so workers on different machines do not automatically share a cache.
+- A file that cannot be written must not change how a run ended. `save_workflow` gets
+  three attempts, then the workflow logs the failure and the run still ends as it would
+  have; the ledger line and the model-call transcripts are treated the same way.
+  `POST /api/hypotheses` answers 422 for inputs that cannot run, before anything is saved,
+  and 503 when the workflow cannot start, after saving the Hypothesis as `failed` so none
+  is left `building`.
 
 ## Adding a node or changing a model-facing surface
 
@@ -185,7 +273,12 @@ Automatic discovery must never import quarantine or unvalidated generated code.
 
 ## Research rules for recoding work
 
-Apply these when implementing an experiment; the benchmark does not yet exist:
+Apply these when implementing an experiment. A first deterministic harness exists
+(`src/node_dag/benchmark.py`, run by `temporal/run_benchmark.py`): genes picked
+deterministically from an NCBI record (`NC_000913.3` by default, fetched through `entrez`
+and cached), random, best-of-N, greedy and exact baselines, a development/held-out split
+and an append-only attempt ledger. It uses no model and runs no DAG, so a search built on
+it still has to meet these:
 
 - Define the organism/genetic code, targeted codons, CDS boundaries, immutable
   context, objectives and metric directions before search. Synonymous mutation
@@ -203,11 +296,11 @@ Apply these when implementing an experiment; the benchmark does not yet exist:
 - Keep benchmark code and hidden evaluation data outside the candidate's writable
   surface. A candidate may modify the design algorithm, not its evaluator. Label
   seeded random stub scores as synthetic and exclude them from scientific results.
-- `dna_atom_score` is a plumbing objective with separable codon costs; it is a weak
-  discovery benchmark. `ostir_expression` already uses OSTIR and ViennaRNA, but its
-  translation-initiation prediction is a proxy. Decide whether the task maximises
-  predicted initiation or preserves the original level before choosing a score.
-  Neither score establishes cellular fitness, viability or safe genome design.
+- `ostir_expression` already uses OSTIR and ViennaRNA, but its translation-initiation
+  prediction is a proxy. Decide whether the task maximises predicted initiation or
+  preserves the original level before choosing a score. A plumbing objective with
+  separable codon costs, like the removed `dna_atom_score`, is a weak discovery
+  benchmark. No score establishes cellular fitness, viability or safe genome design.
 - Compare against fixed random synonymous, best-of-N and greedy baselines with
   explicit token, candidate-evaluation and wall-clock budgets. The current mutation
   node needs adaptation to serve as a target-codon-elimination baseline. Record
@@ -216,7 +309,7 @@ Apply these when implementing an experiment; the benchmark does not yet exist:
   effects, uncertainty, failures and sample size. Adaptive development selection
   needs a separate frozen confirmation; an LLM verdict or multiple-testing
   correction alone cannot establish generalisation. Keep a statistical verdict
-  separate from today's `Verdict(achieved, reason)`.
+  separate from today's `Verdict`, whose `achieved` is set by `accepted()`.
 - Retain an experiment manifest and append-only attempt ledger: commit, data
   provenance/split hashes, dependency versions, seed, model/prompt, budgets,
   parent/child DAGs, node versions, per-instance metrics, errors and selection
