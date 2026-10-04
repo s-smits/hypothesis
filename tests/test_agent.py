@@ -315,7 +315,9 @@ async def test_each_model_call_leaves_its_transcript_even_when_it_fails(results_
     )
 
 
-async def test_a_retry_does_not_overwrite_the_transcript_of_the_attempt_that_died(results_dir):
+async def test_a_retry_does_not_overwrite_the_transcript_of_the_attempt_that_died(
+    results_dir,
+):
     import dataclasses
 
     from pydantic_ai import Agent
@@ -325,12 +327,23 @@ async def test_a_retry_does_not_overwrite_the_transcript_of_the_attempt_that_die
     def drops(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         raise RuntimeError("the connection dropped")
 
-    stage = Stage(hyp=Hypothesis(goal="g", inputs={"seq": [Dna(sequence="ATG")]}, round=1), model="test")
+    stage = Stage(
+        hyp=Hypothesis(goal="g", inputs={"seq": [Dna(sequence="ATG")]}, round=1),
+        model="test",
+    )
     with pytest.raises(RuntimeError):  # Temporal retries an activity that raises.
-        await ActivityEnvironment().run(_ask, Agent(FunctionModel(drops), output_type=str), "first try", stage, "plan")
+        await ActivityEnvironment().run(
+            _ask,
+            Agent(FunctionModel(drops), output_type=str),
+            "first try",
+            stage,
+            "plan",
+        )
     retry = ActivityEnvironment()
     retry.info = dataclasses.replace(retry.info, attempt=2)
-    await retry.run(_ask, Agent(TestModel(), output_type=str), "second try", stage, "plan")
+    await retry.run(
+        _ask, Agent(TestModel(), output_type=str), "second try", stage, "plan"
+    )
 
     saved = results_dir / "trajectories"
     tag = f"{stage.hyp.id}-r1-plan"
@@ -479,7 +492,9 @@ async def test_a_model_that_goes_silent_mid_answer_fails_the_activity_retryably_
         await reader.readuntil(b"\r\n\r\n")
         # Headers and one ping, then nothing: the client's own retries do not cover this.
         ping = b'event: ping\ndata: {"type": "ping"}\n\n'
-        writer.write(b"HTTP/1.1 200 OK\r\ncontent-type: text/event-stream\r\ntransfer-encoding: chunked\r\n\r\n")
+        writer.write(
+            b"HTTP/1.1 200 OK\r\ncontent-type: text/event-stream\r\ntransfer-encoding: chunked\r\n\r\n"
+        )
         writer.write(f"{len(ping):x}\r\n".encode() + ping + b"\r\n")
         await writer.drain()
         while await reader.read(65536):
@@ -488,17 +503,25 @@ async def test_a_model_that_goes_silent_mid_answer_fails_the_activity_retryably_
 
     server = await asyncio.start_server(silent, "127.0.0.1", 0)
     port = server.sockets[0].getsockname()[1]
-    provider = AnthropicProvider(api_key="not-a-key", base_url=f"http://127.0.0.1:{port}")
-    agent = Agent(AnthropicModel("claude-sonnet-5-5", provider=provider), output_type=str)
+    provider = AnthropicProvider(
+        api_key="not-a-key", base_url=f"http://127.0.0.1:{port}"
+    )
+    agent = Agent(
+        AnthropicModel("claude-sonnet-5-5", provider=provider), output_type=str
+    )
     monkeypatch.setattr("temporal.hypothesis.activities.REQUEST_TIMEOUT", 1)
-    stage = Stage(hyp=Hypothesis(goal="g", inputs={"seq": [Dna(sequence="ATG")]}), model="test")
+    stage = Stage(
+        hyp=Hypothesis(goal="g", inputs={"seq": [Dna(sequence="ATG")]}), model="test"
+    )
     try:
         with pytest.raises(ApplicationError) as raised:
             await asyncio.wait_for(_ask(agent, "plan it", stage, "plan"), 30)
         # Not "ReadTimeout: Application error": an empty message at the bottom of the causes.
         assert str(raised.value) == "the model was silent for more than 1 s"
         assert raised.value.__cause__ is None
-        assert not raised.value.non_retryable  # Temporal retries it, as it did the ModelAPIError.
+        assert (
+            not raised.value.non_retryable
+        )  # Temporal retries it, as it did the ModelAPIError.
         assert len(seen) == 1
     finally:
         for writer in seen:
