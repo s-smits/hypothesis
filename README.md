@@ -296,8 +296,10 @@ Each model call writes its full message history, failed calls included, to
 `results/trajectories/<hypothesis id>-r<round>-<stage>.json` (`criteria` and `inputs` are round 0). That is
 where to look for which nodes the builder read and which guard it bounced off.
 
-Rounds stop at `max_rounds` (default 3; `--max-rounds` on `run_hypothesis`) or 500,000 tokens. The stop reason is
-`stopped_because`, and every round is kept in `attempts`.
+Rounds stop at `max_rounds` (default 20; `--max-rounds` on `run_hypothesis`) or 500,000 tokens, whichever comes first.
+A round has cost a median of 115,000 tokens, and the ceiling is checked before each round, so a run usually stops after
+about five rounds, the last one crossing it. Both limits are saved on the Hypothesis, and the hypotheses page shows
+"round N of M" and the tokens spent. The stop reason is `stopped_because`, and every round is kept in `attempts`.
 
 **Models.** `run_hypothesis` and `run_ui` take `--model` for the builder, which also makes the
 inputs, criteria and critique calls (and the UI's criteria drafting), and `--verify-model` for
@@ -318,7 +320,12 @@ verifier to set `covers_goal` false when only `produced` backs it. The verifier 
 are shown what each node in the DAG says it does. A model cannot grant acceptance, only veto it.
 A model that refuses a call stops the run with the refusal as the reason.
 
-**Blocked on a tool.** A plan may request at most three nodes that do not exist yet, with
+**Blocked on a tool.** Off by default: a plan carrying `requests` is sent back to the
+builder to compose from the nodes that exist, since a guard the builder cannot satisfy
+otherwise turns into a request for a node that was never needed. Start the run with
+`--allow-requests` (or `allow_requests` in `POST /api/hypotheses`) to allow one.
+
+With it on, a plan may request at most three nodes that do not exist yet, with
 a contract (purpose, ports, example) and why none can be composed from the registry. It
 type-checks against stand-ins, saves the request under `results/requests/`, and the run
 shows `blocked`. `uv run python -m temporal.scaffold_node <name>` writes the node's
@@ -327,7 +334,8 @@ the plan was checked against, and prints the `factory.py` edits. Write `run()`, 
 edits, restart the worker, and click Resume on the nodes page (or POST
 `/api/hypotheses/<id>/tool_added`); the same plan is resolved again without a new model
 call. `abandon` ends it. `examples/recode_acg_mock.json` is a synthetic gene with two ORFs in
-different frames, which no registered node can recode in both, so it is meant to block in round 1.
+different frames, which no registered node can recode in both, so it is meant to block in round 1
+when it is run with `--allow-requests`.
 
 **Watching runs.** `uv run python -m temporal.pulse` prints a status line per open run, and on
 every later look what moved since the last: criteria fixed, a round opened, a plan accepted,

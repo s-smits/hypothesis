@@ -126,6 +126,8 @@ async def _drive(
     steer=None,
     ledger=record_ledger,
     cancel_on: asyncio.Event | None = None,
+    # What these tests were written against. None is the loop's own default.
+    rounds: int | None = 3,
     **cfg,
 ) -> Hypothesis:
     async with await WorkflowEnvironment.start_time_skipping(
@@ -149,6 +151,8 @@ async def _drive(
                 activities=acts,
                 activity_executor=pool,
             ):
+                if rounds:
+                    cfg = {"max_rounds": rounds, **cfg}
                 inp = HypothesisInput(
                     hypothesis=hyp, build_model="b", verify_model="v", **cfg
                 )
@@ -219,7 +223,7 @@ async def test_a_missing_tool_blocks_until_it_is_added_then_resolves_the_same_pl
     fakes = _fakes(
         calls, [PLAN], [ResolveOut(missing=[REQUEST]), ResolveOut(dag=DAG)], [True]
     )
-    done = await _drive(fakes, steer=added)
+    done = await _drive(fakes, steer=added, allow_requests=True)
     assert (
         seen[0].state == "blocked"
         and seen[0].pending == [REQUEST]
@@ -232,10 +236,20 @@ async def test_a_missing_tool_blocks_until_it_is_added_then_resolves_the_same_pl
     )
 
 
+async def test_a_missing_tool_ends_the_run_when_requesting_a_node_is_off(results_dir):
+    """The default: nothing waits, so the run ends rather than blocking on a person."""
+    done = await _drive(_fakes({}, [PLAN], [ResolveOut(missing=[REQUEST])], []))
+    assert done.state == "not achieved"
+    assert "gc_count" in (done.stopped_because or "")
+    assert "allow_requests" in (done.stopped_because or "")
+
+
 async def test_abandoning_a_blocked_run_ends_it():
     abandon = lambda h: h.signal(HypothesisLoop.abandon)
     done = await _drive(
-        _fakes({}, [PLAN], [ResolveOut(missing=[REQUEST])], []), steer=abandon
+        _fakes({}, [PLAN], [ResolveOut(missing=[REQUEST])], []),
+        steer=abandon,
+        allow_requests=True,
     )
     assert done.state == "abandoned" and done.pending == []
 
@@ -431,7 +445,7 @@ async def test_a_resume_sent_while_the_plan_resolves_again_is_not_lost():
 
     resume = lambda h: h.signal(HypothesisLoop.tool_added)
     done = await asyncio.wait_for(
-        _drive([fakes[0], resolve, *fakes[2:]], steer=resume), 30
+        _drive([fakes[0], resolve, *fakes[2:]], steer=resume, allow_requests=True), 30
     )
     assert done.state == "achieved" and not resolves
 
@@ -441,7 +455,9 @@ async def test_every_finished_run_leaves_a_line_in_the_ledger_whatever_its_end()
     abandon = lambda h: h.signal(HypothesisLoop.abandon)
     asking = Plan.model_validate(_plan(requests={"gc_count": REQUEST.model_dump()}))
     await _drive(
-        _fakes({}, [asking], [ResolveOut(missing=[REQUEST])], []), steer=abandon
+        _fakes({}, [asking], [ResolveOut(missing=[REQUEST])], []),
+        steer=abandon,
+        allow_requests=True,
     )
     first, second = read(ledger_path())[0]
     assert (first.state, first.rounds, first.held) == ("achieved", 1, ["1/1"])
@@ -494,7 +510,7 @@ async def test_assertions_that_all_hold_do_not_achieve_a_goal_the_verifier_vetoe
     fakes = _fakes(
         {}, [PLAN] * 3, [ResolveOut(dag=DAG)] * 3, [agrees] * 3, covers=covers
     )
-    done = await _drive(fakes)
+    done = await _drive(fakes, max_rounds=3)  # The fakes hold three plans.
     assert done.state == "not achieved" and len(done.attempts) == 3
     assert all(a.held == {"small.yes": True} for a in done.attempts)
     assert _none_achieved(done)  # The code was content; the verifier stopped it.
@@ -637,3 +653,15 @@ async def test_a_criterion_nothing_can_meet_is_not_achieved_when_the_verifier_ag
     for a in done.attempts:
         assert a.held == {"better.produced": False} and a.produced["better.yes"] == []
         assert a.verdict and a.verdict.agrees and "did not hold" in a.verdict.reason
+
+
+async def test_a_run_gets_twenty_rounds_unless_told_otherwise_and_saves_its_limits():
+    stops = HYP.model_copy(update={"inputs": {"seq": [Dna(sequence="ATGTAAGCT")]}})
+    fakes = _fakes({}, [PLAN] * 20, [ResolveOut(dag=RAISES)] * 20, [])
+    done = await _drive(fakes, hyp=stops, rounds=None)  # The loop's own default.
+    assert [a.round for a in done.attempts] == list(range(1, 21))
+    assert (
+        done.state == "not achieved"
+        and done.stopped_because == "out of rounds after 20"
+    )
+    assert (done.max_rounds, done.max_tokens) == (20, 500_000)  # What a page shows.

@@ -147,7 +147,9 @@ async def test_the_plan_activity_returns_the_records_the_plan_cites(
     monkeypatch.setattr(
         activities,
         "build_agent",
-        lambda model, registry, seen: real(FunctionModel(script), registry, seen),
+        lambda model, registry, seen, **kw: real(
+            FunctionModel(script), registry, seen, **kw
+        ),
     )
     hyp = Hypothesis(goal="translate", inputs={"seq": [Dna(sequence="ATG")]})
 
@@ -311,7 +313,9 @@ async def test_the_plan_activity_keeps_the_records_the_user_gave(tmp_path, monke
     monkeypatch.setattr(
         activities,
         "build_agent",
-        lambda model, registry, seen: real(FunctionModel(script), registry, seen),
+        lambda model, registry, seen, **kw: real(
+            FunctionModel(script), registry, seen, **kw
+        ),
     )
     monkeypatch.setenv("NODE_DAG_RESULTS", str(tmp_path))
 
