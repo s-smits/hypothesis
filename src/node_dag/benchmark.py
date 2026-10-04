@@ -32,6 +32,7 @@ from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from itertools import pairwise
 from pathlib import Path
+from typing import TypedDict
 
 from node_dag.dna import CODON_TABLE, SYNONYMS, codons
 from node_dag.lineage import Lineage, Outcome, Variant, outcomes
@@ -41,6 +42,7 @@ from node_dag.storage import write_atomic
 from node_dag.types import Dna
 
 __all__ = [
+    "GoalSpec",
     "Instance",
     "Ledger",
     "Objective",
@@ -53,6 +55,7 @@ __all__ = [
     "dependency_versions",
     "exact_cai",
     "exact_codon_pair",
+    "goal_for",
     "greedy_chain",
     "ledger_dir",
     "manifest",
@@ -847,3 +850,73 @@ def pair_weights_from(
         )
         weights[pair] = max(math.log(observed / expected), floor) if expected else floor
     return weights
+
+
+class GoalSpec(TypedDict):
+    """A goal as the loop takes it: a ``Hypothesis`` without an id.
+
+    Typed rather than a loose dict so a caller reading ``criteria`` or ``goal`` gets a
+    string and a list, not ``object``.
+    """
+
+    goal: str
+    inputs: dict[str, list[dict[str, str]]]
+    criteria: list[dict[str, str]]
+
+
+# --- goals for the hypothesis loop -------------------------------------------
+
+
+def goal_for(instance: Instance, weights: Mapping[str, float]) -> GoalSpec:
+    """One instance as a goal the loop can be asked, in the words the gate scores.
+
+    The sequence, the weight table and the codons that must not change are the
+    benchmark's own, so the loop is asked the question the gate answers. Hand-written
+    goals left the fixed codons out, which let a synonymous stop swap through: it keeps
+    the protein, so it passes a protein check, while leaving the space the exact optimum
+    is taken over.
+
+    The optimum, any gap and the split are never written. A goal carrying its own answer
+    would be worthless, and a goal naming its side of the split would leak it.
+
+    Returns a ``Hypothesis`` without an id, which the loop fills in.
+    """
+    table = json.dumps(dict(sorted(weights.items())), separators=(",", ":"))
+    cs = codons(instance.parent.sequence)
+    fixed = sorted(instance.fixed())
+    keep = ", ".join(f"{cs[i]} at index {i}" for i in fixed)
+    claims = {
+        "protein_preserved": (
+            "Every kept output DNA sequence translates to exactly the same protein as "
+            "the input sequence: only synonymous codon changes were made."
+        ),
+        "higher_cai": (
+            "Every kept output sequence has a codon adaptation index, scored with the "
+            "given weight table, strictly higher than the input sequence's."
+        ),
+        "only_improved_kept": (
+            "Any sequence whose codon adaptation index is not higher than the input "
+            "sequence's is excluded from the output."
+        ),
+        "length_preserved": (
+            "Every kept output sequence has the same length as the input sequence."
+        ),
+        "fixed_codons_kept": (
+            f"Every kept output sequence keeps the input's codon at each fixed position "
+            f"({keep}; codon indices count from 0). A synonymous codon there is a change."
+        ),
+    }
+    return {
+        "goal": (
+            "Raise the codon adaptation index of the DNA sequence without changing its "
+            f"protein. Score it with this codon weight table: {table} . "
+            f"Leave these codons as they are: {keep}. "
+            "Check them with constraint_check, using the input as reference and "
+            f"immutable={fixed}, then filter immutable_unchanged at 1. "
+            "Keep only the sequences scoring higher than the input."
+        ),
+        "inputs": {"seqs": [{"kind": "dna", "sequence": instance.parent.sequence}]},
+        "criteria": [
+            {"id": i, "claim": c, "source": "human"} for i, c in claims.items()
+        ],
+    }
