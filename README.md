@@ -121,7 +121,8 @@ Results go under `$NODE_DAG_RESULTS` (default `results/`):
 
 - `nodes/<node name>/<hash>.json`: each node's cached result, keyed by its config and inputs.
 - `workflows/<workflow id>.json`: each run's DAG, step statuses and tables (entities and
-  score columns), written when the run finishes or fails.
+  score columns), written when the run finishes or fails; a save that fails is logged and
+  the run still ends.
 - `registry/<node id>.json`: each node a builder agent made, with its description.
 - `hypotheses/<hypothesis id>.json`: each Hypothesis, saved after each stage of the loop.
   The loop's workflow ID is the hypothesis ID; each round's DAG runs as `<hypothesis id>-r<round>`.

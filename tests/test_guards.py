@@ -1,9 +1,10 @@
 from typing import Any, cast
 
+import pytest
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 from test_agent import _reply, _returns, _turn
 
-from node_dag.agent import Hypothesis, build_agent
+from node_dag.agent import Hypothesis, build_agent, step_config
 from node_dag.nodes.base import BaseScoreConfig
 from node_dag.nodes.tools.codon_count.config import CodonCountConfig
 from node_dag.plan import Attempt, Criterion, Critique, Plan, ToolRequest
@@ -154,6 +155,26 @@ async def test_a_step_with_an_unknown_node_is_named_with_the_ids_it_could_use(
     assert "Step 'small'" in errors[0] and "'at_most__deadbeef'" in errors[0]
     assert scorer.id in errors[0] and "requests" in errors[0]
     assert "tagged-union" not in errors[0]
+
+
+def test_the_ids_an_unknown_node_message_lists_are_capped_and_counted(results_dir):
+    registry = Registry(results_dir / "registry")
+    codons = [a + b + c for a in "ACGT" for b in "ACGT" for c in "ACGT"][:30]
+    for codon in codons:
+        registry.register(CodonCountConfig(codons=(codon,)), "counts a codon")
+    bad = Plan.model_validate(
+        _plan(
+            steps={
+                **_plan()["steps"],
+                "small": _step("at_most__deadbeef", "counted", "items"),
+            }
+        )
+    )
+    with pytest.raises(ValueError) as raised:
+        step_config(bad, "small", registry)
+    message = str(raised.value)
+    assert message.count("codon_count__") == 20 and "and 10 more" in message
+    assert "list_registry" in message and "Built-in names" in message
 
 
 async def test_a_config_that_does_not_fit_its_node_names_the_step_and_the_field(

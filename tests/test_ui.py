@@ -426,3 +426,9 @@ async def test_the_criteria_endpoint_drafts_a_list_to_edit():
     with pytest.raises(HTTPException) as e:  # The page shows why, not a bare 500.
         await broken(NewCriteria(goal="faster lacZ"))
     assert e.value.status_code == 502 and "no API key" in e.value.detail
+
+
+def test_a_blank_goal_is_refused_before_it_can_reach_the_criteria_agent():
+    with pytest.raises(ValidationError):  # Blank after trimming: no goal at all.
+        NewCriteria(goal="  \n")
+    assert NewCriteria(goal="  faster lacZ \n").goal == "faster lacZ"
