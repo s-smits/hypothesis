@@ -15,10 +15,15 @@ from typing import Any, cast
 import httpx2
 from pydantic import BaseModel, ValidationError
 from pydantic_ai import RunUsage, capture_run_messages
-from pydantic_ai.exceptions import ContentFilterError, UnexpectedModelBehavior
+from pydantic_ai.exceptions import (
+    ContentFilterError,
+    ModelAPIError,
+    UnexpectedModelBehavior,
+)
 from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
 from pydantic_core import to_json
 from temporalio import activity
+from temporalio.exceptions import ApplicationError
 
 from node_dag.agent import (
     NODES,
@@ -130,15 +135,29 @@ async def _ask(
             return {"error": e.message, "declined": True, "tokens": usage.total_tokens}
         except UnexpectedModelBehavior as e:
             return {"error": e.message, "tokens": usage.total_tokens}
-        except BaseException:
+        except BaseException as e:
             # Not an answer, so Temporal retries the activity, and the retry's transcript
             # would replace this one's under the same name. Keep this attempt under its own.
             attempt = activity.info().attempt if activity.in_activity() else 1
             _record(f"{tag}-a{attempt}", messages)
+            if isinstance(e, ModelAPIError) and _silent(e):
+                # The loop reports the bottom of the cause chain, an empty ReadTimeout that
+                # Temporal shows as "Application error". Retried exactly as the error was.
+                msg = f"the model was silent for more than {REQUEST_TIMEOUT:g} s"
+                raise ApplicationError(msg) from None
             raise
         finally:
             _record(tag, messages)
     return {"out": run.output, "tokens": usage.total_tokens}
+
+
+def _silent(e: BaseException | None) -> bool:
+    """Whether a read timeout, the client's REQUEST_TIMEOUT, is behind ``e``."""
+    while e is not None:
+        if isinstance(e, httpx2.ReadTimeout):
+            return True
+        e = e.__cause__
+    return False
 
 
 def _record(tag: str, messages: list[ModelMessage]) -> None:
