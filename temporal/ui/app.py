@@ -450,7 +450,11 @@ def make_app(
             raise HTTPException(502, str(e)) from e
         cited = [
             Citation(
-                hypothesis_id=r.hypothesis.id, goal=r.hypothesis.goal, summary=o.summary
+                hypothesis_id=r.hypothesis.id,
+                goal=r.hypothesis.goal,
+                # What that hypothesis took from the record: the builder's reading
+                # where it cited one the user supplied, else the summary itself.
+                summary=o.used or o.summary,
             )
             for r in _saved_rows()
             for o in r.hypothesis.observations

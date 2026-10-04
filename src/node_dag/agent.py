@@ -80,6 +80,11 @@ class Observation(DraftObservation):
         url: Where to read the record, if it has a link.
         source: The journal, or whatever else published it.
         date: When it was published.
+        used: How the builder used this record, when it cited one the prompt
+            listed. The ``summary`` beside it stays as the user wrote it, so a
+            citation adds the builder's reading rather than overwriting the
+            user's. None for a record the builder found itself, whose own
+            ``summary`` already says how it shaped the DAG.
     """
 
     core: str
@@ -87,6 +92,7 @@ class Observation(DraftObservation):
     url: str | None = None
     source: str | None = None
     date: str | None = None
+    used: str | None = None
 
     @classmethod
     def from_record(
@@ -679,7 +685,9 @@ def build_agent(
             observations: The findings that bear on the hypothesis, one per record:
                 from search_literature or get_record, or from the observations the
                 prompt listed. Cite one for each record that shaped the DAG, with a
-                summary of how it did. Leave out if there are none.
+                summary of how it did. For a record the prompt listed, your summary
+                is recorded as how the DAG used it, beside the user's own, which
+                stands. Leave out if there are none.
         """
         # The caller's own inputs win: add_input refuses to shadow one.
         available: dict[str, list[Value]] = {**drafted, **ctx.deps.inputs}
@@ -706,17 +714,18 @@ def build_agent(
             )
         cited = {
             o.amass_id: (
-                Observation.from_record(o, *seen[o.amass_id])
-                if o.amass_id in seen
-                # A record the agent did not fetch itself keeps the title and link
-                # the prompt's observation already carried.
-                else given[o.amass_id].model_copy(update={"summary": o.summary})
+                # A record the prompt listed keeps the summary the user kept, and
+                # the title and link it already carried: the agent's text says how
+                # the DAG used it, and does not overwrite the user's curation.
+                given[o.amass_id].model_copy(update={"used": o.summary})
+                if o.amass_id in given
+                else Observation.from_record(o, *seen[o.amass_id])
             )
             for o in observations
         }
-        # A cited record keeps its place in the prompt's list, with the agent's
-        # summary of how it shaped the DAG; an uncited one stays as it was, so a
-        # record gathered before the build is not lost by going uncited.
+        # A cited record keeps its place in the prompt's list; an uncited one stays
+        # as it was, so a record gathered before the build is not lost by going
+        # uncited.
         merged = [cited.pop(o.amass_id, o) for o in ctx.deps.observations]
         merged += cited.values()
         nodes = {n.id: n for n in registry.all()}

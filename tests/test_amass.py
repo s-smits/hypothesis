@@ -127,6 +127,7 @@ async def test_builder_cites_only_records_it_was_shown(calls, tmp_path):
         "url": None,
         "source": None,
         "date": None,
+        "used": None,
     }
 
 
@@ -168,10 +169,12 @@ async def test_the_builder_cites_an_observation_it_was_given(tmp_path):
     hyp = _given_hypothesis()
     out = (await agent.run(hyp.goal, deps=hyp)).output
 
-    # The builder's summary of how it used the record replaces the one it was
-    # given, and the record's own title and link survive: it did not refetch it.
+    # The user's summary stands and the record's title and link survive: it did
+    # not refetch it. What the builder made of the record goes beside them, so a
+    # citation cannot quietly delete the correction a reviewer wrote.
     (obs,) = out.observations
-    assert obs == GIVEN.model_copy(update={"summary": "Set the UTR."})
+    assert obs == GIVEN.model_copy(update={"used": "Set the UTR."})
+    assert obs.summary == "What the user kept."
 
 
 async def test_an_observation_the_builder_does_not_cite_is_kept(tmp_path):
@@ -202,6 +205,11 @@ async def test_a_cited_record_the_builder_found_is_added_after_the_given_ones(
     assert "AMBC_made_up" in retry
     assert "AMBC_1" in retry and "AMBC_given" in retry
     assert [o.amass_id for o in out.observations] == ["AMBC_given", "AMBC_1"]
+    # A record the builder found itself has no user summary to protect, so its
+    # own text is the summary and `used` stays empty.
+    found = out.observations[1]
+    assert found.summary == "RBS strength sets expression."
+    assert found.used is None
 
 
 def _observer(calls_: list, observations: list[dict]):
@@ -243,6 +251,7 @@ async def test_the_observations_agent_returns_records_it_was_shown(calls):
             "url": None,
             "source": None,
             "date": None,
+            "used": None,
         }
     ]
 
