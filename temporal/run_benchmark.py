@@ -12,6 +12,7 @@ which records the access in the ledger before any held-out sequence is read.
 
 import json
 import math
+import re
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
@@ -30,6 +31,7 @@ from node_dag.benchmark import (
     compare,
     exact_cai,
     exact_codon_pair,
+    goal_for,
     greedy_chain,
     manifest,
     pair_weights_from,
@@ -41,6 +43,7 @@ from node_dag.benchmark import (
     release_holdout as release_holdout_fn,
 )
 from node_dag.dna import codons
+from node_dag.storage import write_atomic
 from node_dag.types import Dna
 
 FLOOR = math.log(0.1)
@@ -53,6 +56,43 @@ def _pick(records: list[dict], n: int) -> list[dict]:
         return by_length
     step = len(by_length) // n
     return [by_length[i * step] for i in range(n)]
+
+
+# A goal file is named after its instance, so the name has to be a plain label: no
+# separator, no parent reference, nothing a shell or a path would reinterpret.
+SAFE_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+
+def write_goals(
+    instances: Sequence[Instance], weights: Mapping[str, float], out: Path
+) -> list[Path]:
+    """Write one goal file per instance into ``out`` and return the paths.
+
+    Refuses rather than guesses: a key that would not be a safe filename, two instances
+    sharing a key, and a file already there are all errors. Overwriting a goal silently
+    would let a later export change what an earlier attempt was asked.
+    """
+    seen: set[str] = set()
+    for i in instances:
+        if not SAFE_KEY.match(i.key):
+            raise click.ClickException(
+                f"Instance key {i.key!r} is not a safe file name, so its goal cannot "
+                "be written. Rename the instance."
+            )
+        if i.key in seen:
+            raise click.ClickException(
+                f"Two instances share the key {i.key!r}; their goals would collide."
+            )
+        seen.add(i.key)
+    paths = [out / f"{i.key}.json" for i in instances]
+    if existing := [p for p in paths if p.exists()]:
+        raise click.ClickException(
+            f"{len(existing)} goal file(s) already exist, starting {existing[0]}. "
+            "Write to an empty directory rather than overwriting what was asked before."
+        )
+    for inst, path in zip(instances, paths):
+        write_atomic(path, json.dumps(goal_for(inst, weights), indent=2).encode())
+    return paths
 
 
 def _table(
@@ -208,6 +248,15 @@ def loop_line(rows: Sequence[Result]) -> str:
     help="A loop results dir: score its codon adaptation runs as strategy 'loop'.",
 )
 @click.option(
+    "--emit-goals",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help=(
+        "Write one loop goal per instance to this directory and stop: no candidate is "
+        "scored and no attempt is recorded. A held-out release is still recorded."
+    ),
+)
+@click.option(
     "--ledger",
     "ledger_root",
     type=click.Path(path_type=Path),
@@ -225,6 +274,7 @@ def main(
     reason: str,
     frozen: str,
     loop_results: Path | None,
+    emit_goals: Path | None,
     ledger_root: Path | None,
 ) -> None:
     """Compare random, best-of-N, greedy and exact recoding on a committed gene set."""
@@ -281,6 +331,17 @@ def main(
         raise click.ClickException(
             f"The {which} side of this split is empty. Adjust --holdout-fraction."
         )
+    if emit_goals is not None:
+        # The release above is already recorded, so a held-out export leaves the same
+        # trace as a held-out scoring would.
+        paths = write_goals(instances, cai_w, emit_goals)
+        click.echo(
+            f"split {split.split_hash}: {len(split.dev)} development, "
+            f"{len(split.holdout)} held out. Wrote {len(paths)} {which} goal(s) to "
+            f"{emit_goals}. Nothing was scored and no attempt was recorded."
+        )
+        return
+
     click.echo(
         f"split {split.split_hash}: {len(split.dev)} development, "
         f"{len(split.holdout)} held out. Scoring the {which} side.\n"
