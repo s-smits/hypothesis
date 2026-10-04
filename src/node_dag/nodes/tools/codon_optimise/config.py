@@ -22,6 +22,10 @@ class CodonOptimiseConfig(BaseToolConfig):
     optimise. Pair with ``codon_adaptation`` to score how far a sequence sits
     from the table's optimum.
 
+    A stop codon is kept as it is, whatever the table weighs its synonyms at, so
+    the sequence ends as it did. ``codon_adaptation`` skips stops, so nothing in a
+    CAI is lost by this.
+
     Args:
         codon_weights: The usage weight of each codon, e.g. per-thousand
             frequency or relative adaptiveness from a codon usage table. The
