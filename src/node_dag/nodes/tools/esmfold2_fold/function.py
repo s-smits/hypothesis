@@ -36,16 +36,19 @@ def app_page_url(app: object) -> str | None:
 
 
 def fold_remote(
-    sequences: list[str],
-    as_complex: bool,
+    groups: list[list[str]],
+    co_fold: bool,
     num_loops: int,
     num_sampling_steps: int,
     seed: int,
 ) -> list[str]:
-    """Fold the sequences on a GPU on Modal and return the mmCIF strings.
+    """Fold each group of chains on a GPU on Modal and return one mmCIF per group.
 
-    With ``as_complex`` the whole list co-folds as one complex and one mmCIF comes
-    back; otherwise each sequence folds alone and one comes back per sequence.
+    A group of one chain is a monomer and several chains co-fold as one complex.
+    ``co_fold`` picks the model: the full ESMFold2, which conditions chains on each
+    other, or the cheaper single-sequence ESMFold2-Fast. It is passed rather than
+    inferred from the group sizes, so that a complex of one chain is still folded by
+    the model the caller asked for.
     """
     # Importing modal_app starts no container, but it does need modal credentials, so
     # only reach for it when a step actually runs.
@@ -58,8 +61,7 @@ def fold_remote(
         fold,
     )
 
-    groups = [sequences] if as_complex else [[s] for s in sequences]
-    model = COMPLEX_MODEL if as_complex else MONOMER_MODEL
+    model = COMPLEX_MODEL if co_fold else MONOMER_MODEL
     # An ephemeral run, so nothing has to be deployed first. The GPU is held only for
     # this call, and the weights come off a volume rather than Hugging Face.
     with modal.enable_output(), app.run():
@@ -71,28 +73,37 @@ def fold_remote(
 
 
 class Esmfold2Fold(BaseNode[Esmfold2FoldConfig]):
-    """Fold each amino acid sequence, alone or together as one complex."""
+    """Fold each amino acid sequence, alone, with partner chains, or all as one."""
 
-    def run(self, sequence: list[AminoAcidSequence]) -> list[ProteinStructure]:
+    def run(
+        self, sequence: list[AminoAcidSequence], partner: list[AminoAcidSequence]
+    ) -> list[ProteinStructure]:
         """Return the predicted structures, as mmCIF.
 
-        One structure per sequence, or one for the whole list when ``as_complex``
-        folds them together. A complex's ``sequence`` is its chains concatenated
-        in arrival order, the convention ``pdbfixer_fix.sequence_of`` also keeps.
+        One structure per sequence, each co-folded with every partner chain, or one
+        for everything together when ``as_complex`` does. A structure's ``sequence``
+        is its chains concatenated in arrival order, the sequence port's first, the
+        convention ``pdbfixer_fix.sequence_of`` also keeps.
         """
         if not sequence:
             return []
         chains = [_chain(s.sequence) for s in sequence]
+        partners = [_chain(p.sequence) for p in partner]
+        if self.config.as_complex:
+            groups = [chains + partners]
+        else:
+            groups = [[c, *partners] for c in chains]
+        # Partner chains have to be conditioned on each other, so they need the full
+        # model just as an explicit complex does.
+        co_fold = self.config.as_complex or bool(partners)
         structures = fold_remote(
-            chains,
-            self.config.as_complex,
+            groups,
+            co_fold,
             self.config.num_loops,
             self.config.num_sampling_steps,
             self.config.seed,
         )
-        if self.config.as_complex:
-            return [ProteinStructure(sequence="".join(chains), structure=structures[0])]
         return [
-            ProteinStructure(sequence=c, structure=s)
-            for c, s in zip(chains, structures, strict=True)
+            ProteinStructure(sequence="".join(g), structure=s)
+            for g, s in zip(groups, structures, strict=True)
         ]

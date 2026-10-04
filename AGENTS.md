@@ -95,6 +95,7 @@ string must be checked against the chosen provider. `temporal/run_hypothesis.py`
 | Benchmark harness | `src/node_dag/benchmark.py`, `temporal/run_benchmark.py` | `tests/test_benchmark.py` |
 | UI and API | `temporal/ui/app.py`, adjacent HTML, `temporal/run_ui.py` | `tests/test_ui.py`, UI cases in `test_agent.py` |
 | Translation initiation prediction | `nodes/tools/ostir_expression/` under `src/node_dag/` | `tests/test_ostir.py` |
+| Structure folding and comparison | `nodes/tools/esmfold2_fold/`, `tmalign/` under `src/node_dag/` | `tests/test_esmfold2.py`, `test_tmalign.py` |
 | Literature search and observations | `src/node_dag/amass.py` | `tests/test_amass.py` |
 | Benchmark gene set | `src/node_dag/genes.py`, `data/ecoli_k12_cds.json` | `tests/test_genes.py` |
 
@@ -195,10 +196,17 @@ To read it: `jq -r '[.ended[:16], .hypothesis, .state, .rounds, .tokens, .summar
 
 ## Contracts to preserve
 
-- A node currently has one input port and receives the whole list by keyword.
-  Its config's `inputs`, `categories` and output declaration must match `run`.
-  Schema `x-node` exposes those ClassVars to the builder; keep schemas, tool
-  descriptions, registry summaries and runtime behaviour consistent.
+- A node receives the whole list on each input port, by keyword. A scorer or filter
+  has exactly one port, which cannot be optional; only a tool may have several
+  (`tmalign` takes a structure and a reference), and only a tool may name some in
+  `optional_inputs` (`esmfold2_fold`'s `partner`). A plan may leave an optional port
+  unwired, and `run` is still given it as an empty list, so every declared port is a
+  parameter of `run` either way. At least one port must stay required: the workflow
+  skips a step when a port it must wire has nothing to run on, and an empty optional
+  port is simply not used. Its config's `inputs`, `categories` and output declaration
+  must match `run`. Schema `x-node` exposes those ClassVars to the builder, including
+  which ports are optional; keep schemas, tool descriptions, registry summaries and
+  runtime behaviour consistent.
 - Tools return entities and clear upstream scores. Scorers return one dictionary
   per input, in order, with exactly the declared score names. Filters return one
   boolean per input, aligned with the selected score values, and expose `.yes`

@@ -64,6 +64,12 @@ class RunNodeInput(BaseModel):
         """``$NODE_DAG_RESULTS/nodes/<node name>/<hash>.json``. The root defaults to ``results``.
 
         The hash covers the config, the inputs and the config's ``version``.
+
+        A port with nothing on it is left out of the hash. Only an optional port can
+        be empty here, since a step whose required port is empty never runs, and an
+        unwired port contributes nothing to the result. Leaving it out is what makes
+        giving a node an optional port keep, rather than discard, everything it had
+        already cached.
         """
         key = {
             **self.model_dump(
@@ -72,6 +78,7 @@ class RunNodeInput(BaseModel):
             ),
             "version": self.config.version,
         }
+        key["inputs"] = {p: v for p, v in key["inputs"].items() if v}
         digest = hashlib.sha256(json.dumps(key, sort_keys=True).encode()).hexdigest()
         return results_root() / "nodes" / self.config.name / f"{digest}.json"
 

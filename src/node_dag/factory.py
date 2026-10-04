@@ -69,6 +69,8 @@ from node_dag.nodes.tools.resample_synonymous.config import ResampleSynonymousCo
 from node_dag.nodes.tools.resample_synonymous.function import ResampleSynonymous
 from node_dag.nodes.tools.rna_back_transcribe.config import RnaBackTranscribeConfig
 from node_dag.nodes.tools.rna_back_transcribe.function import RnaBackTranscribe
+from node_dag.nodes.tools.tmalign.config import TmalignConfig
+from node_dag.nodes.tools.tmalign.function import Tmalign
 from node_dag.nodes.tools.trim_to_first_start.config import TrimToFirstStartConfig
 from node_dag.nodes.tools.trim_to_first_start.function import TrimToFirstStart
 
@@ -104,6 +106,7 @@ NodeConfig = Annotated[
     | ResampleSynonymousConfig
     | ParetoFrontConfig
     | RnaBackTranscribeConfig
+    | TmalignConfig
     | TrimToFirstStartConfig
     | TopKConfig,
     Discriminator("name"),
@@ -141,6 +144,7 @@ MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
     ResampleSynonymousConfig: ResampleSynonymous,
     ParetoFrontConfig: ParetoFront,
     RnaBackTranscribeConfig: RnaBackTranscribe,
+    TmalignConfig: Tmalign,
     TrimToFirstStartConfig: TrimToFirstStart,
     TopKConfig: TopK,
 }

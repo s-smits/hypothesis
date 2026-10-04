@@ -37,7 +37,7 @@ Each run, with the status of every step:
 
 ```
 src/node_dag/
-  types.py                     entities (Dna, Rna, AminoAcidSequence, ProteinStructure, ProteinContacts) with an id, Score, Table, TYPES
+  types.py                     entities (Dna, Rna, AminoAcidSequence, ProteinStructure, ProteinContacts, StructureAlignment) with an id, Score, Table, TYPES
   dna.py                       genetic code, synonymous codons, atoms per base
   nodes/base.py                Category, BaseToolConfig, BaseScoreConfig, BaseFilterConfig, BaseNode
   nodes/tools/<name>/          config.py + function.py; tools make entities, scorers score them
@@ -65,7 +65,7 @@ temporal/
 
 A DAG works like Pipeline Pilot or KNIME. You pass in a list of entities for each
 input, and each node runs once on the whole list that reaches it. An entity (`Dna`, `Rna`,
-`AminoAcidSequence`, `ProteinStructure`, `ProteinContacts`) has an `id`: a hash of its kind and sequence, so the same
+`AminoAcidSequence`, `ProteinStructure`, `ProteinContacts`, `StructureAlignment`) has an `id`: a hash of its kind and sequence, so the same
 sequence always has the same id and identical entities merge into one.
 
 What flows along an edge is a `Table`: the entities, and their scores so far as

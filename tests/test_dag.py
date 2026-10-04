@@ -16,7 +16,7 @@ from temporalio.worker import Worker
 
 from node_dag.dag import Dag, DagInput, DagOutput
 from node_dag.factory import MAPPING
-from node_dag.nodes.base import BaseFilterConfig
+from node_dag.nodes.base import BaseFilterConfig, BaseToolConfig
 from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
 from node_dag.nodes.tools.mutate_synonymous.config import MutateSynonymousConfig
 from node_dag.nodes.tools.mutate_synonymous.function import MutateSynonymous
@@ -609,3 +609,109 @@ async def test_a_tool_with_an_empty_port_is_skipped(two_ports):
     assert calls == []
     assert out.skipped == ["both"]
     assert out.values["both"] == Table()
+
+
+@pytest.fixture
+def optional_port(monkeypatch):
+    """dna_to_protein with a second port a plan may leave out."""
+    monkeypatch.setattr(DnaToProteinConfig, "inputs", TWO_PORTS)
+    monkeypatch.setattr(DnaToProteinConfig, "optional_inputs", ("partner",))
+
+
+def test_a_plan_may_leave_an_optional_port_out(optional_port):
+    dag = Dag.model_validate(
+        {
+            "inputs": {"seqs": "dna"},
+            "steps": {
+                "both": {
+                    "config": {"name": "dna_to_protein"},
+                    "inputs": {"sequence": "seqs"},
+                }
+            },
+        }
+    )
+    # An unwired port is nothing to wait for, so it adds no dependency.
+    assert dag.steps["both"].deps() == {"seqs"}
+
+
+def test_a_required_port_is_still_required(optional_port):
+    step = {"config": {"name": "dna_to_protein"}, "inputs": {"partner": "prots"}}
+    with pytest.raises(ValidationError, match=r"\['partner'\] may be left out"):
+        Dag.model_validate(
+            {"inputs": {"prots": "amino_acid_sequence"}, "steps": {"both": step}}
+        )
+
+
+def test_an_optional_port_must_be_a_port_the_node_has():
+    with pytest.raises(TypeError, match="optional ports it has no input for"):
+
+        class StrayOptional(BaseToolConfig):
+            name: Literal["stray_optional"] = "stray_optional"
+            inputs: ClassVar = {"sequence": Dna}
+            optional_inputs: ClassVar = ("partner",)
+            output: ClassVar = Dna
+
+
+def test_a_tool_cannot_make_every_port_optional():
+    with pytest.raises(TypeError, match="must keep one port required"):
+
+        class AllOptional(BaseToolConfig):
+            name: Literal["all_optional"] = "all_optional"
+            inputs: ClassVar = {"sequence": Dna}
+            optional_inputs: ClassVar = ("sequence",)
+            output: ClassVar = Dna
+
+
+def test_a_score_or_filter_port_cannot_be_optional():
+    with pytest.raises(TypeError, match="one port cannot be optional"):
+
+        class OptionalFilter(BaseFilterConfig):
+            name: Literal["optional_filter"] = "optional_filter"
+            inputs: ClassVar = {"items": Dna}
+            optional_inputs: ClassVar = ("items",)
+
+
+async def test_an_unwired_optional_port_reaches_the_node_empty(optional_port):
+    """The node is run, not skipped, and still gets every port its config declares."""
+    calls: list[RunNodeInput] = []
+
+    @activity.defn(name="run_tool")
+    async def recording_tool(inp: RunNodeInput) -> list[Value]:
+        calls.append(inp)
+        return inp.inputs["sequence"]
+
+    dag = {
+        "inputs": {"seqs": "dna"},
+        "steps": {
+            "both": {
+                "config": {"name": "dna_to_protein"},
+                "inputs": {"sequence": "seqs"},
+            }
+        },
+    }
+    async with (
+        await WorkflowEnvironment.start_time_skipping(
+            data_converter=pydantic_data_converter
+        ) as env,
+        Worker(
+            env.client,
+            task_queue="t",
+            workflows=[DagWorkflow],
+            activities=[recording_tool, save_workflow],
+        ),
+    ):
+        out = await env.client.execute_workflow(
+            DagWorkflow.run,
+            DagInput(dag=Dag.model_validate(dag), inputs={"seqs": SEQS}),
+            id=str(uuid.uuid4()),
+            task_queue="t",
+        )
+    assert out.skipped == []
+    (call,) = calls
+    assert call.inputs == {"sequence": SEQS, "partner": []}
+
+
+async def test_an_empty_required_port_still_skips_the_step(optional_port):
+    out, calls = await _run_two_ports([], [AminoAcidSequence(sequence="MALK")])
+    assert calls == []
+    assert out.skipped == ["both"]
