@@ -12,8 +12,8 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from node_dag import amass
 from node_dag.agent import Hypothesis, Seen, build_agent, cite, observations_agent
-from node_dag.plan import Observation
 from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
+from node_dag.plan import Observation
 from node_dag.registry import Registry
 from node_dag.types import Dna
 from temporal.hypothesis import activities
