@@ -577,19 +577,38 @@ def build_agent(
             raise ModelRetry(str(e)) from e
         inputs = {i.id: i for items in hyp.inputs.values() for i in items}
         for step, cfg in configs.items():
-            # A reference that is no input is never scored, and fails the run later.
-            if (
-                isinstance(cfg, BaseFilterConfig)
-                and (ref := cfg.reads_reference())
-                and ref[1] not in inputs
+            if not (
+                isinstance(cfg, BaseFilterConfig) and (ref := cfg.reads_reference())
             ):
+                continue
+            scored_in, ref_id = ref
+            # A reference that is no input is never scored, and fails the run later.
+            if ref_id not in inputs:
                 shown = [
                     f"{i.kind} {i.sequence[:20]}" for i in list(inputs.values())[:20]
                 ]
                 raise ModelRetry(
-                    f"Step {step!r}: the reference {ref[1]!r} must be one of the input "
-                    f"entities: {shown}. It must be scored in step {ref[0]!r} (its "
+                    f"Step {step!r}: the reference {ref_id!r} must be one of the input "
+                    f"entities: {shown}. It must be scored in step {scored_in!r} (its "
                     "scored_in) by the same node as the entities."
+                )
+            # Nor is one that no input the scored_in step reads holds. A tool can make
+            # any entity, so past a tool the run decides.
+            read = plan.dag(configs).inputs_read(scored_in)
+            if read is not None and not any(
+                ref_id == e.id for n in read for e in hyp.inputs[n]
+            ):
+                holders = sorted(
+                    n
+                    for n, items in hyp.inputs.items()
+                    if any(e.id == ref_id for e in items)
+                )
+                raise ModelRetry(
+                    f"Step {step!r}: the reference {inputs[ref_id].sequence[:20]!r} is in "
+                    f"input {holders}, but its scored_in step {scored_in!r} reads only "
+                    f"input {sorted(read)}, so it has no score for the reference. Score "
+                    f"the reference with the same node as the entities in a step that "
+                    f"reads {holders[0]!r}, and set scored_in to that step."
                 )
         ids = {c.id for c in hyp.criteria}
         for a in plan.assertions:

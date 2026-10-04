@@ -49,6 +49,20 @@ class Dag(BaseModel):
         """A sorter over steps and inputs, keyed by name."""
         return TopologicalSorter({k: s.deps() for k, s in self.steps.items()})
 
+    def inputs_read(self, source: str) -> set[str] | None:
+        """The DAG inputs whose entities can reach ``source`` through scores and filters.
+
+        None if a tool is in the way, since a tool can make any entity.
+        """
+        name = source.split(".")[0]
+        if name in self.inputs:
+            return {name}
+        step = self.steps[name]
+        if isinstance(step.config, BaseToolConfig):
+            return None
+        (upstream,) = step.inputs.values()
+        return self.inputs_read(upstream)
+
     def _unknown_source(self, name: str) -> str:
         """The error for a source nothing defines. A ``scored_in`` is named as one."""
         for key, step in self.steps.items():

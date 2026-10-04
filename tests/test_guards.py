@@ -291,3 +291,59 @@ async def test_a_beats_reference_plan_whose_reference_is_not_an_input_is_sent_ba
         assert "Step 'better'" in errors[0] and "one of the input entities" in errors[0]
         assert "dna ATGTCGTAA" in errors[0] and "'counted'" in errors[0]
         assert "scored_in" in errors[0]
+
+
+TWO = HYP.model_copy(
+    update={
+        "inputs": {
+            "seq": [Dna(sequence="ATGTCGTAA")],
+            "other": [Dna(sequence="ATGTCCTAA")],
+        }
+    }
+)
+
+
+def _scored_in(scored_in: str, *, reference: Entity, **steps: dict) -> dict:
+    """A plan on TWO that keeps what beats ``reference`` in the table of ``scored_in``."""
+    better = _step(
+        "beats_reference",
+        "counted",
+        "items",
+        column=COLUMN,
+        reference=reference.model_dump(mode="json"),
+        scored_in=scored_in,
+    )
+    ask = {"criterion": "no_tcg", "step": "better", "branch": "produced", "claim": "c"}
+    steps = {**_plan()["steps"], **steps, "better": better}
+    return _plan(inputs={"seq": "dna", "other": "dna"}, steps=steps, assertions=[ask])
+
+
+async def test_a_reference_that_the_scored_in_step_never_reads_is_sent_back(
+    results_dir,
+):
+    other = TWO.inputs["other"][0]
+    ref_score = {"refscore": _step("codon_count", "other", codons=["TCG"])}
+    good = _scored_in("refscore", reference=other, **ref_score)
+    # The reference is an input, but the step named holds only the entities of seq.
+    _, errors = await _run(
+        results_dir, _scored_in("counted", reference=other), good, hyp=TWO
+    )
+    assert len(errors) == 1, errors
+    for part in ("Step 'better'", "ATGTCCTAA", "'other'", "'counted'", "'seq'"):
+        assert part in errors[0], (part, errors)
+
+
+async def test_a_reference_that_the_scored_in_step_may_hold_is_accepted(results_dir):
+    first = TWO.inputs["seq"][0]
+    kept = {"small": _plan()["steps"]["small"]}
+    mutate = {"mutated": _step("mutate_synonymous", "seq", seed=1)}
+    counted = _step("codon_count", "mutated", codons=["TCG"])
+    for plan in (
+        # Scored directly from the input that has it, or from a branch of a filter on it.
+        _scored_in("counted", reference=first),
+        _scored_in("small.yes", reference=first, **kept),
+        # A tool can make any entity, the reference included, so that is left to the run.
+        _scored_in("counted", reference=first, **mutate, counted=counted),
+    ):
+        _, errors = await _run(results_dir, plan, hyp=TWO)
+        assert errors == [], errors

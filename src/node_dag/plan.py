@@ -228,14 +228,18 @@ class Plan(BaseModel):
             json.dumps([self.inputs, wiring], sort_keys=True).encode()
         ).hexdigest()
 
-    def typecheck(self, configs: dict[str, BaseNodeConfig]) -> None:
-        """Run ``Dag._check`` over this plan's steps, given a config for each."""
+    def dag(self, configs: dict[str, BaseNodeConfig]) -> Dag:
+        """This plan's steps as a ``Dag``, given a config for each, not yet checked."""
         steps = {
             k: Step.model_construct(config=configs[k], inputs=s.inputs)
             for k, s in self.steps.items()
         }
+        return Dag.model_construct(inputs=self.inputs, steps=steps)
+
+    def typecheck(self, configs: dict[str, BaseNodeConfig]) -> None:
+        """Run ``Dag._check`` over this plan's steps, given a config for each."""
         # pydantic wraps the validator, which the type checker cannot see through.
-        Dag.model_construct(inputs=self.inputs, steps=steps)._check()  # ty: ignore[call-non-callable]
+        self.dag(configs)._check()  # ty: ignore[call-non-callable]
 
 
 class Critique(BaseModel):
