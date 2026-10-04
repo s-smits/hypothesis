@@ -303,7 +303,7 @@ workflow. Only the model calls are non-deterministic, and each is an activity:
 Each model call writes its full message history, failed calls included, to
 `results/trajectories/<hypothesis id>-r<round>-<stage>.json` (`criteria` and `inputs` are round 0). That is
 where to look for which nodes the builder read and which guard it bounced off. An attempt that raised, so
-Temporal retried it, is also kept as `...-<stage>-a<attempt>.json`; the plain name holds the latest.
+Temporal retried it, is also kept as `...-<stage>-a<attempt>.json`; the plain name, the one pulse reads, normally holds the latest.
 
 Rounds stop at `max_rounds` (default 20; `--max-rounds` on `run_hypothesis`) or 500,000 tokens, whichever comes first.
 A round has cost a median of 115,000 tokens, and the ceiling is checked before each round, so a run usually stops after

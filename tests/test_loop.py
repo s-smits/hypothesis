@@ -350,7 +350,9 @@ async def test_a_model_that_goes_silent_is_retried_and_the_run_says_for_how_long
 
     monkeypatch.setattr(
         "temporal.hypothesis.activities.build_agent",
-        lambda model, registry, seen: Agent(FunctionModel(silent), output_type=str),
+        lambda model, registry, seen, **_: Agent(
+            FunctionModel(silent), output_type=str
+        ),
     )
     done = await _drive([plan_hypothesis, *_fakes({}, [], [], [])[1:]])
     assert len(asked) == 2  # AGENT allows two attempts, as before.
