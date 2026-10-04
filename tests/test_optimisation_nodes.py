@@ -134,6 +134,14 @@ def test_resample_synonymous_redraws_more_than_a_few_positions():
     assert columns[0] == {"ATG"}  # M has no synonym.
 
 
+def test_resample_synonymous_keeps_the_stop_codon():
+    # TAA, TAG and TGA are synonyms, but swapping one moves where the gene ends.
+    node = ResampleSynonymous(
+        ResampleSynonymousConfig(seed=0, variants_per_sequence=40)
+    )
+    assert {v.sequence[-3:] for v in node.run(sequence=[REF])} == {"TAA"}
+
+
 # --- domesticate --------------------------------------------------------
 
 
@@ -158,6 +166,24 @@ def test_domesticate_leaves_what_no_synonym_can_remove():
     seq = Dna(sequence="ATGATGTAA")  # M M *; ATGATG overlaps only ATG codons.
     node = Domesticate(DomesticateConfig(motifs=("ATGATG",)))
     assert node.run(sequence=[seq]) == [seq]  # Stuck, not stuck forever.
+
+
+@pytest.mark.parametrize("stop", ["TAA", "TAG", "TGA"])
+def test_domesticate_leaves_the_stop_codon_when_only_it_could_clear_a_site(stop):
+    # M has no synonym, so the stop is the one codon that could clear G + stop. The
+    # three stops translate alike, but swapping one moves where the gene ends.
+    seq = Dna(sequence="ATG" + stop)
+    node = Domesticate(DomesticateConfig(motifs=("G" + stop,)))
+    assert node.run(sequence=[seq]) == [seq]
+
+
+@pytest.mark.parametrize("seed", range(20))
+def test_domesticate_clears_a_site_by_the_sense_codon_not_the_stop(seed):
+    seq = Dna(sequence="ATGAAATAA")  # AATAA spans the last K and the stop.
+    config = DomesticateConfig(motifs=("AATAA",), strategy="random", seed=seed)
+    (out,) = Domesticate(config).run(sequence=[seq])
+    assert motif_hits(out.sequence, {"AATAA"}) == []
+    assert out.sequence.endswith("TAA") and _protein(out) == _protein(seq)
 
 
 def test_domesticate_random_is_deterministic_per_seed():
@@ -196,6 +222,17 @@ def test_gc_target_recode_moves_windows_toward_the_target():
     (out,) = node.run(sequence=[seq])
     assert _protein(out) == _protein(seq)
     assert _deviation(out, window=9, target=0.6) < before
+
+
+@pytest.mark.parametrize(("stop", "target"), [("TAA", 1.0), ("TAG", 0.0), ("TGA", 0.0)])
+def test_gc_target_recode_leaves_the_stop_codon(stop, target):
+    # Each stop has a swap that moves GC toward the target, so a node that took it
+    # would end the gene differently while the protein stayed the same.
+    seq = Dna(sequence="ATGGCC" + stop)
+    (out,) = GcTargetRecode(GcTargetRecodeConfig(target=target, window=30)).run(
+        sequence=[seq]
+    )
+    assert out.sequence.endswith(stop) and _protein(out) == _protein(seq)
 
 
 def test_gc_target_recode_is_deterministic_and_bounded():

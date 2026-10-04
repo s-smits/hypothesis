@@ -359,7 +359,7 @@ def test_codon_table_assumption_behind_the_unreachable_tests():
 
 def test_a_variant_is_never_its_own_source_but_can_equal_another_input():
     """Two inputs two synonymous swaps apart reach each other; neither is copied through."""
-    one, three = Dna(sequence="ATGGCTCTGAAATAA"), Dna(sequence="ATGGCCCTGAAATGA")
+    one, three = Dna(sequence="ATGGCTCTGAAATAA"), Dna(sequence="ATGGCCCTGAAGTAA")
     node = MutateSynonymous(
         MutateSynonymousConfig(seed=7, count=2, variants_per_sequence=30)
     )

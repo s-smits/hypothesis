@@ -14,8 +14,9 @@ class GcTargetRecodeConfig(BaseToolConfig):
     every codon that has a synonym and takes the spelling that most improves the
     objective — worst window deviation first, total deviation as the tie-break —
     until a sweep improves nothing or ``max_passes`` runs out. Every amino acid
-    stays the same; the result is a local optimum of that objective, not the
-    global one. Score the outcome with ``gc_content``.
+    stays the same, and a stop codon is left as it is; the result is a local
+    optimum of that objective, not the global one. Score the outcome with
+    ``gc_content``.
 
     Args:
         target: The GC fraction each window should approach, 0 to 1.
@@ -25,6 +26,7 @@ class GcTargetRecodeConfig(BaseToolConfig):
     """
 
     name: Literal["gc_target_recode"] = "gc_target_recode"
+    version: ClassVar[int] = 2  # 2: a stop codon is no longer swapped.
     target: float = Field(ge=0.0, le=1.0)
     window: int = Field(ge=1)
     max_passes: int = Field(default=10, ge=1)

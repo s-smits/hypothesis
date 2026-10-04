@@ -53,7 +53,9 @@ class Domesticate(BaseNode[DomesticateConfig]):
     ) -> bool:
         """Swap codon ``i`` for a synonym that leaves the touched region clean."""
         codon = cs[i]
-        if len(codon) != 3:
+        # A stop stays: its synonyms are the other stops, and swapping one changes where
+        # the gene ends.
+        if len(codon) != 3 or CODON_TABLE[codon] == "*":
             return False
         synonyms = [s for s in SYNONYMS[CODON_TABLE[codon]] if s != codon]
         if self.config.strategy == "random":
