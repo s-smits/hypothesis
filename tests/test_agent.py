@@ -13,11 +13,9 @@ from pydantic_ai.messages import (
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from node_dag.agent import (
-    LESSONS_LEAD,
     FoundInputs,
     Hypothesis,
     build_agent,
-    build_instructions,
     criteria_agent,
     inputs_agent,
     plan_prompt,
@@ -27,7 +25,6 @@ from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
 from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
 from node_dag.plan import Criterion, Observation
 from node_dag.registry import Registry
-from node_dag.skills import digest
 from node_dag.types import AminoAcidSequence, Dna, ProteinStructure
 from temporal.dag.activities import results_subdir
 from temporal.hypothesis.activities import REQUEST_TIMEOUT, Stage, _ask, save_hypothesis
@@ -756,48 +753,3 @@ async def test_the_inputs_agent_has_no_database_tool_at_all():
     agent, _ = inputs_agent("test")
 
     assert {t.name for t in agent._function_toolset.tools.values()} == {"add_input"}
-
-
-RULES = "## Assertions\n- Name the baseline the threshold has to beat."
-
-
-async def _instructions_of_the_first_call(results_dir, hyp: Hypothesis) -> str | None:
-    seen: list[str | None] = []
-
-    def script(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
-        seen.append(getattr(messages[0], "instructions", None))
-        if _turn(messages) == 0:
-            return _call(*CREATE_PROTEIN)
-        return _submit(info, GOOD)
-
-    agent = build_agent(FunctionModel(script), Registry(results_dir / "registry"))
-    await agent.run(hyp.goal, deps=hyp)
-    return seen[0]
-
-
-async def test_the_builder_reads_a_skill_after_its_instructions_and_nothing_extra_without_one(
-    results_dir,
-):
-    inputs = {"seq": [Dna(sequence="ATG")]}
-    plain = Hypothesis(goal="translate", inputs=inputs)
-    skilled = Hypothesis(goal="translate", inputs=inputs, skill=RULES)
-    assert await _instructions_of_the_first_call(results_dir, plain) == (
-        build_instructions(False)
-    )
-    assert await _instructions_of_the_first_call(results_dir, skilled) == (
-        f"{build_instructions(False)}\n\n{LESSONS_LEAD}\n\n{RULES}"
-    )
-
-
-def test_a_skill_keeps_its_rules_and_loses_its_bookkeeping_and_an_empty_one_is_none():
-    filed = f"---\nname: hypothesis-builder\n---\n{RULES}\n<!-- from: 26acc0f5:r1 -->\n"
-    hyp = Hypothesis(goal="g", skill=filed)
-    assert hyp.skill == RULES and "from:" not in (hyp.skill or "")
-    assert hyp.skill_id == digest(filed) and len(hyp.skill_id or "") == 12
-    for empty in (None, "", "---\nname: hypothesis-builder\n---\n"):
-        none = Hypothesis(goal="g", skill=empty)
-        assert none.skill is None and none.skill_id is None
-
-
-def test_a_file_saved_before_skills_still_loads_and_has_none():
-    assert Hypothesis.model_validate({"goal": "g"}).skill is None

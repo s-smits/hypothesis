@@ -15,7 +15,6 @@ from test_pulse import (
 )
 
 from node_dag.plan import Attempt, ToolRequest, Verdict
-from node_dag.skills import digest
 from temporal.dag.activities import results_subdir
 from temporal.ledger import Entry, append, entry_for, ledger_path, read, record_ledger
 from temporal.pulse import Call, Round, read_round
@@ -146,37 +145,3 @@ def test_a_run_that_cannot_be_read_is_an_error_the_loop_will_not_retry(results_d
     with pytest.raises(ApplicationError, match="broken cannot be read: not JSON") as e:
         record_ledger("broken")
     assert e.value.non_retryable and not ledger_path().exists()
-
-
-def test_a_line_names_the_rules_the_builder_read_and_an_older_line_reads_without_them(
-    results_dir,
-):
-    rules = "## Assertions\n- Name the baseline the threshold has to beat."
-    save(
-        state="achieved",
-        round=1,
-        usage={"total": 5},
-        skill=rules,
-        attempts=[
-            Attempt(
-                round=1,
-                plan=PLAN,
-                held={"small.yes": True},
-                verdict=Verdict(achieved=True, reason="r"),
-                started=at(-300),
-            )
-        ],
-    )
-    record_ledger("h1")
-    (e,), bad = read(ledger_path())
-    assert bad == 0 and e.skill == digest(rules) and len(e.skill) == 12
-    assert (
-        "Name the baseline" not in ledger_path().read_text()
-    )  # The digest, not the rules.
-
-    older = json.loads(ledger_path().read_text())
-    del older["skill"]
-    ledger_path().write_text(json.dumps(older) + "\n")
-    (e,), bad = read(ledger_path())
-    assert bad == 0 and e.skill is None
-    assert closed().skill is None

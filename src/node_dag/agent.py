@@ -34,7 +34,6 @@ from node_dag.plan import (
     repeated,
 )
 from node_dag.registry import Registry
-from node_dag.skills import body, digest
 from node_dag.types import TYPES, Entity, Value
 
 NODES = {c.model_fields["name"].default: c for c in MAPPING}
@@ -70,9 +69,6 @@ class Hypothesis(BaseModel):
             file from before the loop recorded it.
         max_tokens: The token ceiling, checked before each round. None as ``max_rounds``.
         stopped_because: Why the loop ended.
-        skill: Rules distilled from earlier runs, which the builder reads before it plans.
-            Fixed for the whole run, so two runs of one goal differ only by it. None, or
-            a skill with no rules, leaves the builder as it was.
     """
 
     id: str = Field(default_factory=lambda: f"hypothesis-{uuid.uuid4()}")
@@ -89,7 +85,6 @@ class Hypothesis(BaseModel):
     max_rounds: int | None = None
     max_tokens: int | None = None
     stopped_because: str | None = None
-    skill: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -103,14 +98,6 @@ class Hypothesis(BaseModel):
         if run:
             data |= {"round": 1, "attempts": [{"round": 1, **run}]}
         return data
-
-    @field_validator("skill")
-    @classmethod
-    def _rules_only(cls, v: str | None) -> str | None:
-        """Keep the rules and drop the file's bookkeeping, so nothing but rules is read."""
-        if not v:
-            return None
-        return body(v) or None
 
     @field_validator("criteria")
     @classmethod
@@ -128,11 +115,6 @@ class Hypothesis(BaseModel):
                     f"Input {name!r} must be a list of one kind, not empty"
                 )
         return v
-
-    @property
-    def skill_id(self) -> str | None:
-        """Which rules this run read, to tell its runs from a run without them."""
-        return digest(self.skill) if self.skill else None
 
     @property
     def current(self) -> Attempt | None:
@@ -417,11 +399,6 @@ criterion on DNA holds by type: "produced" on the step that makes the DNA is eno
 and no node is needed to check it. Any other part of the criterion (length, start or stop
 codon) needs an assertion on a node that measures it. {{unmeasured}}
 Known kinds: {sorted(TYPES)}."""
-
-LESSONS_LEAD = (
-    "Lessons from earlier runs on other goals. They are habits that worked or failed "
-    "there: use one only where it fits this goal, and the instructions above come first."
-)
 
 VERIFY_INSTRUCTIONS = """\
 You get JSON: a goal, its criteria and inputs, the plan (hypothesis, expected, assertions),
@@ -857,14 +834,6 @@ def build_agent(
         retries={"output": 3},
     )
     agent.output_validator(check_plan)
-
-    @agent.instructions
-    def lessons(ctx: RunContext[Hypothesis]) -> str | None:
-        """What earlier runs taught, after the rules above, which come first."""
-        if not ctx.deps.skill:
-            return None
-        return f"{LESSONS_LEAD}\n\n{ctx.deps.skill}"
-
     return agent
 
 

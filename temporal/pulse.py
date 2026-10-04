@@ -125,7 +125,6 @@ class Reading(BaseModel):
     tokens: int = 0
     budget: int
     stopped: str | None = None
-    skill: str | None = None
 
 
 class Memory(BaseModel):
@@ -319,7 +318,6 @@ def read_run(
         tokens=hyp.usage.get("total", 0),
         budget=budget,
         stopped=hyp.stopped_because,
-        skill=hyp.skill_id,
     )
     if wanted(run):
         run.calls = read_calls(hyp.id)
