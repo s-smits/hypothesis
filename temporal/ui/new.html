@@ -3,91 +3,94 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>node-dag new hypothesis</title>
+<title>New hypothesis · node-dag</title>
+<link rel="stylesheet" href="/ui.css">
 <style>
-  :root {
-    --bg: #f6f7f9; --panel: #fff; --text: #1d2330; --muted: #6b7280; --line: #e3e6eb;
-    --running: #2563eb; --failed: #dc2626;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #11141a; --panel: #1a1e26; --text: #e5e7eb; --muted: #9ca3af; --line: #2b313c;
-      --running: #60a5fa; --failed: #f87171;
-    }
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; font: 14px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--text); }
-  header { padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--panel); display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
-  header h1 { font-size: 16px; margin: 0; }
-  header nav { display: flex; gap: 12px; font-size: 13px; }
-  header nav a { color: var(--muted); text-decoration: none; }
-  header nav a.here { color: var(--text); font-weight: 600; }
-  main { max-width: 720px; margin: 0 auto; padding: 20px 16px; }
-  form { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
-  h2 { font-size: 18px; margin: 0; }
-  label, .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; display: block; margin-bottom: 4px; }
-  .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
-  input, select, textarea { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; }
-  textarea { width: 100%; resize: vertical; }
-  button { font: inherit; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: inherit; padding: 6px 12px; cursor: pointer; }
-  button.primary { background: var(--running); border-color: var(--running); color: #fff; font-weight: 600; align-self: flex-start; }
-  button:disabled { opacity: .6; cursor: default; }
-  .crit-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
-  .criterion { display: flex; gap: 6px; margin-bottom: 6px; }
-  .criterion input { flex: 1; min-width: 0; }
-  .criterion button { padding: 2px 8px; }
-  .observation { border: 1px solid var(--line); border-radius: 6px; padding: 8px; margin-bottom: 6px; }
-  .observation .top { display: flex; gap: 8px; align-items: baseline; }
-  .observation .title { flex: 1; min-width: 0; font-weight: 600; }
+  main { max-width: 680px; }
+  form { display: flex; flex-direction: column; gap: 4px; }
+  form > .top { display: flex; flex-direction: column; gap: 10px; padding-bottom: 16px; }
+  label { display: block; margin-bottom: 4px; color: var(--muted); font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; }
+  .hint { color: var(--muted); font-size: 12px; }
+  details.sec > summary .draft { margin-left: auto; }
+  .criterion { display: flex; gap: 6px; }
+  .criterion input { flex: 1; }
+  .observation { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; }
+  .observation .head { display: flex; gap: 8px; align-items: baseline; }
+  .observation .title { flex: 1; min-width: 0; font-weight: 500; }
   .observation .title a { color: inherit; }
-  .observation .where { color: var(--muted); font-size: 12px; }
-  .observation button { padding: 2px 8px; }
-  .observation textarea { margin-top: 6px; }
+  .observation .where { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+  .go { display: flex; align-items: center; gap: 14px; margin-top: 18px; }
   #error { color: var(--failed); white-space: pre-wrap; }
 </style>
 </head>
 <body>
 <header>
   <h1>node-dag</h1>
-  <nav><a href="/">Runs</a><a href="/hypotheses">Hypotheses</a><a href="/observations">Observations</a><a href="/new" class="here">New</a><a href="/nodes">Nodes</a></nav>
+  <nav><a href="/">Runs</a><a href="/hypotheses">Hypotheses</a><a href="/new" class="here">New</a><a href="/nodes">Nodes</a></nav>
 </header>
 <main>
   <form id="form">
-    <h2>Start a hypothesis</h2>
-    <div>
-      <label for="goal-pick">Goal</label>
-      <select id="goal-pick" style="width: 100%"><option value="">New goal…</option></select>
-      <textarea id="goal" rows="2" required placeholder="Increase the expression of the coding sequence without changing its protein." style="margin-top: 8px"></textarea>
-      <div class="hint" id="goal-hint"></div>
-    </div>
-    <div>
-      <label for="hypothesis">Hypothesis (optional)</label>
-      <textarea id="hypothesis" rows="3" placeholder="How you think the goal can be met. The builder agent starts from this."></textarea>
-    </div>
-    <div>
-      <div class="crit-head">
-        <span class="label">Success criteria</span>
-        <button type="button" id="suggest">Draft with the agent</button>
+    <div class="top">
+      <h2>Start a hypothesis</h2>
+      <div>
+        <label for="goal-pick">Goal</label>
+        <select id="goal-pick" style="width: 100%"><option value="">New goal…</option></select>
+        <textarea id="goal" rows="2" required placeholder="Increase the expression of the coding sequence without changing its protein." style="margin-top: 8px"></textarea>
+        <div class="hint" id="goal-hint"></div>
       </div>
-      <div id="criteria"></div>
-      <button type="button" id="add-criterion">+ Add criterion</button>
-      <div class="hint">What must hold of the outcome for the goal to count as met, qualitative or quantitative. Write your own, or draft them with the agent and edit. Left empty, the agent derives them from the goal.</div>
-    </div>
-    <div>
-      <label for="rounds">Max rounds (optional)</label>
-      <input id="rounds" type="number" min="1" max="10" placeholder="3">
-    </div>
-    <div>
-      <div class="crit-head">
-        <span class="label">Observations</span>
-        <button type="button" id="search-lit">Search the literature</button>
+      <div class="hint">
+        The agent reads the entities the goal is about out of its text, writes the DAG and runs
+        it; the goal is met only when each criterion's assertion holds. A missing node blocks
+        the run until someone adds it. Give the entities in the goal — any kind the framework
+        knows, not just DNA: a sequence, a structure, a set of contacts. Nothing is fetched for
+        you, so a goal that names something without giving its value gets no input for it.
       </div>
-      <div id="observations"></div>
-      <div class="hint">What is already known that bears on the goal. The agent searches Amass and summarises each record; drop the ones that do not belong and correct the summaries, since the builder is shown this list as it chooses its nodes and thresholds. A summary is the agent's reading of the record, not a verified claim. Left empty, the builder searches for itself as it builds.</div>
+    </div>
+
+    <details class="sec">
+      <summary>Hypothesis <span class="count" id="hyp-count">optional</span></summary>
+      <div class="body">
+        <textarea id="hypothesis" rows="3" placeholder="How you think the goal can be met. The builder agent starts from this."></textarea>
+      </div>
+    </details>
+
+    <details class="sec">
+      <summary>Success criteria <span class="count" id="crit-count">none</span>
+        <button type="button" class="quiet draft" id="suggest">Draft with the agent</button>
+      </summary>
+      <div class="body">
+        <div id="criteria" style="display:flex;flex-direction:column;gap:6px"></div>
+        <div><button type="button" id="add-criterion">+ Add criterion</button></div>
+        <div class="hint">What must hold of the outcome for the goal to count as met. Left empty, the verifier judges the goal alone.</div>
+      </div>
+    </details>
+
+    <details class="sec">
+      <summary>Observations <span class="count" id="obs-count">none</span>
+        <button type="button" class="quiet draft" id="search-lit">Search the literature</button>
+      </summary>
+      <div class="body">
+        <div id="observations" style="display:flex;flex-direction:column;gap:8px"></div>
+        <div class="hint">What is already known that bears on the goal. Drop the records that do not belong and correct the summaries: the builder is shown this list as it chooses its nodes and thresholds, and a summary is the agent's reading of the record, not a verified claim. Left empty, the builder searches for itself.</div>
+      </div>
+    </details>
+
+    <details class="sec">
+      <summary>Limits <span class="count" id="rounds-count">default</span></summary>
+      <div class="body">
+        <div>
+          <label for="rounds">Max rounds</label>
+          <input id="rounds" type="number" min="1" max="10" placeholder="3">
+        </div>
+        <div class="hint">Most plans the loop will try before it stops. Left empty, it uses its own default.</div>
+      </div>
+    </details>
+
+    <div class="go">
+      <button class="primary" id="go">Start</button>
+      <span class="hint">You can close this page; follow progress under Hypotheses.</span>
     </div>
     <div id="error"></div>
-    <button class="primary" id="go">Start</button>
-    <div class="hint">The builder agent works out which sequences the goal is about and fetches them from NCBI, writes the DAG, it runs on Temporal, and the goal is met only when each criterion's assertion holds. A missing node blocks the run until someone adds it. Name the gene, organism or accession in the goal so it can find the right record. You can close this page; follow progress under Hypotheses.</div>
   </form>
 </main>
 <script>
@@ -102,38 +105,51 @@ let GOALS = [];
 function criterionRow(c = { kind: "quantitative", claim: "" }) {
   const row = document.createElement("div");
   row.className = "criterion";
-  row.innerHTML = `<select><option value="quantitative">quantitative</option><option value="qualitative">qualitative</option></select><input placeholder="e.g. expression above the input sequences&#39;"><button type="button" title="Remove">×</button>`;
+  row.innerHTML = `<select><option value="quantitative">quantitative</option><option value="qualitative">qualitative</option></select><input placeholder="e.g. expression above the input sequences&#39;"><button type="button" class="quiet" title="Remove">×</button>`;
   row.querySelector("select").value = c.kind;
   row.querySelector("input").value = c.claim;
-  row.querySelector("button").addEventListener("click", () => row.remove());
+  row.querySelector("button").addEventListener("click", () => { row.remove(); counts(); });
   return row;
 }
 
-const setCriteria = (list) => $("#criteria").replaceChildren(...list.map(criterionRow));
+const setCriteria = (list) => { $("#criteria").replaceChildren(...list.map(criterionRow)); counts(); };
 
 // One observation: the record it cites, which is not editable, and the summary,
 // which is. The row keeps the whole record so it goes back as the agent gave it.
 function observationRow(o) {
   const row = document.createElement("div");
   row.className = "observation";
-  const where = [o.source, o.date].filter(Boolean).join(", ");
-  const link = `/observations?${new URLSearchParams({ core: o.core, id: o.amass_id })}`;
-  row.innerHTML = `<div class="top"><span class="title"></span><button type="button" title="Remove">×</button></div><div class="where"></div><textarea rows="3"></textarea>`;
+  const where = [o.core, o.source, o.date].filter(Boolean).join(" · ");
+  row.innerHTML = `<div class="head"><span class="title"></span><button type="button" class="quiet" title="Remove">×</button></div><div class="where"></div><textarea rows="3"></textarea>`;
   // textContent, not innerHTML: a record's title is not ours to trust as markup.
   const title = row.querySelector(".title");
-  const a = document.createElement("a");
-  a.href = link;
-  a.target = "_blank";
-  a.textContent = o.title;
-  title.append(a);
-  row.querySelector(".where").textContent = [o.core, where].filter(Boolean).join(" · ");
+  if (o.url) {
+    const a = document.createElement("a");
+    a.href = o.url;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.textContent = o.title;
+    title.append(a);
+  } else {
+    title.textContent = o.title;
+  }
+  row.querySelector(".where").textContent = where;
   row.querySelector("textarea").value = o.summary;
-  row.querySelector("button").addEventListener("click", () => row.remove());
+  row.querySelector("button").addEventListener("click", () => { row.remove(); counts(); });
   row.obs = o;
   return row;
 }
 
-const setObservations = (list) => $("#observations").replaceChildren(...list.map(observationRow));
+const setObservations = (list) => { $("#observations").replaceChildren(...list.map(observationRow)); counts(); };
+
+// What each collapsed section holds, so it reads without being opened.
+function counts() {
+  const n = (sel) => document.querySelectorAll(sel).length;
+  $("#crit-count").textContent = n("#criteria .criterion") || "none";
+  $("#obs-count").textContent = n("#observations .observation") || "none";
+  $("#hyp-count").textContent = $("#hypothesis").value.trim() ? "written" : "optional";
+  $("#rounds-count").textContent = $("#rounds").value ? `${$("#rounds").value} rounds` : "default";
+}
 
 // Picking a previous goal hides the text box: that goal, and the success criteria
 // and observations its latest hypothesis carried, are used as they stand. Reusing
@@ -173,51 +189,43 @@ const observations = () => [...document.querySelectorAll("#observations .observa
   .filter((o) => o.summary);
 
 $("#goal-pick").addEventListener("change", pickGoal);
-$("#add-criterion").addEventListener("click", () => $("#criteria").append(criterionRow()));
+$("#hypothesis").addEventListener("input", counts);
+$("#rounds").addEventListener("input", counts);
+$("#add-criterion").addEventListener("click", () => { $("#criteria").append(criterionRow()); counts(); });
 
-// The criteria agent drafts a list for the user to edit before starting.
-$("#suggest").addEventListener("click", async () => {
-  $("#error").textContent = "";
-  $("#suggest").disabled = true;
-  try {
-    const r = await fetch("/api/criteria", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ goal: goalText(), hypothesis: $("#hypothesis").value || null }),
-    });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(explain(data.detail ?? `${r.status}`));
-    setCriteria(data);
-  } catch (err) {
-    $("#error").textContent = err.message;
-  } finally {
-    $("#suggest").disabled = false;
-  }
+// An agent fills a section in. Clicking the button must not toggle the section.
+function drafts(button, url, onData) {
+  $(button).addEventListener("click", async (e) => {
+    e.preventDefault();
+    const el = $(button), label = el.textContent;
+    el.closest("details").open = true;
+    $("#error").textContent = "";
+    el.disabled = true;
+    el.textContent = "Working…";
+    try {
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ goal: goalText(), hypothesis: $("#hypothesis").value || null }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(explain(data.detail ?? `${r.status}`));
+      onData(data);
+    } catch (err) {
+      $("#error").textContent = err.message;
+    } finally {
+      el.disabled = false;
+      el.textContent = label;
+    }
+  });
+}
+
+drafts("#suggest", "/api/criteria", setCriteria);
+drafts("#search-lit", "/api/observations", (data) => {
+  setObservations(data);
+  if (!data.length) $("#error").textContent = "The search found nothing that bears on the goal.";
 });
 
-// The observations agent searches Amass, which takes a few calls and a moment.
-$("#search-lit").addEventListener("click", async () => {
-  $("#error").textContent = "";
-  $("#search-lit").disabled = true;
-  const label = $("#search-lit").textContent;
-  $("#search-lit").textContent = "Searching…";
-  try {
-    const r = await fetch("/api/observations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ goal: goalText(), hypothesis: $("#hypothesis").value || null }),
-    });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(explain(data.detail ?? `${r.status}`));
-    setObservations(data);
-    if (!data.length) $("#error").textContent = "The search found nothing that bears on the goal.";
-  } catch (err) {
-    $("#error").textContent = err.message;
-  } finally {
-    $("#search-lit").disabled = false;
-    $("#search-lit").textContent = label;
-  }
-});
 $("#form").addEventListener("submit", async (e) => {
   e.preventDefault();
   $("#error").textContent = "";
@@ -236,6 +244,7 @@ $("#form").addEventListener("submit", async (e) => {
 });
 
 loadGoals();
+counts();
 </script>
 </body>
 </html>
