@@ -158,3 +158,21 @@ async def test_a_scored_in_past_a_tool_says_which_input_holds_the_reference(
     assert "ATGGCTCTGAAATAA" in msg and REF.id in msg  # What it typed, and its id.
     assert "in input ['seqs']" in msg and "'scored' reads" in msg
     assert "output of a tool" in msg and "Score the reference" in msg
+
+
+async def test_a_scored_in_branch_that_lost_the_reference_says_a_filter_dropped_it(
+    results_dir,
+):
+    # The step reads the input that holds the reference, but its filter kept nothing.
+    dag = _dag()
+    dag["steps"]["gate"] = _step(
+        {"name": "at_least", "column": EXPRESSION, "threshold": 1e18},
+        "baseline",
+        "items",
+    )
+    dag["steps"]["better"]["config"]["scored_in"] = "gate.yes"
+    with pytest.raises(WorkflowFailureError) as e:
+        await _run(dag, SEQS)
+    msg = str(e.value.cause)
+    assert "'gate.yes' reads input ['seqs'], which holds the reference" in msg
+    assert "was not kept by a filter on the way" in msg and "Score the reference" in msg

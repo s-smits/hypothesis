@@ -27,7 +27,7 @@ from node_dag.plan import Criterion
 from node_dag.registry import Registry
 from node_dag.types import Dna
 from temporal.dag.activities import results_subdir
-from temporal.hypothesis.activities import Stage, _ask, save_hypothesis
+from temporal.hypothesis.activities import REQUEST_TIMEOUT, Stage, _ask, save_hypothesis
 from temporal.ui.app import _hypothesis_row
 
 PROTEIN = f"dna_to_protein__{DnaToProteinConfig().config_hash}"
@@ -344,6 +344,24 @@ async def test_a_request_the_api_never_answers_is_given_up_and_retried_by_the_cl
         server.close()
         await asyncio.wait_for(provider.client.close(), 5)
         await asyncio.wait_for(server.wait_closed(), 5)
+
+
+async def test_a_request_keeps_the_clients_five_second_connect_limit(results_dir):
+    from pydantic_ai.exceptions import UnexpectedModelBehavior
+
+    class Probe:
+        def __init__(self):
+            self.settings: dict = {}
+
+        async def run(self, prompt, usage, model_settings, **kw):
+            self.settings = model_settings
+            raise UnexpectedModelBehavior("stop here")
+
+    probe = Probe()
+    stage = Stage(hyp=Hypothesis(goal="g", inputs={"seq": [Dna(sequence="ATG")]}), model="test")
+    await _ask(probe, "plan it", stage, "plan")
+    timeout = probe.settings["timeout"]
+    assert (timeout.connect, timeout.read) == (5.0, REQUEST_TIMEOUT)
 
 
 def test_search_nodes_finds_and_ranks_by_intent():

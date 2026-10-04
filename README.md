@@ -269,10 +269,11 @@ workflow. Only the model calls are non-deterministic, and each is an activity:
    output). Guards reject a bad plan before anything runs, and the agent fixes it. Among
    them: inputs that are not the goal's; a step whose node or config does not exist, does
    not fit or does not type-check; a `beats_reference` reference that is not one of the
-   inputs; an assertion on a criterion or step that is not there, or `yes` or `no` on a
-   step that is not a filter; `yes` with `no`, or `no` with `produced`, on one filter; a
-   criterion no assertion covers; a wiring an earlier round already ran; and, after a
-   critique, a plan that does not say what it changes.
+   inputs, or whose `scored_in` step never reads the input that holds it; an assertion
+   on a criterion or step that is not there, or `yes` or `no` on a step that is not a
+   filter; `yes` with `no`, or `no` with `produced`, on one filter; a criterion no
+   assertion covers; a wiring an earlier round already ran; and, after a critique, a
+   plan that does not say what it changes.
    The builder can also search the literature with Amass (`search_literature`,
    `get_record`; set `AMASS_API_KEY`), and cites each record it used as an observation
    on the plan. Those of the current round's plan are on the Hypothesis as
