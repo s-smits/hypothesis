@@ -126,7 +126,9 @@ const why = (row) => row.hypothesis.error ?? row.progress?.error;
 const obsHref = (o) => `/observations?${new URLSearchParams({ core: o.core, id: o.amass_id })}`;
 const obsSource = (o) => [o.source, o.date].filter(Boolean).map(esc).join(", ");
 
-// What the builder agent found in the literature, one row per record it cited.
+// The literature the run was built on, one row per record. `used` is there when
+// the builder cited a record the user supplied: its summary is the user's, and
+// what the builder made of it goes beneath rather than over it.
 function observations(obs, withHypothesis) {
   if (!obs.length) return "";
   return `<div class="table"><table>
@@ -134,7 +136,7 @@ function observations(obs, withHypothesis) {
     <tbody>${obs.map((o) => `
       <tr>
         <td class="obs"><a href="${obsHref(o)}">${esc(o.title)}</a><div class="meta">${obsSource(o)}</div></td>
-        <td>${esc(o.summary)}</td>
+        <td>${esc(o.summary)}${o.used ? `<div class="meta">Builder: ${esc(o.used)}</div>` : ""}</td>
         ${withHypothesis ? `<td>${badge(o.row.status)}<br><a href="${href({ id: o.row.hypothesis.id })}" class="meta">${esc(o.row.hypothesis.id.replace("hypothesis-", "").slice(0, 8))}</a></td>` : ""}
       </tr>`).join("")}</tbody>
   </table></div>`;

@@ -17,7 +17,7 @@ from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
 from node_dag import entrez
-from node_dag.agent import Criterion, Hypothesis, build_agent
+from node_dag.agent import Criterion, Hypothesis, Observation, build_agent
 from node_dag.dag import Dag
 from node_dag.nodes.filters.at_most.config import AtMostConfig
 from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
@@ -292,8 +292,16 @@ async def test_criteria_agent_drafts_a_list_of_criteria():
     ]
 
 
-async def test_criteria_reach_the_builder_prompt_and_the_verifier(results_dir):
-    """Criteria the user accepted qualify the goal for both agents."""
+OBSERVED = Observation(
+    amass_id="AMBC_1",
+    summary="Codon usage sets expression in E. coli.",
+    core="biomedcore",
+    title="Codon usage and expression",
+)
+
+
+async def test_criteria_and_observations_reach_the_builder_prompt(results_dir):
+    """What the user accepted before the build qualifies the goal for both agents."""
 
     def builder(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         prompt = next(
@@ -301,6 +309,9 @@ async def test_criteria_reach_the_builder_prompt_and_the_verifier(results_dir):
         )
         assert "[quantitative] expression above the input's" in str(prompt)
         assert "[qualitative] the protein is unchanged" in str(prompt)
+        # The literature gathered before the build is there to build from.
+        assert "[biomedcore AMBC_1] Codon usage and expression" in str(prompt)
+        assert "Codon usage sets expression in E. coli." in str(prompt)
         if _turn(messages) == 0:
             return _call(*CREATE_PROTEIN)
         return _submit(info, GOOD)
@@ -314,6 +325,7 @@ async def test_criteria_reach_the_builder_prompt_and_the_verifier(results_dir):
             {"kind": "quantitative", "text": "expression above the input's"},
             {"kind": "qualitative", "text": "the protein is unchanged"},
         ]
+        assert sent["observations"] == [OBSERVED.model_dump()]
         return _reply(
             info,
             {
@@ -332,6 +344,7 @@ async def test_criteria_reach_the_builder_prompt_and_the_verifier(results_dir):
             Criterion(kind="quantitative", text="expression above the input's"),
             Criterion(kind="qualitative", text="the protein is unchanged"),
         ],
+        observations=[OBSERVED],
         inputs={"seq": [Dna(sequence="ATG")]},
     )
     async with await WorkflowEnvironment.start_time_skipping(
@@ -350,6 +363,8 @@ async def test_criteria_reach_the_builder_prompt_and_the_verifier(results_dir):
                 )
 
     assert done.criteria == hyp.criteria
+    # The builder left it uncited, and it is still on the hypothesis that ran.
+    assert done.observations == [OBSERVED]
     # The critic's per-criterion calls land on the verdict, in order.
     assert done.verdict is not None
     assert done.verdict.criteria[0].met is False

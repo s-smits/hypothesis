@@ -117,6 +117,11 @@ async def run_hypothesis(
             prompt += "\nSuccess criteria:\n" + "\n".join(
                 f"- [{c.kind}] {c.text}" for c in hyp.criteria
             )
+        if hyp.observations:  # Gathered before the build, and kept by the user.
+            prompt += "\nObservations:\n" + "\n".join(
+                f"- [{o.core} {o.amass_id}] {o.title}: {o.summary}"
+                for o in hyp.observations
+            )
         logger.info("Calling builder agent for %s", hyp.id)
         agent = build_agent(build_model, Registry(registry_dir()))
         async with agent.iter(prompt, deps=hyp) as run:

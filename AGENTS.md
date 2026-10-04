@@ -87,6 +87,7 @@ against the chosen provider. `temporal/run_hypothesis.py` loads the repository's
 | UI and API | `temporal/ui/app.py`, adjacent HTML, `temporal/run_ui.py` | `tests/test_ui.py`, UI cases in `test_agent.py` |
 | Translation initiation prediction | `nodes/tools/ostir_expression/` under `src/node_dag/` | `tests/test_ostir.py` |
 | Sequence lookup for inputs | `src/node_dag/entrez.py` | `tests/test_entrez.py` |
+| Literature search and observations | `src/node_dag/amass.py` | `tests/test_amass.py` |
 
 The current path is `Hypothesis → build_agent → validated Dag → DagWorkflow →
 DagOutput → verify_agent`. `Hypothesis.inputs` starts empty: the `/new` page asks
@@ -100,6 +101,14 @@ met/not met/unclear call per criterion shown on the hypotheses page. A caller th
 supplies `inputs` keeps them; `add_input` refuses to shadow one. Treat a sequence
 the model wrote out rather than fetched as unverified: `input_sources` records
 what each input was taken from, and is the only provenance a run carries today.
+`Hypothesis.observations` holds the literature the run is built on. The `/new`
+page gathers it before the build: `observations_agent` searches Amass through
+`POST /api/observations` and the user edits or drops each summary, the builder
+sees the kept list in its prompt and may cite it in `submit_dag`, and an uncited
+one stays on the hypothesis. Both agents can only cite a record Amass actually
+returned to them, so a citation is not invented; it is still only the model's
+reading of that record, and it does not establish that the record justifies the
+configuration field or threshold beside it.
 The builder's `create_node` registers a **configuration
 of existing Python code**. It does not author an implementation. The registry
 persists those configurations across hypotheses; this alone is not an iterative

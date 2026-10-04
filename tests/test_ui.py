@@ -19,7 +19,7 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 from temporalio.client import Client
 from temporalio.service import RPCError, RPCStatusCode
 
-from node_dag.agent import Criterion, Hypothesis
+from node_dag.agent import Criterion, Hypothesis, Observation
 from node_dag.dag import Dag, DagProgress
 from node_dag.nodes.filters.at_most.config import AtMostConfig
 from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
@@ -35,7 +35,7 @@ from temporal.run_hypothesis import (
 from temporal.ui.app import (
     HYPOTHESES,
     NEW,
-    NewCriteria,
+    NewDraft,
     NewHypothesis,
     make_app,
 )
@@ -262,7 +262,7 @@ async def test_the_criteria_endpoint_drafts_a_list_to_edit():
 
     app = make_app(cast(Client, None), build_model=FunctionModel(script))
     got = await _post(app, "/api/criteria")(
-        NewCriteria(goal="faster lacZ", hypothesis="mutate codons")
+        NewDraft(goal="faster lacZ", hypothesis="mutate codons")
     )
 
     assert got == [
@@ -275,24 +275,60 @@ async def test_the_criteria_endpoint_drafts_a_list_to_edit():
 
     with pytest.raises(HTTPException) as e:  # No model, no agent.
         await _post(make_app(cast(Client, None)), "/api/criteria")(
-            NewCriteria(goal="faster lacZ")
+            NewDraft(goal="faster lacZ")
         )
     assert e.value.status_code == 503
 
 
-async def test_a_new_hypothesis_keeps_the_criteria_the_user_sent(results_dir):
+async def test_the_observations_endpoint_searches_the_literature_for_a_goal():
+    """The page asks for this before a run, so the user can edit what it found."""
+    seen: list[ModelMessage] = []
+
+    def script(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        seen.extend(messages)
+        # Nothing cited, so nothing to check against a record: the empty answer is
+        # the one an agent with no search behind it can give.
+        return _reply(info, {"observations": []})
+
+    app = make_app(cast(Client, None), build_model=FunctionModel(script))
+    got = await _post(app, "/api/observations")(
+        NewDraft(goal="faster lacZ", hypothesis="mutate codons")
+    )
+
+    assert got == []
+    prompt = next(p.content for p in seen[0].parts if isinstance(p, UserPromptPart))
+    assert "Goal: faster lacZ" in str(prompt)
+    assert "Proposed hypothesis: mutate codons" in str(prompt)
+
+    with pytest.raises(HTTPException) as e:  # No model, no agent.
+        await _post(make_app(cast(Client, None)), "/api/observations")(
+            NewDraft(goal="faster lacZ")
+        )
+    assert e.value.status_code == 503
+
+
+async def test_a_new_hypothesis_keeps_what_the_user_sent(results_dir):
     def give_up(messages, info):
         raise RuntimeError("stop before Temporal")
 
     app = make_app(cast(Client, None), build_model=FunctionModel(give_up))
     criteria = [Criterion(kind="qualitative", text="the protein is unchanged")]
+    observations = [
+        Observation(
+            amass_id="AMBC_1",
+            summary="Codon usage sets expression.",
+            core="biomedcore",
+            title="Codon usage and expression",
+        )
+    ]
 
     hyp = await _post(app, "/api/hypotheses")(
-        NewHypothesis(goal="g", criteria=criteria)
+        NewHypothesis(goal="g", criteria=criteria, observations=observations)
     )
     await asyncio.sleep(0)  # Let the doomed background task settle.
 
     assert hyp.criteria == criteria
+    assert hyp.observations == observations
 
 
 def test_the_new_page_edits_criteria_and_can_draft_them_with_the_agent():
@@ -301,6 +337,16 @@ def test_the_new_page_edits_criteria_and_can_draft_them_with_the_agent():
         assert s in page
     assert "/api/criteria" in page  # The "draft with the agent" button's call.
     assert "criteria: criteria()" in page  # They are sent when the run starts.
+
+
+def test_the_new_page_edits_the_observations_it_gathers_before_a_run():
+    page = NEW.read_text()
+    assert "Observations" in page
+    assert "/api/observations" in page  # The "search the literature" button's call.
+    assert "observations: observations()" in page  # Sent when the run starts.
+    # A summary is editable, and the record it cites is not re-typed by hand.
+    assert "observationRow" in page
+    assert "...r.obs" in page
 
 
 def test_the_hypotheses_page_marks_each_criterion_with_the_critics_call():
