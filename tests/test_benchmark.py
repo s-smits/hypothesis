@@ -15,6 +15,7 @@ import pytest
 from node_dag.benchmark import (
     Instance,
     Ledger,
+    Result,
     cai_objective,
     cai_weights_from,
     codon_pair_objective,
@@ -30,6 +31,7 @@ from node_dag.benchmark import (
     mean_pair_weight,
     pair_count,
     pair_weights_from,
+    passes,
     per_instance,
     random_synonymous,
     record_attempt,
@@ -266,6 +268,45 @@ def test_gate_reads_the_instances_own_immutable_set():
     assert gate(i, "ATGCTGAAGGGCTTTTAA")["immutable_unchanged"] == 1.0  # AAA -> AAG
     # The explicit set replaces the default, as in choices(): the stop is free here.
     assert gate(i, SHORT[:-3] + "TAG")["immutable_unchanged"] == 1.0
+
+
+# A gate that gate() computes but passes() ignores fails nothing: the candidate still
+# passes and the number still gets averaged. These two tests close that class of bug.
+
+
+def test_passes_reads_every_gate_that_gate_returns():
+    good = gate(inst(), SHORT)
+    assert passes(good)
+    probes = (0.0, 1.0, 2.0, -1.0, math.inf, math.nan)
+    unread = {k for k in good if all(passes({**good, k: v}) for v in probes)}
+    # A target that is unreachable is also a target that remains, so zero remaining
+    # already covers it; every other key gate() returns has to be able to fail a row.
+    assert unread <= {"targets_unreachable"}
+
+
+@pytest.mark.filterwarnings("ignore:Partial codon")
+@pytest.mark.parametrize(
+    ("violated", "candidate"),
+    [
+        ("protein_unchanged", "ATGCTGAACGGCTTTTAA"),  # AAA -> AAC: K becomes N
+        ("length_unchanged", SHORT + "A"),  # a partial codon the protein check drops
+        ("immutable_unchanged", SHORT[:-3] + "TAG"),  # stop swapped, still a stop
+        ("targets_remaining", None),
+    ],
+)
+def test_one_broken_gate_alone_fails_the_candidate(violated, candidate):
+    base = gate(inst(), SHORT)
+    # gate() sets no targeted codons, so a remaining target can only be written by hand.
+    gates = base | {violated: 1.0} if candidate is None else gate(inst(), candidate)
+    assert passes(base)
+    assert {k for k in base if gates[k] != base[k]} == {violated}
+    assert not passes(gates)
+
+    def row(g: dict[str, float]) -> Result:
+        return Result("g1", "s", SHORT, 1.0, 2.0, 0.0, g, evaluations=1)
+
+    assert row(base).passed and row(base).gap_closed == 0.5
+    assert not row(gates).passed and row(gates).gap_closed is None
 
 
 # --- running strategies ------------------------------------------------------
