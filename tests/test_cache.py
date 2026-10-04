@@ -114,3 +114,17 @@ def test_a_filter_without_a_reference_keeps_the_key_it_had_before_references():
     }
     digest = hashlib.sha256(json.dumps(key, sort_keys=True).encode()).hexdigest()
     assert inp.cache_path().name == f"{digest}.json"
+
+
+def test_a_filter_without_a_reference_keeps_its_key_and_hash_from_before_references():
+    # Both literals were taken from the code before beats_reference: a change that moves
+    # either one orphans every saved at_least result.
+    inp = RunNodeInput(
+        config=AtLeastConfig(column="c", threshold=10),
+        inputs={"items": [Dna(sequence="ATG"), Dna(sequence="AAA")]},
+        values=[3.0, 12.0],
+    )
+    assert inp.config.config_hash == "b79fb657"
+    assert inp.cache_path().name == (
+        "7c9e2944895710a84844c5652155609bdd72b9a17244962ec1374358070d3ec9.json"
+    )
