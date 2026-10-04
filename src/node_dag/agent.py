@@ -62,6 +62,9 @@ class Hypothesis(BaseModel):
         round: The current round.
         attempts: Every round so far. Older rounds keep previews, not their outcome.
         usage: Tokens used, per stage and in ``total``.
+        max_rounds: The most rounds this run may take, saved when it starts. None for a
+            file from before the loop recorded it.
+        max_tokens: The token ceiling, checked before each round. None as ``max_rounds``.
         stopped_because: Why the loop ended.
     """
 
@@ -76,6 +79,8 @@ class Hypothesis(BaseModel):
     round: int = 0
     attempts: list[Attempt] = []
     usage: dict[str, int] = {}
+    max_rounds: int | None = None
+    max_tokens: int | None = None
     stopped_because: str | None = None
 
     @model_validator(mode="before")

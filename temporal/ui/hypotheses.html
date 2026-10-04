@@ -50,6 +50,7 @@
   .request + .request { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
   .request pre { margin: 4px 0 0; padding: 8px 10px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); overflow-x: auto; font-size: 12px; white-space: pre-wrap; }
   .request .label { display: block; margin-top: 8px; }
+  .now { border-left: 2px solid var(--running); padding: 2px 0 2px 12px; }
 </style>
 </head>
 <body>
@@ -76,9 +77,25 @@ const showValue = (v) => v == null ? "" : Array.isArray(v) ? `${v.length} × ${v
 const chips = (values) => Object.entries(values).map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(showValue(v))}</span>`).join("");
 // This round's attempt: its plan, DAG, outcome and verdict. Missing while the builder plans.
 const cur = (h) => h.attempts.find((a) => a.round === h.round);
+// The round the sections describe: this round's, else the last the loop finished, so the page
+// does not go back to the start while the next plan is written.
+const shown = (h) => cur(h) ?? h.attempts.at(-1);
 // The builder's plan once there is one, else the idea the user gave.
-const idea = (h) => cur(h)?.plan?.hypothesis ?? h.hypothesis;
+const idea = (h) => shown(h)?.plan?.hypothesis ?? h.hypothesis;
 const noIdea = (status) => status === "building" ? "The builder agent is writing it…" : "No plan was written.";
+
+// Where the loop is: this round out of the most it may take, what it is doing, and the tokens spent.
+const DOING = { building: "the builder is writing the plan", running: "running the DAG", verifying: "the verifier is judging the outcome", critiquing: "the critic is saying what failed", blocked: "waiting for a node to be added" };
+function nowLine(h, state) {
+  if (STOPPED.has(state)) return "";
+  const from = !h.round || cur(h) || !h.attempts.length ? "" : `, from the critique of round ${h.attempts.at(-1).round}`;
+  const what = h.round ? `<b>Round ${h.round}${h.max_rounds ? ` of ${h.max_rounds}` : ""}</b>: ${DOING[state] ?? state}${from}` : "Getting the inputs and criteria ready";
+  const used = (h.usage?.total ?? 0).toLocaleString(), ceiling = h.max_tokens ? ` of ${h.max_tokens.toLocaleString()}` : "";
+  return `<div class="now">${what} · ${used}${ceiling} tokens</div>`;
+}
+// Says so when the sections below describe a round that is not this one.
+const viewNote = (h) => !shown(h) || shown(h) === cur(h) ? ""
+  : `<div class="meta">Showing round ${shown(h).round}, the latest: round ${h.round} has no plan yet.</div>`;
 
 // An expandable section. `key` keeps it open across the poll's redraw.
 const sec = (key, title, count, body) => !body ? "" : `
@@ -90,7 +107,7 @@ const sec = (key, title, count, body) => !body ? "" : `
 // One criterion with its call. The loop makes the call from the assertions the plan set against
 // it, not from a model: met when every one held, not met when one did not, unclear when none ran.
 const criterionLine = (h, c) => {
-  const att = cur(h), mine = (att?.plan?.assertions ?? []).filter((a) => a.criterion === c.id);
+  const att = shown(h), mine = (att?.plan?.assertions ?? []).filter((a) => a.criterion === c.id);
   const ran = att && Object.keys(att.held).length > 0;
   const key = (a) => `${a.step}.${a.branch}`;
   const met = !mine.length || !ran ? null : mine.every((a) => att.held[key(a)]);
@@ -115,28 +132,28 @@ function observations(obs, id) {
     </div>`).join("");
 }
 
-// One row per step: its node, sources, status and value.
-function steps(row) {
-  const a = cur(row.hypothesis), p = row.progress;
+// One row per step: its node, sources, status and value. An older round kept previews, not its outcome.
+function steps(row, a) {
+  const p = a === cur(row.hypothesis) ? row.progress : null, seen = a.produced ?? {};
   const values = a.outcome?.values ?? p?.values ?? {};
   const skipped = new Set(a.outcome?.skipped ?? []);
   return Object.entries(a.dag.steps).map(([k, step]) => {
     const { name, ...args } = step.config;
     const params = Object.entries(args).map(([x, v]) => `${x}=${JSON.stringify(v)}`).join(", ");
     const branch = ["yes", "no"].find((b) => `${k}.${b}` in values);
-    const status = p?.steps[k] ?? (skipped.has(k) ? "skipped" : k in values || branch ? "done" : "pending");
+    const kept = [k, `${k}.yes`, `${k}.no`].find((x) => x in seen);
+    const status = p?.steps[k] ?? (skipped.has(k) ? "skipped" : k in values || branch || kept ? "done" : "pending");
     return {
       key: k, status, node: params ? `${name}(${params})` : name, sources: step.inputs,
-      value: branch ? `→ ${branch}: ${showValue(values[`${k}.${branch}`])}` : showValue(values[k]),
+      value: branch ? `→ ${branch}: ${showValue(values[`${k}.${branch}`])}` : k in values ? showValue(values[k]) : kept ? `${kept}: ${seen[kept].join(", ")}` : "",
     };
   });
 }
 
-function dagTable(row) {
-  const a = cur(row.hypothesis);
+function dagTable(row, a) {
   return `<div class="scroll"><table class="dag">
     <thead><tr><th>Step</th><th>Status</th><th>Node</th><th>Inputs</th><th>Value</th></tr></thead>
-    <tbody>${steps(row).map((s) => `
+    <tbody>${steps(row, a).map((s) => `
       <tr>
         <td><code>${esc(s.key)}</code></td>
         <td>${badge(s.status)}</td>
@@ -148,13 +165,18 @@ function dagTable(row) {
   ${a.workflow_id ? `<div class="actions"><a href="/?run=${encodeURIComponent(a.workflow_id)}">Open the run's graph →</a></div>` : ""}`;
 }
 
-// Every round the loop has tried, and what came of it.
-const roundsTable = (h) => !h.attempts.length ? "" : `<div class="scroll"><table>
+// Every round the loop has tried, and what came of it. The round being planned has no attempt
+// yet, so it gets a row of its own.
+function roundsTable(h, state) {
+  const planning = !STOPPED.has(state) && h.round > 0 && !cur(h);
+  return !h.attempts.length && !planning ? "" : `<div class="scroll"><table>
   <thead><tr><th>#</th><th>Result</th><th>What happened</th></tr></thead>
   <tbody>${h.attempts.map((a) => `
     <tr><td>${a.round}</td><td>${a.verdict ? badge(a.verdict.achieved ? "achieved" : "not achieved") : a.error ? badge("failed") : ""}</td>
-    <td>${esc(a.critique?.fix ?? a.error ?? a.verdict?.reason ?? "")}</td></tr>`).join("")}</tbody>
+    <td>${esc(a.critique?.fix ?? a.error ?? a.verdict?.reason ?? "")}</td></tr>`).join("")}${planning ? `
+    <tr><td>${h.round}</td><td>${badge(state)}</td><td class="meta">${DOING[state] ?? state}</td></tr>` : ""}</tbody>
 </table></div>`;
+}
 
 // A requested node's contract, as the builder wrote it, and how to start writing it.
 function requestView(r) {
@@ -185,11 +207,12 @@ function blockedView(h) {
 
 // One hypothesis: its status and plan on the line, everything else behind a section.
 function hypothesis(row) {
-  const h = row.hypothesis, key = `h:${h.id}`, a = cur(h);
+  const h = row.hypothesis, key = `h:${h.id}`, a = shown(h);
   const produced = a?.outcome ? Object.fromEntries(Object.entries(a.outcome.values).filter(([k]) => !(k in h.inputs))) : null;
   const obs = h.observations ?? [];
   const steps = a?.dag ? Object.keys(a.dag.steps).length : 0;
   const body = `
+    ${nowLine(h, row.status)}${viewNote(h)}
     ${blockedView(h)}
     ${h.stopped_because ? `<div class="meta">Stopped: ${esc(h.stopped_because)}${h.usage?.total ? ` · ${h.usage.total} tokens` : ""}</div>` : ""}
     ${sec(`${key}:verdict`, a?.verdict ? `Verdict · goal ${a.verdict.achieved ? "achieved" : "not achieved"}` : "", null,
@@ -198,10 +221,10 @@ function hypothesis(row) {
       `<div class="plan-full">${idea(h) ? esc(idea(h)) : `<span class="meta">${noIdea(row.status)}</span>`}</div>`)}
     ${sec(`${key}:crit`, "Success criteria", h.criteria.length || null, h.criteria.length
       ? `<ul class="crits">${h.criteria.map((c) => criterionLine(h, c)).join("")}</ul>` : "")}
-    ${sec(`${key}:rounds`, "Rounds", h.attempts.length || null, roundsTable(h))}
+    ${sec(`${key}:rounds`, "Rounds", h.attempts.length || null, roundsTable(h, row.status))}
     ${sec(`${key}:obs`, "Observations", obs.length || null, obs.length ? observations(obs, h.id) : "")}
     ${sec(`${key}:dag`, "DAG", a?.dag ? `${steps} ${steps === 1 ? "step" : "steps"}${a.outcome?.skipped.length ? `, ${a.outcome.skipped.length} skipped` : ""}` : null,
-      a?.dag ? dagTable(row) : "")}
+      a?.dag ? dagTable(row, a) : "")}
     ${sec(`${key}:out`, "Outcome", produced ? Object.keys(produced).length : null,
       produced ? (Object.keys(produced).length ? `<div class="chips">${chips(produced)}</div>` : `<span class="meta">No step produced a value.</span>`) : "")}`;
   return `

@@ -88,7 +88,9 @@ class HypothesisInput(BaseModel):
     hypothesis: Hypothesis
     build_model: str = BUILD_MODEL
     verify_model: str = VERIFY_MODEL
-    max_rounds: int = 3
+    max_rounds: int = 20
+    # Checked before each round, never during one, so the round that crosses it still finishes.
+    # At the recorded median of 115,000 tokens a round, that is a stop after about five rounds.
     max_tokens: int = 500_000
     allow_requests: bool = False
 
@@ -196,7 +198,7 @@ class HypothesisLoop:
         return final
 
     async def _loop(self, inp: HypothesisInput) -> Hypothesis:
-        await self._set()
+        await self._set(max_rounds=inp.max_rounds, max_tokens=inp.max_tokens)
         if (
             not self._hyp.inputs
         ):  # The caller's inputs win: read the goal only if none came.

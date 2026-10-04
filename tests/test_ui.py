@@ -298,7 +298,7 @@ async def test_starting_without_max_rounds_is_accepted_and_blank_criteria_are_dr
     hyp = await _endpoint("/api/hypotheses", "POST", client, "model")(new)
     ((inp, kw),) = client.started
     assert (
-        inp.max_rounds == 3 and kw["id"] == hyp.id
+        inp.max_rounds == 20 and kw["id"] == hyp.id
     )  # Blank means the default, not a 422.
     assert [c.claim for c in inp.hypothesis.criteria] == ["no TCG remains"]
     assert [c.kind for c in inp.hypothesis.criteria] == ["quantitative"]
@@ -571,6 +571,23 @@ def test_the_hypotheses_page_marks_each_criterion_met_not_met_or_unclear():
         assert s in page
     # The loop makes the call from the assertions that covered the criterion, as they held.
     assert "att.held" in page and "a.criterion === c.id" in page
+
+
+def test_the_rounds_field_on_the_form_matches_what_the_api_takes_and_the_loop_defaults_to():
+    assert 'max="50" placeholder="20"' in NEW.read_text()
+    assert NewHypothesis(goal="g", max_rounds=50).max_rounds == 50
+    with pytest.raises(ValidationError):
+        NewHypothesis(goal="g", max_rounds=51)
+
+
+def test_the_hypotheses_page_keeps_the_last_round_on_screen_while_the_next_is_planned():
+    """Nothing is saved for a round until its plan lands; the page must not fall back to round 1's view."""
+    page = HYPOTHESES.read_text()
+    assert "const shown = (h) => cur(h) ?? h.attempts.at(-1)" in page
+    # What it describes comes from the round shown, not from this round's attempt.
+    assert "const att = shown(h)" in page and "a = shown(h)" in page
+    assert "shown(h)?.plan?.hypothesis" in page
+    assert "nowLine(h, row.status)" in page and "of ${h.max_rounds}" in page
 
 
 def test_the_new_page_takes_words_and_the_builder_chooses_what_to_run_on():
