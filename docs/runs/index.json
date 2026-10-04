@@ -997,6 +997,150 @@
    ]
   },
   {
+   "hypothesis_id": "hypothesis-2070ae10-8a4b-463f-a95c-1727141d7af2",
+   "short": "2070ae10",
+   "goal_title": "Raise the codon adaptation index of the DNA sequence without changing its protein. Score it with thi",
+   "goal_key": "aroE-cai",
+   "kind": "live",
+   "models": {
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-sonnet-5-5"
+   },
+   "commit": "84dd7876e2471fa80b72219d84c4eb55bd9e09c5",
+   "commit_short": "84dd787",
+   "commit_basis": "worktree $S/arm-G: `git rev-parse HEAD` = 84dd787, clean; arm_G.status 'worktree arm-G at 84dd787'; run_armG.sh header '#12 head 84dd787'",
+   "fork_pr": "12",
+   "lineage_pr": "12 (display, top of the stack then)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "12": {
+     "in_tip": true,
+     "tip_in_commit": true
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 2,
+   "tokens": 122113,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr12/arm-G-84dd787",
+   "source": "$TMP/95f44646-4f13-48e9-a640-91afd80574df/scratchpad/arm-G/results/hypotheses/hypothesis-2070ae10-8a4b-463f-a95c-1727141d7af2.json",
+   "source_sha256": "e10d8faffd134368de06c39f463ce1f88e5ceb16ae89be0790a07816bcf922cf",
+   "hypothesis_mtime": "2026-10-04T08:45:42+0100",
+   "caveats": [
+    "'achieved' is the loop's verdict; per sweep/armG.md the benchmark gate that honours immutable (PR #14) fails aroE on stop codon TGA to TAA (1 of 2 passes it), the PR #8 gate ignores immutable and passes both; not re-derived here",
+    "goal file: packs/replication/goals/goal_aroE.json (byte-identical)",
+    "n=1 per gene; both kept exactly one sequence; no critique call (round 1 accepted)"
+   ],
+   "n_cell": 1,
+   "logs": [
+    "pr12/arm-G-84dd787/logs/run_GaroE.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-a6fab082-4b7c-4c24-aa28-c66d2c0e69b2",
+   "short": "a6fab082",
+   "goal_title": "Raise the codon adaptation index of the DNA sequence without changing its protein. Score it with thi",
+   "goal_key": "tusE-cai",
+   "kind": "live",
+   "models": {
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-sonnet-5-5"
+   },
+   "commit": "84dd7876e2471fa80b72219d84c4eb55bd9e09c5",
+   "commit_short": "84dd787",
+   "commit_basis": "worktree $S/arm-G: `git rev-parse HEAD` = 84dd787, clean; arm_G.status 'worktree arm-G at 84dd787'; run_armG.sh header '#12 head 84dd787'",
+   "fork_pr": "12",
+   "lineage_pr": "12 (display, top of the stack then)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "12": {
+     "in_tip": true,
+     "tip_in_commit": true
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 2,
+   "tokens": 150699,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr12/arm-G-84dd787",
+   "source": "$TMP/95f44646-4f13-48e9-a640-91afd80574df/scratchpad/arm-G/results/hypotheses/hypothesis-a6fab082-4b7c-4c24-aa28-c66d2c0e69b2.json",
+   "source_sha256": "d109a8ba00927eab3329eb46b6075468ac6516450205787e2d0f4f35fd07e4ab",
+   "hypothesis_mtime": "2026-10-04T08:45:48+0100",
+   "caveats": [
+    "'achieved' is the loop's verdict; per sweep/armG.md the benchmark gate that honours immutable (PR #14) fails aroE on stop codon TGA to TAA (1 of 2 passes it), the PR #8 gate ignores immutable and passes both; not re-derived here",
+    "goal file: goals/goal_tusE.json",
+    "n=1 per gene; both kept exactly one sequence; no critique call (round 1 accepted)"
+   ],
+   "n_cell": 1,
+   "logs": [
+    "pr12/arm-G-84dd787/logs/run_GtusE.log"
+   ]
+  },
+  {
    "hypothesis_id": "hypothesis-3bec2a48-73c6-4cd4-8163-8ace498ca1fc",
    "short": "3bec2a48",
    "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",

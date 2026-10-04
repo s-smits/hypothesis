@@ -15,7 +15,7 @@
 #   ROOT=<out dir>        results, logs, status and scores go here (default: <this dir>/arm-G). Use a fresh one per arm.
 #   PORT=7240             Temporal dev server this script starts (and stops). Pick a free port; it refuses a busy one.
 #   START_INFRA=1         0 = use a server and worker you already started on PORT with NODE_DAG_RESULTS=$ROOT/results.
-#   CAP=1000000  MAX_ROUNDS=20  TIMEOUT=7200 (seconds per run)  WATCH=1 (a read-only pulse look every 290 s)
+#   CAP=1000000  MAX_ROUNDS=8  TIMEOUT=7200 (seconds per run)  WATCH=1 (a read-only pulse look every 290 s)
 #   TICK=20 (seconds between looks at the saved runs)  STAGGER=30 (seconds to wait after an open)
 #   MODEL / VERIFY_MODEL  default anthropic:claude-sonnet-5-5 for both, as in arm F.
 #   ENVFILE=<file>        sourced for the API key, as run_armF.sh did. Never printed.
@@ -25,7 +25,8 @@ ARM="${ARM:-/Users/air/Developer/hypothesis-loop-merged}"
 ROOT="${ROOT:-$HERE/arm-G}"
 PORT="${PORT:-7240}"
 CAP="${CAP:-1000000}"; CONC=2
-MAX_ROUNDS="${MAX_ROUNDS:-20}"; TIMEOUT="${TIMEOUT:-7200}"
+# Operator cap: about 8 rounds (default lowered from 20).
+MAX_ROUNDS="${MAX_ROUNDS:-8}"; TIMEOUT="${TIMEOUT:-7200}"
 MODEL="${MODEL:-anthropic:claude-sonnet-5-5}"; VERIFY_MODEL="${VERIFY_MODEL:-anthropic:claude-sonnet-5-5}"
 ENVFILE="${ENVFILE:-/Users/air/Developer/hypothesis/.env}"
 PY="${PY:-$ARM/.venv/bin/python}"

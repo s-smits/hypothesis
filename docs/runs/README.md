@@ -4,13 +4,17 @@ Everything here was copied, read-only, from the places the runs were saved (resu
 
 ## Layout
 
-- `<fork>/<group>/` where `<fork>` is the PR the run's commit was forked from, decided with `git merge-base --is-ancestor` against the PR tips (see each group's README for the table): `pre-pr7` (a recorded commit older than every #7 head), `pr7` (a #7 head or a commit built on one), `unknown` (no commit recorded; the evidence is in the group README).
+- `<fork>/<group>/` where `<fork>` is the PR the run's commit was forked from, decided with `git merge-base --is-ancestor` against the PR tips (see each group's README for the table): `pre-pr7` (a recorded commit older than every #7 head), `pr7` (a #7 head or a commit built on one), `pr12` (the #12 head, 84dd787), `unknown` (no commit recorded; the evidence is in the group README).
 - Inside a group: `hypotheses/`, `workflows/`, `trajectories/<id>.jsonl.gz`, `ledger.jsonl`, `logs/`, `scripts/`, `README.md`.
 - Python helper scripts under `scripts/` and `packs/` are stored as `*.py.txt` (content byte-identical) so that lint, type checks and test collection ignore them: copy a file and drop the `.txt` to run it.
 - `index.json`: one row per run (and per benchmark attempt) with source path, commit basis and caveats. `benchmark-ledger/`: the five benchmark attempts (two baselines, three loop records). `goals/`, `scripts/`, `packs/`: the goal inputs, helper scripts and the prepared (never run) replication and codon-pair packs, without their scoring oracle.
 
+## Counts
+
+Runs: 78 (27 live-model, 51 scripted), none skipped as live (no workflow file modified in the last 10 minutes).
+
 ## Fork points
-Arms E, F and F2 sit under `pr7`: their commits (74803ee, bb7cf40, 07f1f87) contain `dc1916a` (the #7 head, which includes #8) and are not ancestors of the #9, #11, #12 or main tips; their content (beats_reference, the integrated patches, the prompt tightening) was rebuilt later as new commits in #9, #11 and #12, so by ancestry they were forked from #7 and their lineage is #11. Runs whose commit no file records are under `unknown`, with the nearest evidence.
+Arms E, F and F2 sit under `pr7`: their commits (74803ee, bb7cf40, 07f1f87) contain `dc1916a` (the #7 head, which includes #8) and are not ancestors of the #9, #11, #12 or main tips; their content (beats_reference, the integrated patches, the prompt tightening) was rebuilt later as new commits in #9, #11 and #12, so by ancestry they were forked from #7 and their lineage is #11. Arm G sits under `pr12`: its worktree was the #12 head 84dd787 (the tip itself is the nearest PR tip). Runs whose commit no file records are under `unknown`, with the nearest evidence.
 
 ## Live-model runs
 
@@ -30,6 +34,8 @@ Arms E, F and F2 sit under `pr7`: their commits (74803ee, bb7cf40, 07f1f87) cont
 | pr7/arm-F-bb7cf40 | 5fec1ed4 | arfA-cai | sonnet-5-5 | 7 | bb7cf40 | 1 | 102853 | achieved | 1 |
 | pr7/arm-F2-07f1f87 | 894a1eba | arfA-cai | sonnet-5-5 | 7 | 07f1f87 | 1 | 144385 | achieved | 1 |
 | pr7/arm-F2-07f1f87 | ce899c7c | ostir | sonnet-5-5 | 7 | 07f1f87 | 2 | 232256 | achieved | 1 |
+| pr12/arm-G-84dd787 | 2070ae10 | aroE-cai | sonnet-5-5 | 12 | 84dd787 | 1 | 122113 | achieved | 1 |
+| pr12/arm-G-84dd787 | a6fab082 | tusE-cai | sonnet-5-5 | 12 | 84dd787 | 1 | 150699 | achieved | 1 |
 | pr7/loop-tip-37e8de9 | 3bec2a48 | ostir | plan sonnet-5-5, verify haiku-4-5-20251001 | 7 | 37e8de9 | 3 | 313544 | abandoned | 1 |
 | pr7/loop-tip-89962aa | bead95ef | ostir | plan sonnet-5-5, verify haiku-4-5-20251001 | 7 | 89962aa | 3 | 297109 | not achieved | 1 |
 | pre-pr7/compact-be3805f | 9afcd59e | ostir | plan sonnet-5-5, verify haiku-4-5-20251001 | pre-7 | be3805f | 2 | 170098 | abandoned | 2 |
@@ -55,5 +61,6 @@ Arms E, F and F2 sit under `pr7`: their commits (74803ee, bb7cf40, 07f1f87) cont
 - `n` is the number of runs in the same group with the same goal. Every cell is small (1 to 3 runs); these are not rates.
 - ostir 'achieved' means the verifier judged the kept sequences higher than the first input, not a lift over the best input.
 - A run's `outcome` is derived from its saved state: achieved, not achieved, abandoned; blocked, building, running and failed count as no result.
+- Arm G (`pr12/arm-G-84dd787`): 'achieved' is the loop's verdict. Per notes/pr7-overnight/sweep/armG.md (not re-derived here), the benchmark gate that honours `immutable` codons (PR #14) fails aroE on the stop codon TGA to TAA, and 1 of the 2 runs passes it (tusE); the gate of PR #8, which ignores `immutable`, passes both.
 - Per-run caveats and sources are in `index.json`. Where a run's commit is not recorded the folder is `unknown`; a candidate commit is named only as evidence.
 - Not copied: `nodes/` and `registry/` caches, environments, databases, credentials, the packs' scoring oracle, byte-identical copies of the arm folders, and state-only UI fixtures.

@@ -1,0 +1,10 @@
+2026-10-04 08:44:33
+arm G prepared: server 7239, worktree arm-G at 84dd787, P8 frozen
+2026-10-04 08:44:55 arm G opens 2 runs at once, cap 500000 each, ceiling 1000000, max rounds 8
+2026-10-04 08:45:26 settled 0 reserved 1000000 ceiling 1000000 | 2070ae10 building 0; a6fab082 building 0
+2026-10-04 08:45:42 arm G aroE ended rc=0
+2026-10-04 08:45:46 settled 122113 reserved 622113 ceiling 1000000 | 2070ae10 achieved 122113; a6fab082 verifying 135476
+2026-10-04 08:45:48 arm G tusE ended rc=0
+2026-10-04 08:46:06 settled 272812 reserved 272812 ceiling 1000000 | 2070ae10 achieved 122113; a6fab082 achieved 150699
+2026-10-04 08:46:26 settled 272812 reserved 272812 ceiling 1000000 | 2070ae10 achieved 122113; a6fab082 achieved 150699
+2026-10-04 08:46:46 arm G lane finished
