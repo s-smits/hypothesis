@@ -217,7 +217,12 @@ class Plan(BaseModel):
         "hypothesis, one per record. Leave out if you did not search.",
     )
     addresses_critique: str = ""
-    result_source: str | None = None
+    result_source: str | None = Field(
+        default=None,
+        description="Optional: the step output every criterion is about, a tool or scoring "
+        "step's key or '<filter>.yes' or '<filter>.no'. Leave it out unless the criteria "
+        "concern one set of entities.",
+    )
 
     @model_validator(mode="after")
     def _check(self) -> Self:

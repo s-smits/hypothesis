@@ -193,6 +193,15 @@ def test_acceptance_with_no_declared_result_is_unchanged():
     assert old.fingerprint() == _plan(result_source="none.yes").fingerprint()
 
 
+def test_the_builder_is_told_about_result_source_where_it_reads_the_plan():
+    """Weak by nature: it shows the text is there, not that a model follows it."""
+    from node_dag.agent import BUILD_INSTRUCTIONS
+
+    said = Plan.model_json_schema()["properties"]["result_source"]
+    assert "step output" in said["description"]
+    assert BUILD_INSTRUCTIONS.count("result_source") == 1
+
+
 def test_the_result_is_optional_in_the_plan_schema():
     schema = Plan.model_json_schema()
     assert schema["required"] == ["hypothesis", "expected", "inputs", "steps"]

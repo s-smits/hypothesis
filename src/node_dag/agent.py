@@ -287,6 +287,10 @@ Shapes that usually fit a goal:
    wiring that already ran.
 6. If you searched the literature, add an observation for each record that bears on the
    plan: its amassId and a summary of what it found and how that shaped the plan.
+7. When every criterion is about one set of entities, such as the candidates before a filter
+   splits them, name that set in result_source: a step key, or `<filter>.yes` or `.no`. Each
+   criterion then needs its assertion on that step or on a step that reads it with no tool
+   between, and the set must hold entities.
 Every source is a list of entities, and a node runs once on the whole list that reaches it.
 - A tool step makes new entities, under its key. They have no scores.
 - A scoring step passes its entities on under its key, and adds its score columns.
