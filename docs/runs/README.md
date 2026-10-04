@@ -6,7 +6,7 @@ Everything here was copied, read-only, from the places the runs were saved (resu
 
 - `<fork>/<group>/` where `<fork>` is the PR the run's commit was forked from, decided with `git merge-base --is-ancestor` against the PR tips (see each group's README for the table): `pre-pr7` (a recorded commit older than every #7 head), `pr7` (a #7 head or a commit built on one), `pr12` (the #12 head, 84dd787), `unknown` (no commit recorded; the evidence is in the group README).
 - Inside a group: `hypotheses/`, `workflows/`, `trajectories/<id>.jsonl.gz`, `ledger.jsonl`, `logs/`, `scripts/`, `README.md`.
-- Python helper scripts under `scripts/` and `packs/` are stored as `*.py.txt` (content byte-identical) so that lint, type checks and test collection ignore them: copy a file and drop the `.txt` to run it.
+- Python helper scripts under `scripts/` and `packs/` are stored as `*.py.txt` (content byte-identical) so that lint, type checks and test collection ignore them: copy a file and drop the `.txt` to run it. One Markdown log, `pre-pr7/compact-be3805f/logs/oracle-20261003-loop-review.md.txt`, is stored the same way so that `ruff format --check` ignores it.
 - `index.json`: one row per run (and per benchmark attempt) with source path, commit basis and caveats. `benchmark-ledger/`: the five benchmark attempts (two baselines, three loop records). `goals/`, `scripts/`, `packs/`: the goal inputs, helper scripts and the prepared (never run) replication and codon-pair packs, without their scoring oracle.
 
 ## Counts
