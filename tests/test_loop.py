@@ -538,6 +538,22 @@ async def test_a_verifier_that_agrees_cannot_achieve_an_assertion_that_did_not_h
         assert "did not hold" in a.verdict.reason
 
 
+async def test_a_verifier_that_fails_cannot_achieve_a_goal_whose_assertions_hold():
+    fakes = _fakes({}, [PLAN] * 2, [ResolveOut(dag=DAG)] * 2, [True] * 2)
+
+    @activity.defn(name="verify_outcome")
+    async def broken(inp: Stage) -> Out:
+        return Out(error="the verifier broke")
+
+    fakes[2] = broken
+    done = await _drive(fakes, max_rounds=2)  # HYP has no TCG, so the claim holds.
+    assert done.state == "not achieved" and _none_achieved(done)
+    for a in done.attempts:
+        assert a.held == {"small.yes": True}
+        assert a.verdict and not a.verdict.agrees and not a.verdict.covers_goal
+        assert "the verifier failed: the verifier broke" in a.verdict.reason
+
+
 # The first sequence has one TCG, the others none and two: keep what has fewer than it.
 FIRST = Dna(sequence="ATGTCGTAA")
 FEWER = HYP.model_copy(

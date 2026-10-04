@@ -120,3 +120,29 @@ def test_a_scored_in_that_names_no_step_says_which_step_and_which_node():
     msg = str(e.value)
     assert "Unknown source 'cai_in'" in msg and "Step 'better'" in msg
     assert "scored_in" in msg and "beats_reference__" in msg
+
+
+async def test_scored_in_may_name_a_filter_branch_and_that_filter_runs_first(
+    results_dir,
+):
+    # The reference is scored in baseline, and passes a gate that keeps what expresses.
+    dag = _dag()
+    dag["steps"]["gate"] = _step(
+        {"name": "at_least", "column": EXPRESSION, "threshold": 0}, "baseline", "items"
+    )
+    dag["steps"]["better"]["config"]["scored_in"] = "gate.yes"
+    assert "gate" in Dag.model_validate(dag).steps["better"].deps()
+    out = await _run(dag, SEQS)
+    base = out.values["gate.yes"].scores[EXPRESSION][REF.id]
+    assert out.values["better.yes"].items
+    assert all(
+        out.values["scored"].scores[EXPRESSION][i.id] > base
+        for i in out.values["better.yes"].items
+    )
+
+
+async def test_a_reference_that_was_never_scored_is_not_retried(results_dir):
+    dag = _dag(reference=Dna(sequence="ATGGCTCTGAAGTAA").model_dump(mode="json"))
+    with pytest.raises(WorkflowFailureError) as e:
+        await _run(dag, SEQS)
+    assert getattr(e.value.cause, "non_retryable", False)

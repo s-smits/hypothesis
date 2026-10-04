@@ -72,6 +72,19 @@ async def test_a_plan_may_use_a_node_nobody_has_written(results_dir):
     assert errors == [] and out.requests["gc_count"] == req
 
 
+async def test_an_assertion_on_a_criterion_or_step_the_plan_lacks_is_sent_back(
+    results_dir,
+):
+    stray = {**_says("small", "yes"), "criterion": "made_up"}
+    nowhere = _says("nowhere", "produced")
+    for bad, why in [
+        (_plan(assertions=[_says("small", "yes"), stray]), "unknown criterion"),
+        (_plan(assertions=[_says("small", "yes"), nowhere]), "not a step of the plan"),
+    ]:
+        _, errors = await _run(results_dir, bad, _plan())
+        assert why in errors[0], (why, errors)
+
+
 async def test_a_filter_that_keeps_some_can_be_asserted_as_produced(results_dir):
     keeps_some = _plan(
         assertions=[

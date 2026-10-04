@@ -85,6 +85,19 @@ def test_holds_needs_the_branch_full_and_the_other_empty():
     assert holds(a, _out(1, 1)) == {"none.yes": False}
 
 
+def test_holds_no_needs_its_branch_full_and_the_yes_branch_empty():
+    a = [Assertion(criterion="c", step="none", branch="no", claim="c")]
+    assert holds(a, _out(0, 2)) == {"none.no": True}
+    assert holds(a, _out(1, 1)) == {"none.no": False}
+    assert holds(a, _out(2, 0)) == {"none.no": False}
+    assert holds(a, _out(0, 0)) == {"none.no": False}
+
+
+def test_accepted_without_a_verifier_opinion_says_so_even_when_the_assertions_hold():
+    ok, why = accepted(CRIT, _plan(), None, _out(2, 0))
+    assert not ok and "no plan or verifier opinion" in why
+
+
 def test_a_produced_assertion_holds_when_its_step_gave_an_entity():
     a = [Assertion(criterion="c", step="scored", branch="produced", claim="c")]
     gave = DagOutput(values={"scored": Table.of([D])}, skipped=[])
