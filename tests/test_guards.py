@@ -238,6 +238,49 @@ async def test_a_wiring_that_already_ran_is_not_resubmitted_and_a_critique_must_
     )
 
 
+async def test_the_same_wiring_with_a_stronger_assertion_is_a_repair_not_a_repeat(
+    results_dir,
+):
+    """Arm C a9d91571 r2: produced -> yes on two all-pass filters was sent back as a repeat."""
+    weak = Plan.model_validate(_plan(assertions=[_says("small", "produced")]))
+    crit = Critique(diagnosis="d", root_cause="wrong_wiring", evidence=["e"], fix="f")
+    hyp = HYP.model_copy(
+        update={"attempts": [Attempt(round=1, plan=weak, critique=crit)]}
+    )
+    stronger = _plan(
+        assertions=[_says("small", "yes")], addresses_critique="asserts yes now"
+    )
+    out, errors = await _run(results_dir, stronger, hyp=hyp)
+    assert errors == [] and out.assertions[0].branch == "yes"
+
+
+async def test_a_repeat_that_weakens_moves_or_only_repeats_an_assertion_is_sent_back(
+    results_dir,
+):
+    strong = Plan.model_validate(_plan(assertions=[_says("small", "yes")]))
+    crit = Critique(diagnosis="d", root_cause="wrong_wiring", evidence=["e"], fix="f")
+    hyp = HYP.model_copy(
+        update={"attempts": [Attempt(round=1, plan=strong, critique=crit)]}
+    )
+    fixed = {"addresses_critique": "x"}
+    changed = _plan(
+        steps={
+            **_plan()["steps"],
+            "small": _step("at_most", "counted", "items", column=COLUMN, threshold=1),
+        },
+        **fixed,
+    )
+    for bad in [
+        [_says("small", "produced")],  # weaker
+        [_says("counted", "produced")],  # moved to another step
+        [_says("small", "yes")],  # the same
+    ]:
+        _, errors = await _run(
+            results_dir, _plan(assertions=bad, **fixed), changed, hyp=hyp
+        )
+        assert "already ran" in errors[0] and "strengthen" in errors[0]
+
+
 async def test_the_plan_tool_is_not_strict_so_its_dicts_can_have_keys(results_dir):
     """Strict output forces additionalProperties false, so steps could only be {}."""
     seen = []

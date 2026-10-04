@@ -153,6 +153,16 @@ class Assertion(BaseModel):
         """Where ``Attempt.held`` records it. Assertions on one step and branch share a key."""
         return f"{self.step}.{self.branch}"
 
+    def implies(self, other: "Assertion") -> bool:
+        """Whether this holds whenever ``other`` does: the same claim on the same step, no weaker.
+
+        ``yes`` needs the yes branch to take every entity, so it implies ``produced``.
+        """
+        return (self.criterion, self.step) == (other.criterion, other.step) and (
+            self.branch == other.branch
+            or (self.branch == "yes" and other.branch == "produced")
+        )
+
 
 class DraftObservation(BaseModel):
     """A finding from an Amass record that bears on the hypothesis.
@@ -264,6 +274,24 @@ class Plan(BaseModel):
         return hashlib.sha256(
             json.dumps([self.inputs, wiring], sort_keys=True).encode()
         ).hexdigest()
+
+    def reruns(self, earlier: "Plan") -> bool:
+        """Whether this plan only runs ``earlier``'s wiring again.
+
+        The same wiring with stronger assertions is a repair, not a repeat: it must keep
+        every earlier assertion no weaker and add or strengthen one. Weakening one, or moving
+        it to another step, is still a repeat.
+        """
+        if self.fingerprint() != earlier.fingerprint():
+            return False
+        kept = all(
+            any(a.implies(old) for a in self.assertions) for old in earlier.assertions
+        )
+        stronger = any(
+            not any(old.implies(a) for old in earlier.assertions)
+            for a in self.assertions
+        )
+        return not (kept and stronger)
 
     def dag(self, configs: dict[str, BaseNodeConfig]) -> Dag:
         """This plan's steps as a ``Dag``, given a config for each, not yet checked."""
