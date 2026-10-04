@@ -36,6 +36,11 @@ include = ["node_dag*", "temporal*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# This tree first, so a venv whose editable install points at another checkout is not used.
+pythonpath = [".", "src"]
+# The live test calls a paid model API: deselected unless asked for with `-m live`.
+addopts = "-m 'not live'"
+markers = ["live: calls a live model API; run with `pytest -m live`"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["node_dag", "temporal"]

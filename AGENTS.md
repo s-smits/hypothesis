@@ -42,11 +42,14 @@ Python is `>=3.12,<3.13`; use `uv` and the committed `uv.lock`.
 
 ```sh
 uv sync --locked
-uv run pytest -q
-uv run ruff check .
-uv run ruff format --check .
-uv run ty check
+make check   # pytest, ruff, ty; `make check VENV=/path/to/venv` uses another venv
 ```
+
+`make check` runs `pytest -q`, `ruff check .`, `ruff format --check .` and
+`ty check`. `ruff-baseline.txt` lists the 5 findings and 2 unformatted files that
+were already there; `make check` fails on any ruff finding or unformatted file not
+listed in it, and tells you when one listed there is fixed. The live-model test is
+deselected unless you run `pytest -m live`.
 
 These are separate checks. Run the relevant tests for a code change, then the full
 suite for changes to shared contracts or execution. Check lint, formatting and

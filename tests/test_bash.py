@@ -151,6 +151,7 @@ async def test_pydantic_ai_agent_with_bash_tool(tmp_path):
     assert "hello pydantic-ai" in recorded_returns[0]
 
 
+@pytest.mark.live
 @pytest.mark.skipif(
     not os.getenv("ANTHROPIC_API_KEY"),
     reason="ANTHROPIC_API_KEY is not set for live model testing",
