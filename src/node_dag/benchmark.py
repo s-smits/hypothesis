@@ -710,11 +710,14 @@ def record_attempt(
     results: Mapping[str, Sequence[Result]],
     selection: str = "",
     errors: Sequence[str] = (),
+    budget: Mapping[str, Mapping[str, int]] | None = None,
 ) -> Path:
     """Append one attempt: what ran, on what, with what budget and what came out.
 
     Per-instance metrics are kept rather than only their mean, so a later reader can
-    see which instances failed instead of inferring it from an average.
+    see which instances failed instead of inferring it from an average. ``budget``
+    maps a strategy to what it spent beyond ``evaluations``, e.g. a model-driven
+    strategy's ``{"rounds": 3, "tokens": 102853}``. A fixed strategy has no entry.
     """
     return ledger.append(
         "attempt",
@@ -744,6 +747,11 @@ def record_attempt(
                         }
                         for r in rows
                     ],
+                    **(
+                        {"budget": dict(budget[name])}
+                        if budget and name in budget
+                        else {}
+                    ),
                 }
                 for name, rows in results.items()
             },

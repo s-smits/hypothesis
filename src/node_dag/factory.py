@@ -25,6 +25,8 @@ from node_dag.nodes.tools.codon_pair_score.config import CodonPairScoreConfig
 from node_dag.nodes.tools.codon_pair_score.function import CodonPairScore
 from node_dag.nodes.tools.constraint_check.config import ConstraintCheckConfig
 from node_dag.nodes.tools.constraint_check.function import ConstraintCheck
+from node_dag.nodes.tools.dinucleotide_bias.config import DinucleotideBiasConfig
+from node_dag.nodes.tools.dinucleotide_bias.function import DinucleotideBias
 from node_dag.nodes.tools.dna_complement.config import DnaComplementConfig
 from node_dag.nodes.tools.dna_complement.function import DnaComplement
 from node_dag.nodes.tools.dna_reverse_complement.config import (
@@ -47,16 +49,22 @@ from node_dag.nodes.tools.motif_count.config import MotifCountConfig
 from node_dag.nodes.tools.motif_count.function import MotifCount
 from node_dag.nodes.tools.mrna_5prime_mfe.config import Mrna5primeMfeConfig
 from node_dag.nodes.tools.mrna_5prime_mfe.function import Mrna5primeMfe
+from node_dag.nodes.tools.mrna_fold_energy.config import MrnaFoldEnergyConfig
+from node_dag.nodes.tools.mrna_fold_energy.function import MrnaFoldEnergy
 from node_dag.nodes.tools.mutate_synonymous.config import MutateSynonymousConfig
 from node_dag.nodes.tools.mutate_synonymous.function import MutateSynonymous
 from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
 from node_dag.nodes.tools.ostir_expression.function import OstirExpression
 from node_dag.nodes.tools.pdbfixer_fix.config import PdbfixerFixConfig
 from node_dag.nodes.tools.pdbfixer_fix.function import PdbfixerFix
+from node_dag.nodes.tools.protein_to_dna.config import ProteinToDnaConfig
+from node_dag.nodes.tools.protein_to_dna.function import ProteinToDna
 from node_dag.nodes.tools.protlib_design.config import ProtlibDesignConfig
 from node_dag.nodes.tools.protlib_design.function import ProtlibDesign
 from node_dag.nodes.tools.recode_targeted.config import RecodeTargetedConfig
 from node_dag.nodes.tools.recode_targeted.function import RecodeTargeted
+from node_dag.nodes.tools.repeat_score.config import RepeatScoreConfig
+from node_dag.nodes.tools.repeat_score.function import RepeatScore
 from node_dag.nodes.tools.resample_synonymous.config import ResampleSynonymousConfig
 from node_dag.nodes.tools.resample_synonymous.function import ResampleSynonymous
 from node_dag.nodes.tools.rna_back_transcribe.config import RnaBackTranscribeConfig
@@ -72,6 +80,7 @@ NodeConfig = Annotated[
     | CodonOptimiseConfig
     | CodonPairScoreConfig
     | ConstraintCheckConfig
+    | DinucleotideBiasConfig
     | DnaComplementConfig
     | DnaReverseComplementConfig
     | DnaToProteinConfig
@@ -82,11 +91,14 @@ NodeConfig = Annotated[
     | GcTargetRecodeConfig
     | MotifCountConfig
     | Mrna5primeMfeConfig
+    | MrnaFoldEnergyConfig
     | MutateSynonymousConfig
     | OstirExpressionConfig
+    | ProteinToDnaConfig
     | ProtlibDesignConfig
     | PdbfixerFixConfig
     | RecodeTargetedConfig
+    | RepeatScoreConfig
     | ResampleSynonymousConfig
     | ParetoFrontConfig
     | RnaBackTranscribeConfig
@@ -104,6 +116,7 @@ MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
     CodonOptimiseConfig: CodonOptimise,
     CodonPairScoreConfig: CodonPairScore,
     ConstraintCheckConfig: ConstraintCheck,
+    DinucleotideBiasConfig: DinucleotideBias,
     DnaComplementConfig: DnaComplement,
     DnaReverseComplementConfig: DnaReverseComplement,
     DnaToProteinConfig: DnaToProtein,
@@ -114,11 +127,14 @@ MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
     GcTargetRecodeConfig: GcTargetRecode,
     MotifCountConfig: MotifCount,
     Mrna5primeMfeConfig: Mrna5primeMfe,
+    MrnaFoldEnergyConfig: MrnaFoldEnergy,
     MutateSynonymousConfig: MutateSynonymous,
     OstirExpressionConfig: OstirExpression,
+    ProteinToDnaConfig: ProteinToDna,
     ProtlibDesignConfig: ProtlibDesign,
     PdbfixerFixConfig: PdbfixerFix,
     RecodeTargetedConfig: RecodeTargeted,
+    RepeatScoreConfig: RepeatScore,
     ResampleSynonymousConfig: ResampleSynonymous,
     ParetoFrontConfig: ParetoFront,
     RnaBackTranscribeConfig: RnaBackTranscribe,
