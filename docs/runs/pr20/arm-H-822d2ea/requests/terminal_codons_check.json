@@ -1,0 +1,16 @@
+{
+  "name": "terminal_codons_check",
+  "node": "score",
+  "purpose": "Check that each DNA sequence keeps an ATG start codon, has length divisible by 3, ends in a valid stop codon (TAA, TAG or TGA) and has no premature in-frame stop.",
+  "port": "sequence",
+  "kind": "dna",
+  "output": [
+    "start_codon_unchanged",
+    "stop_is_valid",
+    "terminal_codons_valid"
+  ],
+  "config_fields": [],
+  "why_needed": "valid_dna_output requires reading frame, start codon and stop codon preserved; constraint_check only reports protein and length.",
+  "why_not_composable": "constraint_check (protein/length only), codon_count (counts a named codon, cannot test position-specific start/terminal stop), ostir_expression (implicit only), at_least/beats_reference (filters only).",
+  "example": "ATGGCACTCAAATAA -> start_codon_unchanged=1, stop_is_valid=1, terminal_codons_valid=1; ATGGCACTCAAAGCA -> terminal_codons_valid=0"
+}

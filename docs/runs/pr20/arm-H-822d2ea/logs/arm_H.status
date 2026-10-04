@@ -1,0 +1,59 @@
+2026-10-04 10:28:14 arm H prepared: server 7241, worktree arm-H at 822d2ea, P9 and P10 frozen
+2026-10-04 10:28:29 arm H opens 2 runs at once, cap 500000 each, ceiling 1000000, max rounds 8, code 822d2ea
+2026-10-04 10:28:59 settled 0 reserved 1000000 ceiling 1000000 | 7310327f building 0; ff471dd9 building 0
+2026-10-04 10:29:19 settled 0 reserved 1000000 ceiling 1000000 | 7310327f verifying 131831; ff471dd9 critiquing 133318
+2026-10-04 10:29:39 settled 0 reserved 1000000 ceiling 1000000 | 7310327f building 182050; ff471dd9 building 166813
+2026-10-04 10:29:59 settled 0 reserved 1000000 ceiling 1000000 | 7310327f building 182050; ff471dd9 building 166813
+2026-10-04 10:30:19 settled 0 reserved 1000000 ceiling 1000000 | 7310327f building 305072; ff471dd9 blocked 244792
+2026-10-04 10:30:39 settled 0 reserved 1000000 ceiling 1000000 | 7310327f building 305072; ff471dd9 blocked 244792
+2026-10-04 10:30:59 settled 0 reserved 1000000 ceiling 1000000 | 7310327f building 305072; ff471dd9 blocked 244792
+2026-10-04 10:31:19 settled 0 reserved 1000000 ceiling 1000000 | 7310327f building 436044; ff471dd9 blocked 244792
+2026-10-04 10:31:39 settled 0 reserved 1000000 ceiling 1000000 | 7310327f building 436044; ff471dd9 blocked 244792
+2026-10-04 10:31:59 settled 0 reserved 1000000 ceiling 1000000 | 7310327f building 436044; ff471dd9 blocked 244792
+2026-10-04 10:32:06 arm H H1 ended rc=0
+2026-10-04 10:32:19 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:32:39 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:32:59 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:33:19 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:33:39 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:33:59 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:34:19 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:34:39 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:34:59 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:35:19 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:35:39 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:35:59 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:36:19 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:36:39 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:36:59 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:37:19 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:37:39 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:37:59 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:38:19 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:38:39 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:38:59 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:39:19 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:39:39 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:39:59 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:40:19 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:40:39 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:40:59 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:41:19 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:41:39 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:41:59 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:42:19 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:42:39 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:42:59 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:43:19 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:43:39 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:43:59 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:44:19 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:44:39 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:44:59 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:45:19 settled 568743 reserved 1068743 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 blocked 244792
+2026-10-04 10:45:19 ff471dd9 blocked for 15 minutes: abandon signalled
+2026-10-04 10:45:19 arm H H2 ended rc=0
+2026-10-04 10:45:39 settled 813535 reserved 813535 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 abandoned 244792
+2026-10-04 10:45:59 settled 813535 reserved 813535 ceiling 1000000 | 7310327f not achieved 568743; ff471dd9 abandoned 244792
+2026-10-04 10:47:18 arm H lane finished; stopping my own worker and server
+2026-10-04 10:47:23 arm H lane finished (stopped by hand: launcher wait); my worker 26428 and server 26401 stopped

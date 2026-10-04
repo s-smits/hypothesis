@@ -6,7 +6,8 @@
   "#9": "10b1c73",
   "main": "9cbc217",
   "#11": "236e3b6",
-  "#12": "84dd787"
+  "#12": "84dd787",
+  "#20": "822d2ea"
  },
  "runs": [
   {
@@ -4628,6 +4629,180 @@
    ],
    "n_cell": 6,
    "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-7310327f-3665-45a0-b74c-be2c7dc42492",
+   "short": "7310327f",
+   "goal_title": "Raise the codon adaptation index of the DNA sequence without changing its protein. Score it with thi",
+   "goal_key": "aroE-cai",
+   "kind": "live",
+   "models": {
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-sonnet-5-5"
+   },
+   "commit": "822d2ea422e8d229c9b3b20db542dcfaf374526b",
+   "commit_short": "822d2ea",
+   "commit_basis": "worktree $S/arm-H: `git rev-parse HEAD` = 822d2ea (the #20 head, codex/sweep-findings), clean; arm_H.status 'code 822d2ea'; run_armH.sh header",
+   "fork_pr": "20",
+   "lineage_pr": "20 (To be properly split (DRAFT): latest findings; merges #14, #17, #15, #16, #19 and three local branches onto 46e125f)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "14": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "17": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "19": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "20": {
+     "in_tip": true,
+     "tip_in_commit": true
+    }
+   },
+   "rounds": 4,
+   "workflows": 1,
+   "trajectories": 6,
+   "tokens": 568743,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "spent more than 500000 tokens",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr20/arm-H-822d2ea",
+   "source": "$TMP/95f44646-4f13-48e9-a640-91afd80574df/scratchpad/arm-H/results/hypotheses/hypothesis-7310327f-3665-45a0-b74c-be2c7dc42492.json",
+   "source_sha256": "3f6e3ac52fa3744d5dd268a64da9cc9683398f46d221f5e35abb462008032fa0",
+   "hypothesis_mtime": "2026-10-04T10:32:06+0100",
+   "caveats": [
+    "'not achieved' is the loop's state: the 500,000-token cap was reached at the start of round 5 (568,743 spent, plan 518,524). Round 1 produced a result that is right by code (score_run.py: 1 kept, above the first input's 0.638744, stop codon unchanged, the immutable-honouring gate passes 1 of 1) and was vetoed because fixed_codons_kept had only a produced assertion (covers_goal false); rounds 2 to 4 each ended 'no valid plan: Exceeded maximum output retries (3)' on a request for a fixed_codon_check node (replay_H1.py reproduces the guard ladder through check_plan offline, no model call)",
+    "goal file: the goal_for(aroE) goal with the five criteria (the #17 emit), as in packs/replication/goals/goal_aroE.json plus fixed_codons_kept; n=1, one dev gene, in-sample; prediction P9 refuted"
+   ],
+   "n_cell": 1,
+   "logs": [
+    "pr20/arm-H-822d2ea/logs/run_H1.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-ff471dd9-4d12-4534-842b-3655bd02a060",
+   "short": "ff471dd9",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "live",
+   "models": {
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-sonnet-5-5"
+   },
+   "commit": "822d2ea422e8d229c9b3b20db542dcfaf374526b",
+   "commit_short": "822d2ea",
+   "commit_basis": "worktree $S/arm-H: `git rev-parse HEAD` = 822d2ea (the #20 head, codex/sweep-findings), clean; arm_H.status 'code 822d2ea'; run_armH.sh header",
+   "fork_pr": "20",
+   "lineage_pr": "20 (To be properly split (DRAFT): latest findings; merges #14, #17, #15, #16, #19 and three local branches onto 46e125f)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "14": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "17": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "19": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "20": {
+     "in_tip": true,
+     "tip_in_commit": true
+    }
+   },
+   "rounds": 2,
+   "workflows": 1,
+   "trajectories": 4,
+   "tokens": 244792,
+   "state": "abandoned",
+   "outcome": "abandoned",
+   "stopped_because": "abandoned while blocked on a tool",
+   "ledger_state": "abandoned",
+   "in_ledger": true,
+   "folder": "pr20/arm-H-822d2ea",
+   "source": "$TMP/95f44646-4f13-48e9-a640-91afd80574df/scratchpad/arm-H/results/hypotheses/hypothesis-ff471dd9-4d12-4534-842b-3655bd02a060.json",
+   "source_sha256": "af063fbd03acc06ac4c5a170748fd0e3fd6f72fd8de98ad5f573484ae60c689c",
+   "hypothesis_mtime": "2026-10-04T10:45:19+0100",
+   "caveats": [
+    "'abandoned' by the guard after the run had been blocked for 15 minutes on a node request (requests/terminal_codons_check.json), 244,792 tokens, 2 rounds. Round 1 (vetoed, covers_goal false because valid_dna_output had no start or stop evidence): 35 mutants, 16 kept, all above the first input (lowest 2139.08 against 2055.2) and 0 of 16 with a stop codon different from their parent's by score_run.py; the verifier's reason said several variants end in TAG or TGA, which are the stops of their own parents",
+    "goal file: arm_goal.json, the ostir goal of arm F2 (pr7/arm-F2-07f1f87/ce899c7c); n=1; prediction P10 untriggered (no accepted round)"
+   ],
+   "n_cell": 1,
+   "logs": [
+    "pr20/arm-H-822d2ea/logs/run_H2.log"
+   ]
   }
  ],
  "benchmark_ledger": [

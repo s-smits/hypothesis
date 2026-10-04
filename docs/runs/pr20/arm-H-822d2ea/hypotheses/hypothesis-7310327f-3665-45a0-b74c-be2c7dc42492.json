@@ -1,0 +1,580 @@
+{
+  "id": "hypothesis-7310327f-3665-45a0-b74c-be2c7dc42492",
+  "goal": "Raise the codon adaptation index of the DNA sequence without changing its protein. Score it with this codon weight table: {\"AAA\":1.0,\"AAC\":1.0,\"AAG\":0.30262576687116566,\"AAT\":0.8030372405372406,\"ACA\":0.2917923535601543,\"ACC\":1.0,\"ACG\":0.6035075412136093,\"ACT\":0.37558751315327954,\"AGA\":0.08830666565556988,\"AGC\":1.0,\"AGG\":0.0488738909532115,\"AGT\":0.5363579863269111,\"ATA\":0.13648021828103685,\"ATC\":0.8346521145975443,\"ATG\":1.0,\"ATT\":1.0,\"CAA\":0.5293065135205334,\"CAC\":0.7613518422418267,\"CAG\":1.0,\"CAT\":1.0,\"CCA\":0.35864107403582496,\"CCC\":0.23111712545849505,\"CCG\":1.0,\"CCT\":0.29617891100744276,\"CGA\":0.15424281489345568,\"CGC\":1.0,\"CGG\":0.23561082884659135,\"CGT\":0.9510502767877455,\"CTA\":0.0724614974853902,\"CTC\":0.20914346593134567,\"CTG\":1.0,\"CTT\":0.2040829116204741,\"GAA\":1.0,\"GAC\":0.5993578955544624,\"GAG\":0.44600713644805207,\"GAT\":1.0,\"GCA\":0.5953503215986645,\"GCC\":0.7597584327588747,\"GCG\":1.0,\"GCT\":0.44874060980998676,\"GGA\":0.258786384911513,\"GGC\":1.0,\"GGG\":0.3651646495139447,\"GGT\":0.8287589664054061,\"GTA\":0.42034071332865436,\"GTC\":0.5845402922222931,\"GTG\":1.0,\"GTT\":0.703917565239584,\"TAA\":1.0,\"TAC\":0.7618875895111019,\"TAG\":0.1065017949740726,\"TAT\":1.0,\"TCA\":0.43655479593950697,\"TCC\":0.5370830743733167,\"TCG\":0.5518437953180029,\"TCT\":0.5262067536772322,\"TGA\":0.4407658556043079,\"TGC\":1.0,\"TGG\":1.0,\"TGT\":0.7880350696235173,\"TTA\":0.25874629858837167,\"TTC\":0.7467192088925239,\"TTG\":0.25288670938630986,\"TTT\":1.0} . Leave these codons as they are: ATG at index 0, TGA at index 272. Keep the ones that score higher than the first sequence.",
+  "inputs": {
+    "seqs": [
+      {
+        "kind": "dna",
+        "sequence": "ATGGAAACCTATGCTGTTTTTGGTAATCCGATAGCCCACAGCAAATCGCCATTCATTCATCAGCAATTTGCTCAGCAACTGAATATTGAACATCCCTATGGGCGCGTGTTGGCACCCATCAATGATTTCATCAACACACTGAACGCTTTCTTTAGTGCTGGTGGTAAAGGTGCGAATGTGACGGTGCCTTTTAAAGAAGAGGCTTTTGCCAGAGCGGATGAGCTTACTGAACGGGCAGCGTTGGCTGGTGCTGTTAATACCCTCATGCGGTTAGAAGATGGACGCCTGCTGGGTGACAATACCGATGGTGTAGGCTTGTTAAGCGATCTGGAACGTCTGTCTTTTATCCGCCCTGGTTTACGTATTCTGCTTATCGGCGCTGGTGGAGCATCTCGCGGCGTACTACTGCCACTCCTTTCCCTGGACTGTGCGGTGACAATAACTAATCGGACGGTATCCCGCGCGGAAGAGTTGGCTAAATTGTTTGCGCACACTGGCAGTATTCAGGCGTTGAGTATGGACGAACTGGAAGGTCATGAGTTTGATCTCATTATTAATGCAACATCCAGTGGCATCAGTGGTGATATTCCGGCGATCCCGTCATCGCTCATTCATCCAGGCATTTATTGCTATGACATGTTCTATCAGAAAGGAAAAACTCCTTTTCTGGCATGGTGTGAGCAGCGAGGCTCAAAGCGTAATGCTGATGGTTTAGGAATGCTGGTGGCACAGGCGGCTCATGCCTTTCTTCTCTGGCACGGTGTTCTGCCTGACGTAGAACCAGTTATAAAGCAATTGCAGGAGGAATTGTCCGCGTGA",
+        "id": "773cd513b11d",
+        "display": "ATGGAAACCTATGCTGTTTTTGGTAATCCGATAGCCCACAGCAAATCGCCATTCATTCATCAGCAATTTGCTCAGCAACTGAATATTGAACATCCCTATGGGCGCGTGTTGGCACCCATCAATGATTTCATCAACACACTGAACGCTTTCTTTAGTGCTGGTGGTAAAGGTGCGAATGTGACGGTGCCTTTTAAAGAAGAGGCTTTTGCCAGAGCGGATGAGCTTACTGAACGGGCAGCGTTGGCTGGTGCTGTTAATACCCTCATGCGGTTAGAAGATGGACGCCTGCTGGGTGACAATACCGATGGTGTAGGCTTGTTAAGCGATCTGGAACGTCTGTCTTTTATCCGCCCTGGTTTACGTATTCTGCTTATCGGCGCTGGTGGAGCATCTCGCGGCGTACTACTGCCACTCCTTTCCCTGGACTGTGCGGTGACAATAACTAATCGGACGGTATCCCGCGCGGAAGAGTTGGCTAAATTGTTTGCGCACACTGGCAGTATTCAGGCGTTGAGTATGGACGAACTGGAAGGTCATGAGTTTGATCTCATTATTAATGCAACATCCAGTGGCATCAGTGGTGATATTCCGGCGATCCCGTCATCGCTCATTCATCCAGGCATTTATTGCTATGACATGTTCTATCAGAAAGGAAAAACTCCTTTTCTGGCATGGTGTGAGCAGCGAGGCTCAAAGCGTAATGCTGATGGTTTAGGAATGCTGGTGGCACAGGCGGCTCATGCCTTTCTTCTCTGGCACGGTGTTCTGCCTGACGTAGAACCAGTTATAAAGCAATTGCAGGAGGAATTGTCCGCGTGA"
+      }
+    ]
+  },
+  "input_sources": {},
+  "hypothesis": null,
+  "observations": [],
+  "criteria": [
+    {
+      "id": "protein_preserved",
+      "claim": "Every kept output DNA sequence translates to exactly the same protein as the input sequence: only synonymous codon changes were made.",
+      "source": "human"
+    },
+    {
+      "id": "higher_cai",
+      "claim": "Every kept output sequence has a codon adaptation index, scored with the given weight table, strictly higher than that of the first input sequence.",
+      "source": "human"
+    },
+    {
+      "id": "only_improved_kept",
+      "claim": "Any sequence whose codon adaptation index is not higher than the first sequence's is excluded from the output.",
+      "source": "human"
+    },
+    {
+      "id": "length_preserved",
+      "claim": "Every kept output sequence has the same length as the input sequence.",
+      "source": "human"
+    },
+    {
+      "id": "fixed_codons_kept",
+      "claim": "Every kept output sequence keeps the input's codon at each fixed position (ATG at index 0, TGA at index 272; codon indices count from 0). A synonymous codon there is a change.",
+      "source": "human"
+    }
+  ],
+  "state": "not achieved",
+  "round": 4,
+  "attempts": [
+    {
+      "round": 1,
+      "plan": {
+        "hypothesis": "Recoding every sense codon to its highest-weight synonym under the given table raises CAI above the input's while leaving the protein and length unchanged; ATG at index 0 has no synonym and codon_optimise keeps stop codons (TGA at 272), so the fixed codons stay.",
+        "expected": "One optimised sequence with CAI strictly above the input's, same protein and length, ATG at 0 and TGA at 272 intact.",
+        "assertions": [
+          {
+            "criterion": "protein_preserved",
+            "step": "prot_f",
+            "branch": "yes",
+            "claim": "Every candidate passing keeps the same protein as the input."
+          },
+          {
+            "criterion": "length_preserved",
+            "step": "len_f",
+            "branch": "yes",
+            "claim": "Every candidate passing has the input's length."
+          },
+          {
+            "criterion": "higher_cai",
+            "step": "better",
+            "branch": "yes",
+            "claim": "Every kept sequence has CAI strictly above the input's."
+          },
+          {
+            "criterion": "only_improved_kept",
+            "step": "better",
+            "branch": "yes",
+            "claim": "The optimised candidate beats the input's CAI, so nothing at or below it is kept."
+          },
+          {
+            "criterion": "fixed_codons_kept",
+            "step": "opt",
+            "branch": "produced",
+            "claim": "codon_optimise keeps stops as they are (TGA at 272) and ATG at 0 has no synonym, so the fixed codons are unchanged."
+          }
+        ],
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "opt": {
+            "node": "codon_optimise__61011bd8",
+            "config": {},
+            "inputs": {
+              "sequence": "seqs"
+            },
+            "why": "Synonymous recoding to most frequent (highest-weight) codons; stop codon and ATG left as they are."
+          },
+          "check": {
+            "node": "constraint_check__eb83a3ce",
+            "config": {},
+            "inputs": {
+              "sequence": "opt"
+            },
+            "why": "Measure protein and length preservation against the input."
+          },
+          "prot_f": {
+            "node": "at_least__a511ff2b",
+            "config": {},
+            "inputs": {
+              "items": "check"
+            },
+            "why": "Keep only candidates whose protein is unchanged."
+          },
+          "len_f": {
+            "node": "at_least__dc26175d",
+            "config": {},
+            "inputs": {
+              "items": "prot_f.yes"
+            },
+            "why": "Keep only candidates whose length is unchanged."
+          },
+          "base_cai": {
+            "node": "codon_adaptation__07e346d6",
+            "config": {},
+            "inputs": {
+              "sequence": "seqs"
+            },
+            "why": "Score the input's baseline CAI with the same table."
+          },
+          "cand_cai": {
+            "node": "codon_adaptation__07e346d6",
+            "config": {},
+            "inputs": {
+              "sequence": "len_f.yes"
+            },
+            "why": "Score the surviving candidates' CAI."
+          },
+          "better": {
+            "node": "beats_reference__be2105d4",
+            "config": {},
+            "inputs": {
+              "items": "cand_cai"
+            },
+            "why": "Keep only candidates with CAI strictly above the input's; others go to the no branch."
+          }
+        },
+        "requests": {},
+        "observations": [],
+        "addresses_critique": "",
+        "result_source": null
+      },
+      "requests": [],
+      "dag": {
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "opt": {
+            "config": {
+              "name": "codon_optimise",
+              "config_hash": "61011bd8",
+              "codon_weights": {
+                "AAA": 1.0,
+                "AAC": 1.0,
+                "AAG": 0.30262576687116566,
+                "AAT": 0.8030372405372406,
+                "ACA": 0.2917923535601543,
+                "ACC": 1.0,
+                "ACG": 0.6035075412136093,
+                "ACT": 0.37558751315327954,
+                "AGA": 0.08830666565556988,
+                "AGC": 1.0,
+                "AGG": 0.0488738909532115,
+                "AGT": 0.5363579863269111,
+                "ATA": 0.13648021828103685,
+                "ATC": 0.8346521145975443,
+                "ATG": 1.0,
+                "ATT": 1.0,
+                "CAA": 0.5293065135205334,
+                "CAC": 0.7613518422418267,
+                "CAG": 1.0,
+                "CAT": 1.0,
+                "CCA": 0.35864107403582496,
+                "CCC": 0.23111712545849505,
+                "CCG": 1.0,
+                "CCT": 0.29617891100744276,
+                "CGA": 0.15424281489345568,
+                "CGC": 1.0,
+                "CGG": 0.23561082884659135,
+                "CGT": 0.9510502767877455,
+                "CTA": 0.0724614974853902,
+                "CTC": 0.20914346593134567,
+                "CTG": 1.0,
+                "CTT": 0.2040829116204741,
+                "GAA": 1.0,
+                "GAC": 0.5993578955544624,
+                "GAG": 0.44600713644805207,
+                "GAT": 1.0,
+                "GCA": 0.5953503215986645,
+                "GCC": 0.7597584327588747,
+                "GCG": 1.0,
+                "GCT": 0.44874060980998676,
+                "GGA": 0.258786384911513,
+                "GGC": 1.0,
+                "GGG": 0.3651646495139447,
+                "GGT": 0.8287589664054061,
+                "GTA": 0.42034071332865436,
+                "GTC": 0.5845402922222931,
+                "GTG": 1.0,
+                "GTT": 0.703917565239584,
+                "TAA": 1.0,
+                "TAC": 0.7618875895111019,
+                "TAG": 0.1065017949740726,
+                "TAT": 1.0,
+                "TCA": 0.43655479593950697,
+                "TCC": 0.5370830743733167,
+                "TCG": 0.5518437953180029,
+                "TCT": 0.5262067536772322,
+                "TGA": 0.4407658556043079,
+                "TGC": 1.0,
+                "TGG": 1.0,
+                "TGT": 0.7880350696235173,
+                "TTA": 0.25874629858837167,
+                "TTC": 0.7467192088925239,
+                "TTG": 0.25288670938630986,
+                "TTT": 1.0
+              },
+              "strategy": "most_frequent",
+              "seed": 0
+            },
+            "inputs": {
+              "sequence": "seqs"
+            }
+          },
+          "check": {
+            "config": {
+              "name": "constraint_check",
+              "config_hash": "eb83a3ce",
+              "reference": {
+                "kind": "dna",
+                "sequence": "ATGGAAACCTATGCTGTTTTTGGTAATCCGATAGCCCACAGCAAATCGCCATTCATTCATCAGCAATTTGCTCAGCAACTGAATATTGAACATCCCTATGGGCGCGTGTTGGCACCCATCAATGATTTCATCAACACACTGAACGCTTTCTTTAGTGCTGGTGGTAAAGGTGCGAATGTGACGGTGCCTTTTAAAGAAGAGGCTTTTGCCAGAGCGGATGAGCTTACTGAACGGGCAGCGTTGGCTGGTGCTGTTAATACCCTCATGCGGTTAGAAGATGGACGCCTGCTGGGTGACAATACCGATGGTGTAGGCTTGTTAAGCGATCTGGAACGTCTGTCTTTTATCCGCCCTGGTTTACGTATTCTGCTTATCGGCGCTGGTGGAGCATCTCGCGGCGTACTACTGCCACTCCTTTCCCTGGACTGTGCGGTGACAATAACTAATCGGACGGTATCCCGCGCGGAAGAGTTGGCTAAATTGTTTGCGCACACTGGCAGTATTCAGGCGTTGAGTATGGACGAACTGGAAGGTCATGAGTTTGATCTCATTATTAATGCAACATCCAGTGGCATCAGTGGTGATATTCCGGCGATCCCGTCATCGCTCATTCATCCAGGCATTTATTGCTATGACATGTTCTATCAGAAAGGAAAAACTCCTTTTCTGGCATGGTGTGAGCAGCGAGGCTCAAAGCGTAATGCTGATGGTTTAGGAATGCTGGTGGCACAGGCGGCTCATGCCTTTCTTCTCTGGCACGGTGTTCTGCCTGACGTAGAACCAGTTATAAAGCAATTGCAGGAGGAATTGTCCGCGTGA",
+                "id": "773cd513b11d",
+                "display": "ATGGAAACCTATGCTGTTTTTGGTAATCCGATAGCCCACAGCAAATCGCCATTCATTCATCAGCAATTTGCTCAGCAACTGAATATTGAACATCCCTATGGGCGCGTGTTGGCACCCATCAATGATTTCATCAACACACTGAACGCTTTCTTTAGTGCTGGTGGTAAAGGTGCGAATGTGACGGTGCCTTTTAAAGAAGAGGCTTTTGCCAGAGCGGATGAGCTTACTGAACGGGCAGCGTTGGCTGGTGCTGTTAATACCCTCATGCGGTTAGAAGATGGACGCCTGCTGGGTGACAATACCGATGGTGTAGGCTTGTTAAGCGATCTGGAACGTCTGTCTTTTATCCGCCCTGGTTTACGTATTCTGCTTATCGGCGCTGGTGGAGCATCTCGCGGCGTACTACTGCCACTCCTTTCCCTGGACTGTGCGGTGACAATAACTAATCGGACGGTATCCCGCGCGGAAGAGTTGGCTAAATTGTTTGCGCACACTGGCAGTATTCAGGCGTTGAGTATGGACGAACTGGAAGGTCATGAGTTTGATCTCATTATTAATGCAACATCCAGTGGCATCAGTGGTGATATTCCGGCGATCCCGTCATCGCTCATTCATCCAGGCATTTATTGCTATGACATGTTCTATCAGAAAGGAAAAACTCCTTTTCTGGCATGGTGTGAGCAGCGAGGCTCAAAGCGTAATGCTGATGGTTTAGGAATGCTGGTGGCACAGGCGGCTCATGCCTTTCTTCTCTGGCACGGTGTTCTGCCTGACGTAGAACCAGTTATAAAGCAATTGCAGGAGGAATTGTCCGCGTGA"
+              },
+              "targeted_codons": []
+            },
+            "inputs": {
+              "sequence": "opt"
+            }
+          },
+          "prot_f": {
+            "config": {
+              "name": "at_least",
+              "config_hash": "a511ff2b",
+              "column": "constraint_check__eb83a3ce__protein_unchanged",
+              "threshold": 1.0
+            },
+            "inputs": {
+              "items": "check"
+            }
+          },
+          "len_f": {
+            "config": {
+              "name": "at_least",
+              "config_hash": "dc26175d",
+              "column": "constraint_check__eb83a3ce__length_unchanged",
+              "threshold": 1.0
+            },
+            "inputs": {
+              "items": "prot_f.yes"
+            }
+          },
+          "base_cai": {
+            "config": {
+              "name": "codon_adaptation",
+              "config_hash": "07e346d6",
+              "codon_weights": {
+                "AAA": 1.0,
+                "AAC": 1.0,
+                "AAG": 0.30262576687116566,
+                "AAT": 0.8030372405372406,
+                "ACA": 0.2917923535601543,
+                "ACC": 1.0,
+                "ACG": 0.6035075412136093,
+                "ACT": 0.37558751315327954,
+                "AGA": 0.08830666565556988,
+                "AGC": 1.0,
+                "AGG": 0.0488738909532115,
+                "AGT": 0.5363579863269111,
+                "ATA": 0.13648021828103685,
+                "ATC": 0.8346521145975443,
+                "ATG": 1.0,
+                "ATT": 1.0,
+                "CAA": 0.5293065135205334,
+                "CAC": 0.7613518422418267,
+                "CAG": 1.0,
+                "CAT": 1.0,
+                "CCA": 0.35864107403582496,
+                "CCC": 0.23111712545849505,
+                "CCG": 1.0,
+                "CCT": 0.29617891100744276,
+                "CGA": 0.15424281489345568,
+                "CGC": 1.0,
+                "CGG": 0.23561082884659135,
+                "CGT": 0.9510502767877455,
+                "CTA": 0.0724614974853902,
+                "CTC": 0.20914346593134567,
+                "CTG": 1.0,
+                "CTT": 0.2040829116204741,
+                "GAA": 1.0,
+                "GAC": 0.5993578955544624,
+                "GAG": 0.44600713644805207,
+                "GAT": 1.0,
+                "GCA": 0.5953503215986645,
+                "GCC": 0.7597584327588747,
+                "GCG": 1.0,
+                "GCT": 0.44874060980998676,
+                "GGA": 0.258786384911513,
+                "GGC": 1.0,
+                "GGG": 0.3651646495139447,
+                "GGT": 0.8287589664054061,
+                "GTA": 0.42034071332865436,
+                "GTC": 0.5845402922222931,
+                "GTG": 1.0,
+                "GTT": 0.703917565239584,
+                "TAA": 1.0,
+                "TAC": 0.7618875895111019,
+                "TAG": 0.1065017949740726,
+                "TAT": 1.0,
+                "TCA": 0.43655479593950697,
+                "TCC": 0.5370830743733167,
+                "TCG": 0.5518437953180029,
+                "TCT": 0.5262067536772322,
+                "TGA": 0.4407658556043079,
+                "TGC": 1.0,
+                "TGG": 1.0,
+                "TGT": 0.7880350696235173,
+                "TTA": 0.25874629858837167,
+                "TTC": 0.7467192088925239,
+                "TTG": 0.25288670938630986,
+                "TTT": 1.0
+              }
+            },
+            "inputs": {
+              "sequence": "seqs"
+            }
+          },
+          "cand_cai": {
+            "config": {
+              "name": "codon_adaptation",
+              "config_hash": "07e346d6",
+              "codon_weights": {
+                "AAA": 1.0,
+                "AAC": 1.0,
+                "AAG": 0.30262576687116566,
+                "AAT": 0.8030372405372406,
+                "ACA": 0.2917923535601543,
+                "ACC": 1.0,
+                "ACG": 0.6035075412136093,
+                "ACT": 0.37558751315327954,
+                "AGA": 0.08830666565556988,
+                "AGC": 1.0,
+                "AGG": 0.0488738909532115,
+                "AGT": 0.5363579863269111,
+                "ATA": 0.13648021828103685,
+                "ATC": 0.8346521145975443,
+                "ATG": 1.0,
+                "ATT": 1.0,
+                "CAA": 0.5293065135205334,
+                "CAC": 0.7613518422418267,
+                "CAG": 1.0,
+                "CAT": 1.0,
+                "CCA": 0.35864107403582496,
+                "CCC": 0.23111712545849505,
+                "CCG": 1.0,
+                "CCT": 0.29617891100744276,
+                "CGA": 0.15424281489345568,
+                "CGC": 1.0,
+                "CGG": 0.23561082884659135,
+                "CGT": 0.9510502767877455,
+                "CTA": 0.0724614974853902,
+                "CTC": 0.20914346593134567,
+                "CTG": 1.0,
+                "CTT": 0.2040829116204741,
+                "GAA": 1.0,
+                "GAC": 0.5993578955544624,
+                "GAG": 0.44600713644805207,
+                "GAT": 1.0,
+                "GCA": 0.5953503215986645,
+                "GCC": 0.7597584327588747,
+                "GCG": 1.0,
+                "GCT": 0.44874060980998676,
+                "GGA": 0.258786384911513,
+                "GGC": 1.0,
+                "GGG": 0.3651646495139447,
+                "GGT": 0.8287589664054061,
+                "GTA": 0.42034071332865436,
+                "GTC": 0.5845402922222931,
+                "GTG": 1.0,
+                "GTT": 0.703917565239584,
+                "TAA": 1.0,
+                "TAC": 0.7618875895111019,
+                "TAG": 0.1065017949740726,
+                "TAT": 1.0,
+                "TCA": 0.43655479593950697,
+                "TCC": 0.5370830743733167,
+                "TCG": 0.5518437953180029,
+                "TCT": 0.5262067536772322,
+                "TGA": 0.4407658556043079,
+                "TGC": 1.0,
+                "TGG": 1.0,
+                "TGT": 0.7880350696235173,
+                "TTA": 0.25874629858837167,
+                "TTC": 0.7467192088925239,
+                "TTG": 0.25288670938630986,
+                "TTT": 1.0
+              }
+            },
+            "inputs": {
+              "sequence": "len_f.yes"
+            }
+          },
+          "better": {
+            "config": {
+              "name": "beats_reference",
+              "config_hash": "be2105d4",
+              "column": "codon_adaptation__07e346d6__cai",
+              "reference": {
+                "kind": "dna",
+                "sequence": "ATGGAAACCTATGCTGTTTTTGGTAATCCGATAGCCCACAGCAAATCGCCATTCATTCATCAGCAATTTGCTCAGCAACTGAATATTGAACATCCCTATGGGCGCGTGTTGGCACCCATCAATGATTTCATCAACACACTGAACGCTTTCTTTAGTGCTGGTGGTAAAGGTGCGAATGTGACGGTGCCTTTTAAAGAAGAGGCTTTTGCCAGAGCGGATGAGCTTACTGAACGGGCAGCGTTGGCTGGTGCTGTTAATACCCTCATGCGGTTAGAAGATGGACGCCTGCTGGGTGACAATACCGATGGTGTAGGCTTGTTAAGCGATCTGGAACGTCTGTCTTTTATCCGCCCTGGTTTACGTATTCTGCTTATCGGCGCTGGTGGAGCATCTCGCGGCGTACTACTGCCACTCCTTTCCCTGGACTGTGCGGTGACAATAACTAATCGGACGGTATCCCGCGCGGAAGAGTTGGCTAAATTGTTTGCGCACACTGGCAGTATTCAGGCGTTGAGTATGGACGAACTGGAAGGTCATGAGTTTGATCTCATTATTAATGCAACATCCAGTGGCATCAGTGGTGATATTCCGGCGATCCCGTCATCGCTCATTCATCCAGGCATTTATTGCTATGACATGTTCTATCAGAAAGGAAAAACTCCTTTTCTGGCATGGTGTGAGCAGCGAGGCTCAAAGCGTAATGCTGATGGTTTAGGAATGCTGGTGGCACAGGCGGCTCATGCCTTTCTTCTCTGGCACGGTGTTCTGCCTGACGTAGAACCAGTTATAAAGCAATTGCAGGAGGAATTGTCCGCGTGA",
+                "id": "773cd513b11d",
+                "display": "ATGGAAACCTATGCTGTTTTTGGTAATCCGATAGCCCACAGCAAATCGCCATTCATTCATCAGCAATTTGCTCAGCAACTGAATATTGAACATCCCTATGGGCGCGTGTTGGCACCCATCAATGATTTCATCAACACACTGAACGCTTTCTTTAGTGCTGGTGGTAAAGGTGCGAATGTGACGGTGCCTTTTAAAGAAGAGGCTTTTGCCAGAGCGGATGAGCTTACTGAACGGGCAGCGTTGGCTGGTGCTGTTAATACCCTCATGCGGTTAGAAGATGGACGCCTGCTGGGTGACAATACCGATGGTGTAGGCTTGTTAAGCGATCTGGAACGTCTGTCTTTTATCCGCCCTGGTTTACGTATTCTGCTTATCGGCGCTGGTGGAGCATCTCGCGGCGTACTACTGCCACTCCTTTCCCTGGACTGTGCGGTGACAATAACTAATCGGACGGTATCCCGCGCGGAAGAGTTGGCTAAATTGTTTGCGCACACTGGCAGTATTCAGGCGTTGAGTATGGACGAACTGGAAGGTCATGAGTTTGATCTCATTATTAATGCAACATCCAGTGGCATCAGTGGTGATATTCCGGCGATCCCGTCATCGCTCATTCATCCAGGCATTTATTGCTATGACATGTTCTATCAGAAAGGAAAAACTCCTTTTCTGGCATGGTGTGAGCAGCGAGGCTCAAAGCGTAATGCTGATGGTTTAGGAATGCTGGTGGCACAGGCGGCTCATGCCTTTCTTCTCTGGCACGGTGTTCTGCCTGACGTAGAACCAGTTATAAAGCAATTGCAGGAGGAATTGTCCGCGTGA"
+              },
+              "scored_in": "base_cai",
+              "higher": true
+            },
+            "inputs": {
+              "items": "cand_cai"
+            }
+          }
+        }
+      },
+      "workflow_id": "hypothesis-7310327f-3665-45a0-b74c-be2c7dc42492-r1",
+      "outcome": null,
+      "held": {
+        "prot_f.yes": true,
+        "len_f.yes": true,
+        "better.yes": true,
+        "opt.produced": true
+      },
+      "produced": {
+        "seqs": [
+          "ATGGAAACCTAT..GCGTGA (819)"
+        ],
+        "opt": [
+          "ATGGAAACCTAT..GCGTGA (819)"
+        ],
+        "base_cai": [
+          "ATGGAAACCTAT..GCGTGA (819)"
+        ],
+        "check": [
+          "ATGGAAACCTAT..GCGTGA (819)"
+        ],
+        "prot_f.yes": [
+          "ATGGAAACCTAT..GCGTGA (819)"
+        ],
+        "prot_f.no": [],
+        "len_f.yes": [
+          "ATGGAAACCTAT..GCGTGA (819)"
+        ],
+        "len_f.no": [],
+        "cand_cai": [
+          "ATGGAAACCTAT..GCGTGA (819)"
+        ],
+        "better.yes": [
+          "ATGGAAACCTAT..GCGTGA (819)"
+        ],
+        "better.no": []
+      },
+      "verdict": {
+        "achieved": false,
+        "reason": "The outcome meets the goal. The optimised sequence has CAI 1.0 against 0.6387 for the input, so it is strictly higher. The protein_unchanged and length_unchanged filters both passed it. It starts with ATG and ends with TGA, which sits at index 272 of a 273-codon sequence, so the fixed codons are intact. The first four criteria are covered: protein_preserved and length_preserved by their filters' yes branches, and higher_cai and only_improved_kept by the beats_reference filter, which is strict and uses the input's own CAI as the bar. The fixed_codons_kept assertion is only a 'produced' assertion on opt, which shows the step gave output but not what the codons at index 0 and 272 are. No assertion tests those positions. I confirmed them by eye and from the codon_optimise description, but that is not tested, so covers_goal is false.\n\nAcceptance: the verifier judged the assertions not to cover the goal",
+        "agrees": true,
+        "covers_goal": false
+      },
+      "critique": {
+        "diagnosis": "The pipeline produced the right result. The opt sequence has CAI 1.0 against 0.6387 for the input, and it passed protein_unchanged and length_unchanged, so the first four criteria are properly asserted. The round was rejected because the fixed_codons_kept criterion has no real check. Its only assertion is opt.produced, which shows the step ran but not what the codons at index 0 and index 272 are. No available node compares the codon at a given index to the reference, and constraint_check only counts targeted_codons wherever they occur, so it cannot test positions. The fixed codons appear intact (ATG first, TGA last at index 272) but that is unverified in the DAG.",
+        "root_cause": "missing_tool",
+        "evidence": [
+          "The assertion for fixed_codons_kept is only opt.produced, which shows output exists, not the codons at indices 0 and 272.",
+          "constraint_check outputs protein_unchanged, length_unchanged, targets_remaining and targets_unreachable. None is position-specific, and ATG occurs at other positions, so targeted_codons cannot pin index 0.",
+          "The verdict says achieved is false only because covers_goal is false. The values themselves show CAI 1.0 vs 0.6387, protein_unchanged 1.0 and length_unchanged 1.0."
+        ],
+        "keep": [
+          "opt",
+          "check",
+          "prot_f",
+          "len_f",
+          "base_cai",
+          "cand_cai",
+          "better"
+        ],
+        "fix": "Request a new node, for example fixed_codon_check. It takes a reference sequence and a list of codon indices (0 and 272), and scores 1.0 per candidate only when the in-frame codon at every listed index is identical to the reference's codon there, else 0.0. Add it as a step after better.yes (or after opt), filter with at_least at threshold 1.0, and assert fixed_codons_kept on that filter's yes branch. Keep the rest of the wiring unchanged: opt with most_frequent, check, prot_f, len_f, base_cai, cand_cai, better."
+      },
+      "error": null,
+      "started": "2026-10-04T09:28:29.815485Z"
+    },
+    {
+      "round": 2,
+      "plan": null,
+      "requests": [],
+      "dag": null,
+      "workflow_id": null,
+      "outcome": null,
+      "held": {},
+      "produced": {},
+      "verdict": null,
+      "critique": {
+        "diagnosis": "no valid plan: Exceeded maximum output retries (3)",
+        "root_cause": "goal_misread",
+        "evidence": [
+          "the builder ran out of output retries"
+        ],
+        "keep": [],
+        "fix": "submit a plan that passes the guards it is shown"
+      },
+      "error": "no valid plan: Exceeded maximum output retries (3)",
+      "started": "2026-10-04T09:29:35.188891Z"
+    },
+    {
+      "round": 3,
+      "plan": null,
+      "requests": [],
+      "dag": null,
+      "workflow_id": null,
+      "outcome": null,
+      "held": {},
+      "produced": {},
+      "verdict": null,
+      "critique": {
+        "diagnosis": "no valid plan: Exceeded maximum output retries (3)",
+        "root_cause": "goal_misread",
+        "evidence": [
+          "the builder ran out of output retries"
+        ],
+        "keep": [],
+        "fix": "submit a plan that passes the guards it is shown"
+      },
+      "error": "no valid plan: Exceeded maximum output retries (3)",
+      "started": "2026-10-04T09:30:16.608421Z"
+    },
+    {
+      "round": 4,
+      "plan": null,
+      "requests": [],
+      "dag": null,
+      "workflow_id": null,
+      "outcome": null,
+      "held": {},
+      "produced": {},
+      "verdict": null,
+      "critique": {
+        "diagnosis": "no valid plan: Exceeded maximum output retries (3)",
+        "root_cause": "goal_misread",
+        "evidence": [
+          "the builder ran out of output retries"
+        ],
+        "keep": [],
+        "fix": "submit a plan that passes the guards it is shown"
+      },
+      "error": "no valid plan: Exceeded maximum output retries (3)",
+      "started": "2026-10-04T09:31:10.895419Z"
+    }
+  ],
+  "usage": {
+    "plan": 518524,
+    "total": 568743,
+    "verify": 25036,
+    "critique": 25183
+  },
+  "stopped_because": "spent more than 500000 tokens"
+}

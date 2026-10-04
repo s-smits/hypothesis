@@ -1,0 +1,64 @@
+"""replay_H1.py <round>: feed arm H run 7310327f's recorded plan attempts for one round
+through the real check_plan guards with a scripted model. No API call, no network."""
+
+import asyncio
+import json
+import os
+import sys
+from pathlib import Path
+
+S = Path("/private/tmp/claude-501/-Users-air-Developer-hypothesis/95f44646-4f13-48e9-a640-91afd80574df/scratchpad")
+os.environ["NODE_DAG_RESULTS"] = str(S / "replay_H1")  # a copy of arm-H's registry
+
+from pydantic_ai import capture_run_messages  # noqa: E402
+from pydantic_ai.messages import ModelResponse, ToolCallPart  # noqa: E402
+from pydantic_ai.models.function import FunctionModel  # noqa: E402
+
+from node_dag.agent import Hypothesis, build_agent  # noqa: E402
+from node_dag.registry import Registry  # noqa: E402
+
+rnd = int(sys.argv[1])
+hid = "7310327f-3665-45a0-b74c-be2c7dc42492"
+src = S / "arm-H/results"
+hyp = Hypothesis.model_validate_json((src / f"hypotheses/hypothesis-{hid}.json").read_text())
+hyp = hyp.model_copy(update={"attempts": hyp.attempts[: rnd - 1], "round": rnd})
+traj = json.loads((src / f"trajectories/hypothesis-{hid}-r{rnd}-plan.json").read_text())
+calls = []
+for m in traj:
+    for p in m.get("parts", []):
+        if p.get("part_kind") == "tool-call" and p.get("tool_name") == "final_result":
+            a = p["args"]
+            a = json.loads(a) if isinstance(a, str) else a
+            a["observations"] = []
+            calls.append(a)
+print(f"round {rnd}: {len(calls)} recorded final_result attempts")
+it = iter(calls + [calls[-1]] * 3)  # the last attempt repeated, to see its own error
+
+
+def model_fn(messages, info):  # noqa: ANN001
+    a = next(it)
+    return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, a)])
+
+
+async def main() -> None:
+    agent = build_agent(FunctionModel(model_fn), Registry(S / "replay_H1" / "registry"), {})
+    if os.environ.get("RETRIES"):
+        agent._override_output_retries.set(__import__("pydantic_ai._utils", fromlist=["Some"]).Some(int(os.environ["RETRIES"])))
+    with capture_run_messages() as messages:
+        try:
+            r = await agent.run("replay", deps=hyp)
+            print("ACCEPTED, plan steps:", list(r.output.steps))
+        except Exception as e:  # noqa: BLE001
+            print("ENDED:", type(e).__name__, str(e)[:200])
+    n = 0
+    for m in messages:
+        for p in getattr(m, "parts", []):
+            if type(p).__name__ == "RetryPromptPart":
+                n += 1
+                c = p.content
+                if isinstance(c, list):
+                    c = "; ".join(f"{e.get('loc')}: {str(e.get('msg'))[:300]}" for e in c)
+                print(f"retry {n}: {str(c)[:900]}")
+
+
+asyncio.run(main())

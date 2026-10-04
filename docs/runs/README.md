@@ -11,7 +11,7 @@ Everything here was copied, read-only, from the places the runs were saved (resu
 
 ## Counts
 
-Runs: 78 (27 live-model, 51 scripted), none skipped as live (no workflow file modified in the last 10 minutes).
+Runs: 80 (29 live-model, 51 scripted), none skipped as live (no workflow file modified in the last 10 minutes).
 
 ## Fork points
 Arms E, F and F2 sit under `pr7`: their commits (74803ee, bb7cf40, 07f1f87) contain `dc1916a` (the #7 head, which includes #8) and are not ancestors of the #9, #11, #12 or main tips; their content (beats_reference, the integrated patches, the prompt tightening) was rebuilt later as new commits in #9, #11 and #12, so by ancestry they were forked from #7 and their lineage is #11. Arm G sits under `pr12`: its worktree was the #12 head 84dd787 (the tip itself is the nearest PR tip). Runs whose commit no file records are under `unknown`, with the nearest evidence.
@@ -36,6 +36,8 @@ Arms E, F and F2 sit under `pr7`: their commits (74803ee, bb7cf40, 07f1f87) cont
 | pr7/arm-F2-07f1f87 | ce899c7c | ostir | sonnet-5-5 | 7 | 07f1f87 | 2 | 232256 | achieved | 1 |
 | pr12/arm-G-84dd787 | 2070ae10 | aroE-cai | sonnet-5-5 | 12 | 84dd787 | 1 | 122113 | achieved | 1 |
 | pr12/arm-G-84dd787 | a6fab082 | tusE-cai | sonnet-5-5 | 12 | 84dd787 | 1 | 150699 | achieved | 1 |
+| pr20/arm-H-822d2ea | 7310327f | aroE-cai | sonnet-5-5 | 20 | 822d2ea | 4 | 568743 | not achieved | 1 |
+| pr20/arm-H-822d2ea | ff471dd9 | ostir | sonnet-5-5 | 20 | 822d2ea | 2 | 244792 | abandoned | 1 |
 | pr7/loop-tip-37e8de9 | 3bec2a48 | ostir | plan sonnet-5-5, verify haiku-4-5-20251001 | 7 | 37e8de9 | 3 | 313544 | abandoned | 1 |
 | pr7/loop-tip-89962aa | bead95ef | ostir | plan sonnet-5-5, verify haiku-4-5-20251001 | 7 | 89962aa | 3 | 297109 | not achieved | 1 |
 | pre-pr7/compact-be3805f | 9afcd59e | ostir | plan sonnet-5-5, verify haiku-4-5-20251001 | pre-7 | be3805f | 2 | 170098 | abandoned | 2 |
@@ -62,5 +64,6 @@ Arms E, F and F2 sit under `pr7`: their commits (74803ee, bb7cf40, 07f1f87) cont
 - ostir 'achieved' means the verifier judged the kept sequences higher than the first input, not a lift over the best input.
 - A run's `outcome` is derived from its saved state: achieved, not achieved, abandoned; blocked, building, running and failed count as no result.
 - Arm G (`pr12/arm-G-84dd787`): 'achieved' is the loop's verdict. Per notes/pr7-overnight/sweep/armG.md (not re-derived here), the benchmark gate that honours `immutable` codons (PR #14) fails aroE on the stop codon TGA to TAA, and 1 of the 2 runs passes it (tusE); the gate of PR #8, which ignores `immutable`, passes both.
+- Arm H (`pr20/arm-H-822d2ea`): neither run was accepted, so 'not achieved' and 'abandoned' are not failures of the result: by `scripts/score_run.py.txt` round 1 of each was right (aroE: 1 kept, above the first input, stop kept, immutable-honouring gate passes; ostir: 16 kept all above the first input, 0 of 16 with a changed stop) and was vetoed because no node could show the fixed codons or the start and stop codons. aroE then spent three rounds on a request that failed the plan guards (see the group README). n=1 each, in-sample.
 - Per-run caveats and sources are in `index.json`. Where a run's commit is not recorded the folder is `unknown`; a candidate commit is named only as evidence.
 - Not copied: `nodes/` and `registry/` caches, environments, databases, credentials, the packs' scoring oracle, byte-identical copies of the arm folders, and state-only UI fixtures.

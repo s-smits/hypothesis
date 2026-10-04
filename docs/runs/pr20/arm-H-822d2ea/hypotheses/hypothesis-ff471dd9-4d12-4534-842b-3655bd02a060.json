@@ -1,0 +1,544 @@
+{
+  "id": "hypothesis-ff471dd9-4d12-4534-842b-3655bd02a060",
+  "goal": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the ones that score higher than the first sequence.",
+  "inputs": {
+    "seqs": [
+      {
+        "kind": "dna",
+        "sequence": "ATGGCTCTGAAATAA",
+        "id": "1e142be77490",
+        "display": "ATGGCTCTGAAATAA"
+      },
+      {
+        "kind": "dna",
+        "sequence": "ATGGCGTTAAAGTAG",
+        "id": "b4fd7183a224",
+        "display": "ATGGCGTTAAAGTAG"
+      },
+      {
+        "kind": "dna",
+        "sequence": "ATGGCCCTGAAATGA",
+        "id": "f9932d4787c6",
+        "display": "ATGGCCCTGAAATGA"
+      }
+    ]
+  },
+  "input_sources": {},
+  "hypothesis": null,
+  "observations": [],
+  "criteria": [
+    {
+      "id": "protein_preserved",
+      "claim": "Every kept output DNA sequence translates to exactly the same protein (amino acid sequence) as the corresponding input sequence, i.e. only synonymous codon changes were made.",
+      "source": "human"
+    },
+    {
+      "id": "higher_initiation_rate",
+      "claim": "Every kept output sequence has a predicted translation initiation rate strictly higher than that of the first input sequence, under the same scoring method.",
+      "source": "human"
+    },
+    {
+      "id": "only_improved_kept",
+      "claim": "Any sequence whose translation initiation rate score is not higher than the first sequence's score is excluded from the output, so the output contains only sequences that outscore the first sequence.",
+      "source": "human"
+    },
+    {
+      "id": "valid_dna_output",
+      "claim": "Every output sequence is a valid DNA sequence (only A, C, G, T characters) with the same length as its input, with the reading frame, start codon and stop codon preserved.",
+      "source": "human"
+    }
+  ],
+  "state": "abandoned",
+  "round": 2,
+  "attempts": [
+    {
+      "round": 1,
+      "plan": {
+        "hypothesis": "Random synonymous codon variants of the CDSs, scored with OSTIR under a fixed SD-containing 5' UTR, include some with a higher translation initiation rate than the first input; keeping only those that beat it raises initiation without changing the protein.",
+        "expected": "Variants with the same protein and length whose OSTIR expression is strictly above the first input's baseline score; the rest are dropped.",
+        "assertions": [
+          {
+            "criterion": "protein_preserved",
+            "step": "protein_gate",
+            "branch": "yes",
+            "claim": "Every variant translates to the same protein as the first input (all inputs encode MALK*), since only synonymous swaps were made."
+          },
+          {
+            "criterion": "valid_dna_output",
+            "step": "length_gate",
+            "branch": "yes",
+            "claim": "Every variant is valid DNA (dna kind) with the same length as its input, with frame, start and stop codons unchanged."
+          },
+          {
+            "criterion": "higher_initiation_rate",
+            "step": "improved_check",
+            "branch": "yes",
+            "claim": "Every kept sequence has an OSTIR initiation rate strictly above the first input's."
+          },
+          {
+            "criterion": "only_improved_kept",
+            "step": "improved_check",
+            "branch": "yes",
+            "claim": "The kept output contains only sequences that outscore the first sequence; the rest are excluded in improved.no."
+          }
+        ],
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "score_base": {
+            "node": "ostir_expression__21d104b2",
+            "config": {},
+            "inputs": {
+              "sequence": "seqs"
+            },
+            "why": "Score the original inputs (including the first sequence) with the same OSTIR settings to give the baseline for beats_reference."
+          },
+          "mutants": {
+            "node": "mutate_synonymous__8056b940",
+            "config": {},
+            "inputs": {
+              "sequence": "seqs"
+            },
+            "why": "Generate a pool of synonymous variants (20 per input, 2 codon swaps each); the inputs alone cannot be improved."
+          },
+          "check": {
+            "node": "constraint_check__c174c7c7",
+            "config": {},
+            "inputs": {
+              "sequence": "mutants"
+            },
+            "why": "Verify each variant keeps the first input's protein (all three inputs encode MALK*) and length."
+          },
+          "protein_gate": {
+            "node": "at_least__cd25bef6",
+            "config": {},
+            "inputs": {
+              "items": "check"
+            },
+            "why": "Keep only variants whose protein is unchanged."
+          },
+          "length_gate": {
+            "node": "at_least__37214df3",
+            "config": {},
+            "inputs": {
+              "items": "protein_gate.yes"
+            },
+            "why": "Keep only variants with unchanged length (frame, start and stop preserved)."
+          },
+          "score_mut": {
+            "node": "ostir_expression__21d104b2",
+            "config": {},
+            "inputs": {
+              "sequence": "length_gate.yes"
+            },
+            "why": "Score the variants' translation initiation rate with the same node as the baseline."
+          },
+          "improved": {
+            "node": "beats_reference__e82ffb08",
+            "config": {},
+            "inputs": {
+              "items": "score_mut"
+            },
+            "why": "Keep variants scoring strictly higher than the first input; ties and worse go to .no."
+          },
+          "improved_check": {
+            "node": "beats_reference__e82ffb08",
+            "config": {},
+            "inputs": {
+              "items": "improved.yes"
+            },
+            "why": "Second pass over the kept set: every entity must still beat the first sequence, so a 'yes' assertion covers every kept output."
+          }
+        },
+        "requests": {},
+        "observations": [],
+        "addresses_critique": "",
+        "result_source": null
+      },
+      "requests": [],
+      "dag": {
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "score_base": {
+            "config": {
+              "name": "ostir_expression",
+              "config_hash": "21d104b2",
+              "utr": "TTAACTTTAAGAAGGAGATATACATAAACAAAAAA",
+              "anti_sd": "ACCTCCTTA"
+            },
+            "inputs": {
+              "sequence": "seqs"
+            }
+          },
+          "mutants": {
+            "config": {
+              "name": "mutate_synonymous",
+              "config_hash": "8056b940",
+              "seed": 7,
+              "count": 2,
+              "variants_per_sequence": 20
+            },
+            "inputs": {
+              "sequence": "seqs"
+            }
+          },
+          "check": {
+            "config": {
+              "name": "constraint_check",
+              "config_hash": "c174c7c7",
+              "reference": {
+                "kind": "dna",
+                "sequence": "ATGGCTCTGAAATAA",
+                "id": "1e142be77490",
+                "display": "ATGGCTCTGAAATAA"
+              },
+              "targeted_codons": []
+            },
+            "inputs": {
+              "sequence": "mutants"
+            }
+          },
+          "protein_gate": {
+            "config": {
+              "name": "at_least",
+              "config_hash": "cd25bef6",
+              "column": "constraint_check__c174c7c7__protein_unchanged",
+              "threshold": 1.0
+            },
+            "inputs": {
+              "items": "check"
+            }
+          },
+          "length_gate": {
+            "config": {
+              "name": "at_least",
+              "config_hash": "37214df3",
+              "column": "constraint_check__c174c7c7__length_unchanged",
+              "threshold": 1.0
+            },
+            "inputs": {
+              "items": "protein_gate.yes"
+            }
+          },
+          "score_mut": {
+            "config": {
+              "name": "ostir_expression",
+              "config_hash": "21d104b2",
+              "utr": "TTAACTTTAAGAAGGAGATATACATAAACAAAAAA",
+              "anti_sd": "ACCTCCTTA"
+            },
+            "inputs": {
+              "sequence": "length_gate.yes"
+            }
+          },
+          "improved": {
+            "config": {
+              "name": "beats_reference",
+              "config_hash": "e82ffb08",
+              "column": "ostir_expression__21d104b2__expression",
+              "reference": {
+                "kind": "dna",
+                "sequence": "ATGGCTCTGAAATAA",
+                "id": "1e142be77490",
+                "display": "ATGGCTCTGAAATAA"
+              },
+              "scored_in": "score_base",
+              "higher": true
+            },
+            "inputs": {
+              "items": "score_mut"
+            }
+          },
+          "improved_check": {
+            "config": {
+              "name": "beats_reference",
+              "config_hash": "e82ffb08",
+              "column": "ostir_expression__21d104b2__expression",
+              "reference": {
+                "kind": "dna",
+                "sequence": "ATGGCTCTGAAATAA",
+                "id": "1e142be77490",
+                "display": "ATGGCTCTGAAATAA"
+              },
+              "scored_in": "score_base",
+              "higher": true
+            },
+            "inputs": {
+              "items": "improved.yes"
+            }
+          }
+        }
+      },
+      "workflow_id": "hypothesis-ff471dd9-4d12-4534-842b-3655bd02a060-r1",
+      "outcome": null,
+      "held": {
+        "protein_gate.yes": true,
+        "length_gate.yes": true,
+        "improved_check.yes": true
+      },
+      "produced": {
+        "seqs": [
+          "ATGGCTCTGAAA..AAATAA (15)",
+          "ATGGCGTTAAAG..AAGTAG (15)",
+          "ATGGCCCTGAAA..AAATGA (15)"
+        ],
+        "mutants": [
+          "ATGGCACTCAAA..AAATAA (15)",
+          "ATGGCGTTGAAA..AAATAA (15)",
+          "ATGGCTTTAAAG..AAGTAA (15)"
+        ],
+        "check": [
+          "ATGGCACTCAAA..AAATAA (15)",
+          "ATGGCGTTGAAA..AAATAA (15)",
+          "ATGGCTTTAAAG..AAGTAA (15)"
+        ],
+        "protein_gate.yes": [
+          "ATGGCACTCAAA..AAATAA (15)",
+          "ATGGCGTTGAAA..AAATAA (15)",
+          "ATGGCTTTAAAG..AAGTAA (15)"
+        ],
+        "protein_gate.no": [],
+        "length_gate.yes": [
+          "ATGGCACTCAAA..AAATAA (15)",
+          "ATGGCGTTGAAA..AAATAA (15)",
+          "ATGGCTTTAAAG..AAGTAA (15)"
+        ],
+        "length_gate.no": [],
+        "score_base": [
+          "ATGGCTCTGAAA..AAATAA (15)",
+          "ATGGCGTTAAAG..AAGTAG (15)",
+          "ATGGCCCTGAAA..AAATGA (15)"
+        ],
+        "score_mut": [
+          "ATGGCACTCAAA..AAATAA (15)",
+          "ATGGCGTTGAAA..AAATAA (15)",
+          "ATGGCTTTAAAG..AAGTAA (15)"
+        ],
+        "improved.yes": [
+          "ATGGCACTCAAA..AAATAA (15)",
+          "ATGGCGTTGAAA..AAATAA (15)",
+          "ATGGCACTAAAA..AAATAA (15)"
+        ],
+        "improved.no": [
+          "ATGGCTTTAAAG..AAGTAA (15)",
+          "ATGGCTCTCAAG..AAGTAA (15)",
+          "ATGGCGCTCAAA..AAATAA (15)"
+        ],
+        "improved_check.yes": [
+          "ATGGCACTCAAA..AAATAA (15)",
+          "ATGGCGTTGAAA..AAATAA (15)",
+          "ATGGCACTAAAA..AAATAA (15)"
+        ],
+        "improved_check.no": []
+      },
+      "verdict": {
+        "achieved": false,
+        "reason": "All three inputs encode MALK*. The baseline (first input) scores 2055.1996 under OSTIR with the same UTR and settings, via score_base. The 35 synonymous mutants all passed the protein and length gates. beats_reference then kept 16 mutants, each scoring 2139 to 2830, strictly above the baseline. The mutant with exactly 2055.1996 was sent to the no branch, so equal-to-baseline was excluded. The outcome therefore matches the expected result. Coverage is incomplete: valid_dna_output also requires the reading frame, start codon and stop codon to be preserved, and only length and the DNA type are asserted. No assertion checks the stop codon directly. Several variants end in TAG or TGA where the first input has TAA. I only confirmed by eye that these are still stops, and the protein_gate assertion does not say whether it compares the stop. The protein check also uses the first input as the sole reference, which is harmless only because every input encodes the same protein. The protein_preserved, higher_initiation_rate and only_improved_kept criteria are covered by the protein gate and the strict beats_reference bar.\n\nAcceptance: the verifier judged the assertions not to cover the goal",
+        "agrees": true,
+        "covers_goal": false
+      },
+      "critique": {
+        "diagnosis": "The pipeline did what the goal asked, but the plan cannot prove the valid_dna_output criterion. mutate_synonymous made 35 variants, and all passed protein_gate and length_gate. score_base gave the first input a baseline of 2055.1996, and beats_reference kept 16 variants scoring 2139 to 2830. The variant scoring exactly 2055.1996 went to the no branch, so the strict bar held. The remaining gap is that no step checks that the start and stop codons are preserved. Several variants end in TAG or TGA where the first input ends in TAA, and nothing documents whether protein_unchanged compares the stop.",
+        "root_cause": "missing_tool",
+        "evidence": [
+          "The inputs encode MALK*, but constraint_check reports only protein_unchanged, length_unchanged, targets_remaining and targets_unreachable. Its description does not say whether the stop is compared, and it has no start or stop codon score.",
+          "The valid_dna_output assertion is attached to length_gate.yes, which only checks length. Frame, start codon and stop codon are not asserted by any step.",
+          "Kept variants such as ATGGCGCTTAAATAG (TAG), ATGGCATTAAAATGA (TGA) and ATGGCACTCAAATAA (TAA) show the stop codon varies across variants, and nothing confirms each one is still a stop.",
+          "The first-codon check is only implicit: OSTIR scores a non-ATG start as 0, and every kept variant scores above 2000, so no variant has lost its ATG start."
+        ],
+        "keep": [
+          "score_base",
+          "mutants",
+          "check",
+          "protein_gate",
+          "length_gate",
+          "score_mut",
+          "improved",
+          "improved_check"
+        ],
+        "fix": "Request a new node that checks start and stop codon integrity, for example 'terminal_codons_check'. It should compare each recoded sequence with its reference and report start_codon_unchanged (first codon is ATG) and stop_is_valid (last in-frame codon is TAA, TAG or TGA, with no premature in-frame stop). Once it exists, add it after length_gate with an at_least gate at 1.0 and attach the valid_dna_output assertion to its yes branch. Keep the rest of the wiring: mutants, check, protein_gate, length_gate, score_base and score_mut feeding beats_reference."
+      },
+      "error": null,
+      "started": "2026-10-04T09:28:29.815605Z"
+    },
+    {
+      "round": 2,
+      "plan": {
+        "hypothesis": "Synonymous variants of the CDSs, scored with OSTIR under a fixed SD-containing 5' UTR, include some with a higher initiation rate than the first input; after verifying protein, length, start codon and stop codon are preserved, keeping only those that strictly beat the first input raises initiation without changing the protein.",
+        "expected": "All kept variants encode MALK*, keep length 15, begin with ATG, end in a valid in-frame stop, and score above the first input's OSTIR score (2055.2).",
+        "assertions": [
+          {
+            "criterion": "protein_preserved",
+            "step": "protein_gate",
+            "branch": "yes",
+            "claim": "Every variant that passes has the same protein as the reference."
+          },
+          {
+            "criterion": "valid_dna_output",
+            "step": "terminal_gate",
+            "branch": "yes",
+            "claim": "Every variant passing has ATG start, a valid in-frame terminal stop, and (after length_gate) the same length; DNA alphabet holds by type."
+          },
+          {
+            "criterion": "higher_initiation_rate",
+            "step": "improved_check",
+            "branch": "yes",
+            "claim": "Every kept variant has OSTIR initiation rate strictly above the first input."
+          },
+          {
+            "criterion": "only_improved_kept",
+            "step": "improved",
+            "branch": "produced",
+            "claim": "Variants not beating the first input go to improved.no; only improved.yes is output, and it is re-verified by improved_check."
+          }
+        ],
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "score_base": {
+            "node": "ostir_expression__21d104b2",
+            "config": {},
+            "inputs": {
+              "sequence": "seqs"
+            },
+            "why": "Baseline OSTIR initiation rate of the first input (reference for beats_reference)."
+          },
+          "mutants": {
+            "node": "mutate_synonymous__8056b940",
+            "config": {},
+            "inputs": {
+              "sequence": "seqs"
+            },
+            "why": "Generate synonymous variants as candidates."
+          },
+          "check": {
+            "node": "constraint_check__c174c7c7",
+            "config": {},
+            "inputs": {
+              "sequence": "mutants"
+            },
+            "why": "Measure protein and length preservation against the first input."
+          },
+          "protein_gate": {
+            "node": "at_least__cd25bef6",
+            "config": {},
+            "inputs": {
+              "items": "check"
+            },
+            "why": "Keep variants with identical protein."
+          },
+          "length_gate": {
+            "node": "at_least__37214df3",
+            "config": {},
+            "inputs": {
+              "items": "protein_gate.yes"
+            },
+            "why": "Keep variants with identical length."
+          },
+          "terminals": {
+            "node": "terminal_codons_check",
+            "config": {},
+            "inputs": {
+              "sequence": "length_gate.yes"
+            },
+            "why": "Verify ATG start, in-frame length, valid terminal stop with no premature stop."
+          },
+          "terminal_gate": {
+            "node": "at_least",
+            "config": {
+              "column": "terminal_codons_check__0715f8ad__terminal_codons_valid",
+              "threshold": 1.0
+            },
+            "inputs": {
+              "items": "terminals"
+            },
+            "why": "Keep only variants with intact start, frame and stop."
+          },
+          "score_mut": {
+            "node": "ostir_expression__21d104b2",
+            "config": {},
+            "inputs": {
+              "sequence": "terminal_gate.yes"
+            },
+            "why": "Score the validated variants with the same OSTIR settings."
+          },
+          "improved": {
+            "node": "beats_reference__e82ffb08",
+            "config": {},
+            "inputs": {
+              "items": "score_mut"
+            },
+            "why": "Keep only variants strictly above the first input's initiation rate."
+          },
+          "improved_check": {
+            "node": "beats_reference__e82ffb08",
+            "config": {},
+            "inputs": {
+              "items": "improved.yes"
+            },
+            "why": "Confirm every kept variant beats the first input (all pass)."
+          }
+        },
+        "requests": {
+          "terminal_codons_check": {
+            "name": "terminal_codons_check",
+            "node": "score",
+            "purpose": "Check that each DNA sequence keeps an ATG start codon, has length divisible by 3, ends in a valid stop codon (TAA, TAG or TGA) and has no premature in-frame stop.",
+            "port": "sequence",
+            "kind": "dna",
+            "output": [
+              "start_codon_unchanged",
+              "stop_is_valid",
+              "terminal_codons_valid"
+            ],
+            "config_fields": [],
+            "why_needed": "valid_dna_output requires reading frame, start codon and stop codon preserved; constraint_check only reports protein and length.",
+            "why_not_composable": "constraint_check (protein/length only), codon_count (counts a named codon, cannot test position-specific start/terminal stop), ostir_expression (implicit only), at_least/beats_reference (filters only).",
+            "example": "ATGGCACTCAAATAA -> start_codon_unchanged=1, stop_is_valid=1, terminal_codons_valid=1; ATGGCACTCAAAGCA -> terminal_codons_valid=0"
+          }
+        },
+        "observations": [],
+        "addresses_critique": "Added the terminal_codons_check scorer plus an at_least gate after length_gate, so start codon, frame and stop codon are explicitly verified and valid_dna_output is asserted on that gate's yes branch. The rest of the wiring is kept.",
+        "result_source": null
+      },
+      "requests": [
+        {
+          "name": "terminal_codons_check",
+          "node": "score",
+          "purpose": "Check that each DNA sequence keeps an ATG start codon, has length divisible by 3, ends in a valid stop codon (TAA, TAG or TGA) and has no premature in-frame stop.",
+          "port": "sequence",
+          "kind": "dna",
+          "output": [
+            "start_codon_unchanged",
+            "stop_is_valid",
+            "terminal_codons_valid"
+          ],
+          "config_fields": [],
+          "why_needed": "valid_dna_output requires reading frame, start codon and stop codon preserved; constraint_check only reports protein and length.",
+          "why_not_composable": "constraint_check (protein/length only), codon_count (counts a named codon, cannot test position-specific start/terminal stop), ostir_expression (implicit only), at_least/beats_reference (filters only).",
+          "example": "ATGGCACTCAAATAA -> start_codon_unchanged=1, stop_is_valid=1, terminal_codons_valid=1; ATGGCACTCAAAGCA -> terminal_codons_valid=0"
+        }
+      ],
+      "dag": null,
+      "workflow_id": null,
+      "outcome": null,
+      "held": {},
+      "produced": {},
+      "verdict": null,
+      "critique": null,
+      "error": null,
+      "started": "2026-10-04T09:29:35.863280Z"
+    }
+  ],
+  "usage": {
+    "plan": 177828,
+    "total": 244792,
+    "verify": 33469,
+    "critique": 33495
+  },
+  "stopped_because": "abandoned while blocked on a tool"
+}
