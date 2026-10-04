@@ -5,7 +5,8 @@ from a collection of tools, scorers and filters.
 
 You give it a goal and some inputs. A builder agent writes a hypothesis (how a DAG of
 the available nodes can meet the goal) and the DAG itself. The DAG runs as a Temporal
-workflow, and a verifier agent judges whether the outcome meets the goal.
+workflow, and a verifier agent reviews the outcome. Code decides whether the goal was
+met, and the verifier can only veto.
 
 Contributor guidance lives in [AGENTS.md](AGENTS.md). The proposed recoding
 experiment, possible research directions and implementation priorities are in
@@ -36,7 +37,7 @@ Each run, with the status of every step:
 
 ```
 src/node_dag/
-  types.py                     entities (Dna, Rna, AminoAcidSequence, ProteinStructure) with an id, Score, Table, TYPES
+  types.py                     entities (Dna, Rna, AminoAcidSequence, ProteinStructure, ProteinContacts) with an id, Score, Table, TYPES
   dna.py                       genetic code, synonymous codons, atoms per base
   nodes/base.py                Category, BaseToolConfig, BaseScoreConfig, BaseFilterConfig, BaseNode
   nodes/tools/<name>/          config.py + function.py; tools make entities, scorers score them
@@ -64,7 +65,7 @@ temporal/
 
 A DAG works like Pipeline Pilot or KNIME. You pass in a list of entities for each
 input, and each node runs once on the whole list that reaches it. An entity (`Dna`, `Rna`,
-`AminoAcidSequence`, `ProteinStructure`) has an `id`: a hash of its kind and sequence, so the same
+`AminoAcidSequence`, `ProteinStructure`, `ProteinContacts`) has an `id`: a hash of its kind and sequence, so the same
 sequence always has the same id and identical entities merge into one.
 
 What flows along an edge is a `Table`: the entities, and their scores so far as
@@ -84,9 +85,11 @@ There are three kinds of node:
   `{"expression": Score}`. `run` returns one `{score name: Score}` dict per entity. The
   entities pass through, with a column added for each score.
 - **Filter** (`BaseFilterConfig`): has a `column`. `run(items, values)` gets the
-  entities and that column's values and returns a bool for each. The entities that get
-  True go to `<step>.yes`, the rest to `<step>.no`, both with their scores. The filters
-  are `at_least`, `at_most`, `top_k`, `pareto_front` and `beats_reference`.
+  entities and that column's values and returns a bool for each (`pareto_front` weighs
+  several columns, `objectives`, and gets `values` as a dict keyed by column). The
+  entities that get True go to `<step>.yes`, the rest to `<step>.no`, both with their
+  scores. The filters are `at_least`, `at_most`, `top_k`, `pareto_front` and
+  `beats_reference`.
 
 `beats_reference` is for a goal like "keep the ones that score higher than the first
 sequence". Use it instead of a typed threshold (`at_least`, `at_most`), which would have to be
@@ -135,8 +138,9 @@ Results go under `$NODE_DAG_RESULTS` (default `results/`):
 
 - `nodes/<node name>/<hash>.json`: each node's cached result, keyed by its config and inputs.
 - `workflows/<workflow id>.json`: each run's DAG, step statuses and tables (entities and
-  score columns), written when the run finishes or fails; a save that fails is logged and
-  the run still ends.
+  score columns), written when the run finishes or fails. The save gets three attempts. If
+  all fail, the workflow logs `The run was not saved` and the run still ends as it would
+  have, with its result or the failing step's error, but no file.
 - `registry/<node id>.json`: each node a builder agent made, with its description.
 - `hypotheses/<hypothesis id>.json`: each Hypothesis, saved after each stage of the loop.
   The loop's workflow ID is the hypothesis ID; each round's DAG runs as `<hypothesis id>-r<round>`.
@@ -153,9 +157,11 @@ uv run python -m temporal.run_worker
 
 `temporal.run_ui` serves a page at http://127.0.0.1:8000 that lists the DagWorkflow
 runs and draws the selected run's DAG with [nice-dag](https://github.com/eBay/nice-dag).
-Each step shows its status: pending, running, done, skipped or failed. The page reads
-the workflow's `progress` query every 2 seconds, so a worker must be running to answer
-it. `--step-delay` makes each step sleep first, so you can watch a run progress.
+Each step shows its status: pending, running, done, skipped or failed. A finished run is
+read from `results/workflows/`, which needs neither Temporal nor a worker. For a run
+with no file, the page reads the workflow's `progress` query every 2 seconds, so a worker must be
+running to answer it. `run_worker --step-delay` makes each step sleep first, so you can watch
+a run progress.
 
 A run has two views, switched at the top and kept in the URL (`?run=…&view=table`).
 **Table** is every sequence the run touched as rows (its `id`, kind and display string,
@@ -187,8 +193,11 @@ hypothesis for how to meet it, criteria (one per line, or drafted by the criteri
 through `POST /api/criteria` for you to edit) and, if you like, the inputs. With none,
 the agent fetches the sequences the goal names from NCBI before round 1. The server then
 starts the loop in the background, and the page jumps to the hypothesis so you can watch
-its rounds. This needs a worker running. `--model` and `--verify-model` on `run_ui`
-default to `anthropic:claude-sonnet-5-5` to build and `anthropic:claude-haiku-4-5` to verify.
+its rounds. This needs a worker running. Inputs that cannot run, an empty list or a list of
+mixed kinds, get a 422 and nothing is saved. If the workflow cannot be started (Temporal is
+down, say), the saved hypothesis ends as `failed` with that reason and the server answers 503.
+`--model` and `--verify-model` on `run_ui` default to `anthropic:claude-sonnet-5-5` to build
+and `anthropic:claude-haiku-4-5` to verify; [The loop](#the-loop) says which calls each covers.
 
 Sequences are fetched through `src/node_dag/entrez.py`, which queries NCBI Nucleotide through the
 E-utilities API and caches every reply under `results/entrez/`. Set `NCBI_EMAIL` to identify yourself
@@ -217,8 +226,9 @@ The `Makefile` runs the server, worker and UI in the background:
 
 - `make start`: start the Temporal dev server if it isn't running, then the worker and
   the UI.
-- `make stop`: stop the worker, the UI and the Temporal server. `start-dev` holds its
-  runs in memory, so stopping it loses them.
+- `make stop`: stop the worker, the UI and the Temporal server. `make start` runs the
+  server with `--db-filename results/temporal.db`, so its history survives a restart; a
+  bare `temporal server start-dev` holds its runs in memory.
 - `make restart`: stop everything, then start it again. Run it after you change code.
 - `make logs`: follow the worker and UI logs.
 
@@ -252,14 +262,17 @@ workflow. Only the model calls are non-deterministic, and each is an activity:
 2. **Criteria.** If you gave none, an agent derives them from the goal. They are frozen.
    Each is an `id`, a `claim` and a `source`: `human` if it came from you (the new-hypothesis page sends every criterion as `human`), else `derived`.
 3. **Plan.** The builder agent makes the nodes it needs (`create_node`), reuses
-   registered ones, and submits a `Plan`: the wiring, plus one assertion per criterion
-   saying what its step settles: on a filter, `yes` (every entity passed) or `no` (every
-   entity failed), or `produced` (it kept at least one, and may have dropped the rest);
-   on any other step, `produced` (it gave output). On a filter, `produced` never covers
-   what the kept entities hold: assert `yes` on the filter when every candidate should
-   pass, or `yes` on a second filter over `<filter>.yes`. Guards reject a
-   bad plan (wrong inputs, an uncovered criterion, a repeat of an earlier plan) before
-   anything runs, and the agent fixes it.
+   registered ones, and submits a `Plan`: the wiring, plus at least one assertion for each
+   criterion saying what its step settles: on a filter, `yes` (every entity passed) or `no`
+   (every entity failed), or `produced` (it kept at least one, and may have dropped the
+   rest, as choosing the best of a pool does); on any other step, `produced` (it gave
+   output). Guards reject a bad plan before anything runs, and the agent fixes it. Among
+   them: inputs that are not the goal's; a step whose node or config does not exist, does
+   not fit or does not type-check; a `beats_reference` reference that is not one of the
+   inputs; an assertion on a criterion or step that is not there, or `yes` or `no` on a
+   step that is not a filter; `yes` with `no`, or `no` with `produced`, on one filter; a
+   criterion no assertion covers; a wiring an earlier round already ran; and, after a
+   critique, a plan that does not say what it changes.
    The builder can also search the literature with Amass (`search_literature`,
    `get_record`; set `AMASS_API_KEY`), and cites each record it used as an observation
    on the plan. Those of the current round's plan are on the Hypothesis as
@@ -275,13 +288,24 @@ where to look for which nodes the builder read and which guard it bounced off.
 Rounds stop at `max_rounds` (default 3; `--max-rounds` on `run_hypothesis`) or 500,000 tokens. The stop reason is
 `stopped_because`, and every round is kept in `attempts`.
 
+**Models.** `run_hypothesis` and `run_ui` take `--model` for the builder, which also makes the
+inputs, criteria and critique calls (and the UI's criteria drafting), and `--verify-model` for
+the verifier alone. Both are optional: the defaults are `anthropic:claude-sonnet-5-5` and
+`anthropic:claude-haiku-4-5`. The verifier is a different model on purpose, so that a blind
+spot it shares with the builder does not pass every round. Nothing checks that the two differ;
+the help text only asks you to keep them so.
+
 **Acceptance is code, not a model.** `accepted()` in `plan.py` passes a round only if
 every criterion has an assertion, every assertion holds on the outcome, and the verifier
-agrees. A `yes` or `no` assertion holds only if that branch took at least one entity and the
-other took none, so one plan cannot assert both branches of a filter. A `produced` assertion
-holds when the step, or a filter's `yes` branch, gave at least one entity; it does not show
-the threshold was right or what the kept entities hold, and the verifier checks that.
-The verifier and the critic are shown what each node in the DAG says it does. A model cannot grant acceptance, only veto it. A model that refuses a call stops the run with the refusal as the reason.
+both agrees (`agrees`) and judges the assertions to cover the goal (`covers_goal`). A `yes` or
+`no` assertion holds only if that branch took at least one entity and the other took none, so
+one plan cannot assert both branches of a filter. A `produced` assertion holds when the step,
+or a filter's `yes` branch, gave at least one entity. On a filter it never covers a criterion
+about what the kept entities hold, such as every kept sequence beating the first: the builder
+is told to hold that with `yes` on a second filter over the first's `yes` branch, and the
+verifier to set `covers_goal` false when only `produced` backs it. The verifier and the critic
+are shown what each node in the DAG says it does. A model cannot grant acceptance, only veto it.
+A model that refuses a call stops the run with the refusal as the reason.
 
 **Blocked on a tool.** A plan may request at most three nodes that do not exist yet, with
 a contract (purpose, ports, example) and why none can be composed from the registry. It

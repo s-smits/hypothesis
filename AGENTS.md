@@ -13,7 +13,9 @@ Read [README.md](README.md) for usage and
 alternatives, priorities and unresolved decisions. Read
 [docs/intended-structure.md](docs/intended-structure.md) for the supplied architecture
 sketches, layer responsibilities and current-versus-proposed behaviour. These notes
-are designs under discussion, not claims that their proposed components exist.
+are designs under discussion, not claims that their proposed components exist. Their
+tables of what exists were checked against `f9d2f50`, before the loop, the run ledger
+and the benchmark harness; this guide and the README describe the current code.
 Follow the user's requested scope; do not implement the whole roadmap during an
 unrelated fix.
 
@@ -70,8 +72,11 @@ uv run python -m temporal.run_workflow examples/simple.json
 
 The default Temporal address is `localhost:7233`, queue `node-dag`, and UI
 `http://127.0.0.1:8000`. Use CLI `--help` for overrides. Agent runs additionally
-need `ANTHROPIC_API_KEY`. `--model` and `--verify-model` default to `anthropic:claude-sonnet-5-5`
-and `anthropic:claude-haiku-4-5`; a proposed model string must be checked against the chosen provider. `temporal/run_hypothesis.py` loads the repository's
+need `ANTHROPIC_API_KEY`. `run_hypothesis` and `run_ui` take `--model` (default
+`anthropic:claude-sonnet-5-5`) for the builder and also for the inputs, criteria and critique
+calls, and `--verify-model` (default `anthropic:claude-haiku-4-5`) for the verifier alone; both are
+optional. Nothing checks that they differ, though the help text asks for it. A proposed model
+string must be checked against the chosen provider. `temporal/run_hypothesis.py` loads the repository's
 `.env`. Leave missing credentials missing and report the gap. Never copy `.env*`,
 `AGENTS.md` or configuration from another repository, or print secrets.
 
@@ -85,7 +90,7 @@ and `anthropic:claude-haiku-4-5`; a proposed model string must be checked agains
 | DAG validation | `src/node_dag/dag.py` | `tests/test_dag.py`, `test_beats_reference.py` |
 | Execution, cache and progress | `temporal/dag/activities.py`, `workflow.py`, `src/node_dag/storage.py` | `tests/test_cache.py`, `test_dag.py` |
 | Builder, verifier and persistence | `src/node_dag/agent.py`, `temporal/hypothesis/activities.py`, `temporal/run_hypothesis.py` | `tests/test_agent.py` |
-| Hypothesis loop, plan checks, node scaffolding | `temporal/hypothesis/`, `src/node_dag/plan.py`, `temporal/scaffold_node.py` | `tests/test_loop.py`, `test_plan.py`, `test_guards.py`, `test_scaffold.py` |
+| Hypothesis loop, plan checks, node scaffolding | `temporal/hypothesis/`, `src/node_dag/plan.py`, `check_plan` in `src/node_dag/agent.py`, `temporal/scaffold_node.py` | `tests/test_loop.py`, `test_plan.py`, `test_guards.py`, `test_scaffold.py` |
 | Watching runs | `temporal/pulse.py` | `tests/test_pulse.py` |
 | Run ledger | `temporal/ledger.py` | `tests/test_ledger.py`, `test_loop.py` |
 | Benchmark harness | `src/node_dag/benchmark.py`, `temporal/run_benchmark.py` | `tests/test_benchmark.py` |
@@ -183,6 +188,13 @@ To read it: `jq -r '[.ended[:16], .hypothesis, .state, .rounds, .tokens, .summar
   lacks that column. Keep validation at the boundary; do not bypass it to
   accommodate a generated graph. Builder failures use `ModelRetry` with
   actionable errors and bounded retries.
+- A round is accepted by `accepted()` in `plan.py`, never by a model. Every criterion
+  needs an assertion, every assertion must hold on the outcome, and the verifier, which may
+  only veto, must set both `agrees` and `covers_goal`. `yes` or `no` on a filter holds when
+  that branch took at least one entity and the other none. `produced` holds when the step,
+  or a filter's `yes` branch, gave at least one entity, and on a filter it never covers
+  what the kept entities hold. Keep `holds`, the builder's guards (`check_plan`) and the
+  prompts agreeing on these meanings.
 - `Entity.id` hashes kind and sequence. `Table.of` merges identical entities.
   IDs therefore identify sequences, not genes, loci or parent-child lineage. A
   benchmark needs an explicit instance-to-result mapping so recoding, deduplication
@@ -207,9 +219,15 @@ To read it: `jq -r '[.ended[:16], .hypothesis, .state, .rounds, .tokens, .summar
   model calls and computational work belong outside workflow replay. Persist with
   `storage.write_atomic`. `$NODE_DAG_RESULTS` defaults to `results/`, containing
   `nodes/`, `workflows/`, `registry/`, `hypotheses/`, `requests/` and `trajectories/`,
-  plus `ledger.jsonl`, `pulse.json` and `ledger/` (the benchmark's attempts, one file
-  each). It is local disk, so workers on different machines do not automatically
-  share a cache.
+  plus `ledger.jsonl`, `pulse.json`, `ledger/` (the benchmark's attempts, one file
+  each), `links/` (what nodes report) and the `entrez/` and `amass/` reply caches. It is
+  local disk, so workers on different machines do not automatically share a cache.
+- A file that cannot be written must not change how a run ended. `save_workflow` gets
+  three attempts, then the workflow logs the failure and the run still ends as it would
+  have; the ledger line and the model-call transcripts are treated the same way.
+  `POST /api/hypotheses` answers 422 for inputs that cannot run, before anything is saved,
+  and 503 when the workflow cannot start, after saving the Hypothesis as `failed` so none
+  is left `building`.
 
 ## Adding a node or changing a model-facing surface
 
@@ -237,10 +255,11 @@ Automatic discovery must never import quarantine or unvalidated generated code.
 ## Research rules for recoding work
 
 Apply these when implementing an experiment. A first deterministic harness exists
-(`src/node_dag/benchmark.py`, run by `temporal/run_benchmark.py`): fixed genes, random,
-best-of-N, greedy and exact baselines, a development/held-out split and an append-only
-attempt ledger. It uses no model and runs no DAG, so a search built on it still has to
-meet these:
+(`src/node_dag/benchmark.py`, run by `temporal/run_benchmark.py`): genes picked
+deterministically from an NCBI record (`NC_000913.3` by default, fetched through `entrez`
+and cached), random, best-of-N, greedy and exact baselines, a development/held-out split
+and an append-only attempt ledger. It uses no model and runs no DAG, so a search built on
+it still has to meet these:
 
 - Define the organism/genetic code, targeted codons, CDS boundaries, immutable
   context, objectives and metric directions before search. Synonymous mutation
@@ -271,7 +290,7 @@ meet these:
   effects, uncertainty, failures and sample size. Adaptive development selection
   needs a separate frozen confirmation; an LLM verdict or multiple-testing
   correction alone cannot establish generalisation. Keep a statistical verdict
-  separate from today's `Verdict(achieved, reason)`.
+  separate from today's `Verdict`, whose `achieved` is set by `accepted()`.
 - Retain an experiment manifest and append-only attempt ledger: commit, data
   provenance/split hashes, dependency versions, seed, model/prompt, budgets,
   parent/child DAGs, node versions, per-instance metrics, errors and selection
