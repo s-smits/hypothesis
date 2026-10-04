@@ -346,7 +346,7 @@ def holds(assertions: list[Assertion], outcome: DagOutput | None) -> dict[str, b
         if a.branch == "produced":
             return n(a.step) > 0 or n(f"{a.step}.yes") > 0
         other = "no" if a.branch == "yes" else "yes"
-        return n(f"{a.step}.{a.branch}") > 0 and n(f"{a.step}.{other}") == 0
+        return n(a.key) > 0 and n(f"{a.step}.{other}") == 0
 
     return {a.key: holds_one(a) for a in assertions}
 
