@@ -390,6 +390,15 @@ async def test_the_runs_page_can_show_a_structure():
     assert not re.search(r"<(script|link)[^>]*molstar", index)
 
 
+async def test_the_runs_page_draws_a_beats_reference_filter_as_it_reads():
+    page = await _endpoint("/")()
+    index = (Path(page.path).parent / "index.html").read_text()
+    # The filter also reads the step named in scored_in, so the graph draws that edge,
+    # and its label names the reference, not a threshold it does not have.
+    assert "config.scored_in" in index
+    assert "scored in" in index
+
+
 async def test_the_criteria_endpoint_drafts_a_list_to_edit():
     """The agent's draft comes back for the user to edit before they start a run."""
     seen: list[ModelMessage] = []
