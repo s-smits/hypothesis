@@ -1,4 +1,5 @@
-from collections.abc import Collection
+from collections import Counter
+from collections.abc import Callable, Collection
 from itertools import product
 
 BASES = "TCAG"
@@ -72,6 +73,77 @@ def motif_hits(sequence: str, motifs: Collection[str]) -> list[tuple[int, int]]:
         if sequence.startswith(m, i)
     ]
     return sorted(hits)
+
+
+def _longest_where(sequence: str, holds: Callable[[str, int], bool]) -> int:
+    """The longest length at which ``holds`` is true, by binary search from 0.
+
+    ``holds`` must be monotone: true at a length means true at every shorter one.
+    Both repeat predicates are, since a repeated substring's prefix repeats too.
+    """
+    lo, hi = 0, len(sequence)
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        if holds(sequence, mid):
+            lo = mid
+        else:
+            hi = mid - 1
+    return lo
+
+
+def _repeats(sequence: str, length: int) -> bool:
+    """Whether some ``length``-base substring occurs more than once."""
+    seen: set[str] = set()
+    for i in range(len(sequence) - length + 1):
+        kmer = sequence[i : i + length]
+        if kmer in seen:
+            return True
+        seen.add(kmer)
+    return False
+
+
+def _inverts(sequence: str, length: int) -> bool:
+    """Whether some ``length``-base substring's reverse complement also occurs."""
+    kmers = {sequence[i : i + length] for i in range(len(sequence) - length + 1)}
+    return any(reverse_complement(k) in kmers for k in kmers)
+
+
+def longest_repeat(sequence: str) -> int:
+    """The length of the longest substring that occurs at least twice.
+
+    Occurrences may overlap, so ``AAAA`` has a 3-base repeat. An empty sequence,
+    and one whose bases are all distinct, give 0.
+    """
+    return _longest_where(sequence, _repeats)
+
+
+def longest_inverted_repeat(sequence: str) -> int:
+    """The length of the longest substring whose reverse complement also occurs.
+
+    This is the hairpin a sequence can form with itself. A substring that is its
+    own reverse complement counts on its own, since it pairs with itself.
+    """
+    return _longest_where(sequence, _inverts)
+
+
+def repeat_fraction(sequence: str, length: int) -> float:
+    """The fraction of positions inside a ``length``-base substring that repeats.
+
+    A sequence shorter than ``length``, or an empty one, gives 0.
+    """
+    if not sequence:
+        return 0.0
+    counts = Counter(
+        sequence[i : i + length] for i in range(len(sequence) - length + 1)
+    )
+    repeated = {kmer for kmer, n in counts.items() if n > 1}
+    covered = {
+        p
+        for i in range(len(sequence) - length + 1)
+        if sequence[i : i + length] in repeated
+        for p in range(i, i + length)
+    }
+    return len(covered) / len(sequence)
 
 
 def check_motifs(motifs: tuple[str, ...]) -> tuple[str, ...]:
