@@ -1,9 +1,14 @@
 """The Modal app that folds sequences on a GPU, so nothing here runs locally."""
 
+from string import ascii_uppercase
+
 import modal
 
-MODEL = "biohub/ESMFold2-Fast"  # The single-sequence model: no MSA, so far cheaper.
-GPU = "L40S"  # 48 GB, enough for the 7B model, and the cheapest card that fits it.
+# The single-sequence model: no MSA, so far cheaper. It folds one protein chain,
+# so a complex needs the full ESMFold2, which conditions chains on each other.
+MONOMER_MODEL = "biohub/ESMFold2-Fast"
+COMPLEX_MODEL = "biohub/ESMFold2"
+GPU = "L40S"  # 48 GB, the cheapest card that fits these models.
 
 # The weights are several GB, so keep the Hugging Face cache on a volume and pay for
 # the download once rather than on every cold start.
@@ -20,13 +25,32 @@ image = (
 app = modal.App("node-dag-esmfold2")
 
 
+def _chain_ids(n: int) -> list[str]:
+    """``n`` chain ids in letter order: A to Z, then AA, AB and so on."""
+    ids = []
+    for i in range(n):
+        q, r = divmod(i, 26)
+        ids.append(
+            ascii_uppercase[r]
+            if q == 0
+            else ascii_uppercase[q - 1] + ascii_uppercase[r]
+        )
+    return ids
+
+
 @app.function(gpu=GPU, image=image, volumes={"/cache": cache}, timeout=3600)
 def fold(
-    sequences: list[str], num_loops: int, num_sampling_steps: int, seed: int
+    groups: list[list[str]],
+    model_id: str,
+    num_loops: int,
+    num_sampling_steps: int,
+    seed: int,
 ) -> list[str]:
-    """Fold each amino acid sequence as a monomer and return its mmCIF string.
+    """Fold each group of protein chains as one structure and return its mmCIF.
 
-    The whole list is folded in one call, so the weights are loaded once per run.
+    A group of one chain comes back as a monomer; several chains co-fold as a
+    complex, lettered in group order. The whole list is folded in one call, so
+    the weights are loaded once per run.
     """
     from esm.models.esmfold2 import (
         ESMFold2InputBuilder,
@@ -35,7 +59,7 @@ def fold(
         StructurePredictionInput,
     )
 
-    model = EsmFold2Model.from_pretrained(MODEL, device="cuda").eval()
+    model = EsmFold2Model.from_pretrained(model_id, device="cuda").eval()
     # Without this the model runs its reference kernels, which are about 12x slower,
     # so the same fold costs about 12x as much.
     model.set_kernel_backend("fused")
@@ -43,11 +67,15 @@ def fold(
 
     builder = ESMFold2InputBuilder()
     folded = []
-    for s in sequences:
-        # One protein chain and nothing else, so what comes back is a monomer.
+    for chains in groups:
         result = builder.fold(
             model,
-            StructurePredictionInput(sequences=[ProteinInput(id="A", sequence=s)]),
+            StructurePredictionInput(
+                sequences=[
+                    ProteinInput(id=cid, sequence=s)
+                    for cid, s in zip(_chain_ids(len(chains)), chains, strict=True)
+                ]
+            ),
             num_loops=num_loops,
             num_sampling_steps=num_sampling_steps,
             num_diffusion_samples=1,

@@ -18,9 +18,10 @@ def folded(monkeypatch):
     """Answer in place of the GPU, and record what it was asked to fold."""
     calls = []
 
-    def fake(sequences, num_loops, num_sampling_steps, seed):
-        calls.append((sequences, num_loops, num_sampling_steps, seed))
-        return [f"data_{s[:4]}\n_entry.id {s[:4]}\n" for s in sequences]
+    def fake(sequences, as_complex, num_loops, num_sampling_steps, seed):
+        calls.append((sequences, as_complex, num_loops, num_sampling_steps, seed))
+        groups = [sequences] if as_complex else [[s] for s in sequences]
+        return [f"data_{g[0][:4]}\n_entry.id {g[0][:4]}\n" for g in groups]
 
     monkeypatch.setattr(function, "fold_remote", fake)
     return calls
@@ -33,14 +34,28 @@ def test_each_sequence_comes_back_as_a_structure(folded):
     assert [o.sequence for o in out] == [UBIQUITIN.sequence, "MALK"]
     assert out[0].structure.startswith("data_MQIF")
     # One call, so the weights are loaded once for the whole list.
-    assert folded == [([UBIQUITIN.sequence, "MALK"], 3, 50, 0)]
+    assert folded == [([UBIQUITIN.sequence, "MALK"], False, 3, 50, 0)]
 
 
 def test_the_config_sets_what_the_gpu_is_asked_for(folded):
     config = Esmfold2FoldConfig(num_loops=1, num_sampling_steps=20, seed=7)
     Esmfold2Fold(config).run(sequence=[UBIQUITIN])
-    assert folded == [([UBIQUITIN.sequence], 1, 20, 7)]
+    assert folded == [([UBIQUITIN.sequence], False, 1, 20, 7)]
     # A different setting is a different node, so its results cache separately.
+    assert config.config_hash != Esmfold2FoldConfig().config_hash
+
+
+def test_as_complex_folds_every_sequence_into_one_structure(folded):
+    config = Esmfold2FoldConfig(as_complex=True)
+    (out,) = Esmfold2Fold(config).run(
+        sequence=[UBIQUITIN, AminoAcidSequence(sequence="MALK*")]
+    )
+    # The whole list went in one fold, so the chains sit in one structure.
+    assert folded == [([UBIQUITIN.sequence, "MALK"], True, 3, 50, 0)]
+    # The chains are concatenated in arrival order, as sequence_of keeps them.
+    assert out.sequence == UBIQUITIN.sequence + "MALK"
+    assert out.structure.startswith("data_MQIF")
+    # A complex fold caches separately from the same sequences folded alone.
     assert config.config_hash != Esmfold2FoldConfig().config_hash
 
 
