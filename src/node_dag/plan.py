@@ -138,10 +138,9 @@ class Assertion(BaseModel):
     """A claim the DAG settles by which branch of a filter step it takes.
 
     On a filter, ``yes`` holds when every entity passed and ``no`` when every entity failed:
-    a claim about all of them. ``produced`` is the claim that a filter kept at least one and
-    may have dropped others, which is what choosing the best of a pool needs. On a tool or
-    score step, ``produced`` holds when the step gave output. It says nothing about the
-    output being right.
+    a claim about all of them. ``produced`` holds when a filter kept at least one entity: it
+    never covers a claim about what the kept ones hold. On a tool or score step,
+    ``produced`` holds when the step gave output. It says nothing about the output being right.
     """
 
     criterion: str
