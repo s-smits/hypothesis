@@ -462,6 +462,7 @@ def test_search_nodes_finds_and_ranks_by_intent():
         "protlib_design",
         "recode_targeted",
         "resample_synonymous",
+        "trim_to_first_start",
     ]
 
     # Removing a codon finds the nodes that recode and count codons.
