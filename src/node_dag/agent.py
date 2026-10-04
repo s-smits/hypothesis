@@ -642,8 +642,11 @@ def build_agent(
         if uncovered := sorted(ids - {a.criterion for a in plan.assertions}):
             raise ModelRetry(f"No assertion covers {uncovered}.")
         last = hyp.attempts[-1] if hyp.attempts else None
-        if plan.fingerprint() in {a.plan.fingerprint() for a in hyp.attempts if a.plan}:
-            raise ModelRetry("This wiring already ran in an earlier round. Change it.")
+        if any(plan.reruns(a.plan) for a in hyp.attempts if a.plan):
+            raise ModelRetry(
+                "This wiring already ran in an earlier round. Change it, or keep every "
+                "earlier assertion and strengthen one (yes where it was produced)."
+            )
         if last and last.critique and not plan.addresses_critique:
             raise ModelRetry(
                 "Say in addresses_critique what this plan changes in response to the critique."
