@@ -26,11 +26,14 @@ class MutateSynonymous(BaseNode[MutateSynonymousConfig]):
         )
         rng = random.Random(seed_key)
         codons = [s.sequence[i : i + 3] for i in range(0, len(s.sequence), 3)]
-        # A codon with no synonym (M, W) has nothing to swap to.
+        # A codon with no synonym (M, W) has nothing to swap to. A stop codon stays: its
+        # synonyms are the other stops, and swapping one changes where the gene ends.
         swappable = [
             i
             for i, c in enumerate(codons)
-            if len(c) == 3 and len(SYNONYMS[CODON_TABLE[c]]) > 1
+            if len(c) == 3
+            and CODON_TABLE[c] != "*"
+            and len(SYNONYMS[CODON_TABLE[c]]) > 1
         ]
         for i in rng.sample(swappable, min(self.config.count, len(swappable))):
             aa = CODON_TABLE[codons[i]]

@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from pydantic import ValidationError
 from pydantic_ai.messages import (
@@ -116,6 +118,30 @@ async def test_agent_makes_nodes_one_by_one_and_fixes_a_rejected_dag(results_dir
     assert "'x-node'" in schema  # The ports reach the model with the schema.
     assert PROTEIN in created
     assert "port 'sequence' takes Dna, but 'protein' gives AminoAcidSequence" in error
+
+
+async def test_create_node_takes_a_config_sent_as_a_json_string(results_dir):
+    """Recorded: E 6148f02d and F2 894a1eba sent it so; each was a full-context retry."""
+    seen: list[ModelMessage] = []
+    schema: list[dict] = []
+    as_text = {**CREATE_PROTEIN[1], "config": json.dumps(CREATE_PROTEIN[1]["config"])}
+
+    def script(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        seen.extend(messages)
+        if _turn(messages) == 0:
+            schema.extend(t.parameters_json_schema for t in info.function_tools)
+            return _call("create_node", as_text)
+        return _submit(info, GOOD)
+
+    agent = build_agent(FunctionModel(script), Registry(results_dir / "registry"))
+    hyp = Hypothesis(goal="translate", inputs={"seq": [Dna(sequence="ATG")]})
+    out = (await agent.run(hyp.goal, deps=hyp)).output
+
+    assert out.steps["protein"].node == PROTEIN
+    assert not [p for m in seen for p in m.parts if isinstance(p, RetryPromptPart)]
+    # The model is still told it is an object.
+    (create,) = [s for s in schema if "description" in s["properties"]]
+    assert create["properties"]["config"]["type"] == "object"
 
 
 async def test_agent_cannot_use_a_node_it_did_not_register(results_dir):

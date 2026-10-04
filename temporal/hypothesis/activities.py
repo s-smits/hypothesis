@@ -396,7 +396,7 @@ async def critique_attempt(inp: Stage) -> Out:
     earlier = [a.summary() for a in inp.hyp.attempts[:-1]]
     verdict = inp.hyp.attempts[-1].verdict
     r = await _ask(
-        critique_agent(inp.model),
+        critique_agent(inp.model, allow_requests=inp.allow_requests),
         to_json(
             {**_views(inp.hyp)[0], "verdict": verdict, "earlier": earlier}
         ).decode(),

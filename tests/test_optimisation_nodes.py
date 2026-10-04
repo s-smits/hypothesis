@@ -159,6 +159,14 @@ def test_resample_synonymous_redraws_more_than_a_few_positions():
     assert columns[0] == {"ATG"}  # M has no synonym.
 
 
+def test_resample_synonymous_keeps_the_stop_codon():
+    # TAA, TAG and TGA are synonyms, but swapping one moves where the gene ends.
+    node = ResampleSynonymous(
+        ResampleSynonymousConfig(seed=0, variants_per_sequence=40)
+    )
+    assert {v.sequence[-3:] for v in node.run(sequence=[REF])} == {"TAA"}
+
+
 # --- domesticate --------------------------------------------------------
 
 

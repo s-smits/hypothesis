@@ -248,7 +248,9 @@ async def test_the_critic_gets_a_prompt_that_fits_and_says_it_is_a_share(monkeyp
         )
 
     monkeypatch.setattr(
-        activities, "critique_agent", lambda model: real(FunctionModel(script))
+        activities,
+        "critique_agent",
+        lambda model, **kw: real(FunctionModel(script), **kw),
     )
 
     out = await critique_attempt(Stage(hyp=judged, model="test"))
