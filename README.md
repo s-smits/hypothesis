@@ -284,7 +284,8 @@ workflow. Only the model calls are non-deterministic, and each is an activity:
 
 Each model call writes its full message history, failed calls included, to
 `results/trajectories/<hypothesis id>-r<round>-<stage>.json` (`criteria` and `inputs` are round 0). That is
-where to look for which nodes the builder read and which guard it bounced off.
+where to look for which nodes the builder read and which guard it bounced off. An attempt that raised, so
+Temporal retried it, is also kept as `...-<stage>-a<attempt>.json`; the plain name holds the latest.
 
 Rounds stop at `max_rounds` (default 3; `--max-rounds` on `run_hypothesis`) or 500,000 tokens. The stop reason is
 `stopped_because`, and every round is kept in `attempts`.

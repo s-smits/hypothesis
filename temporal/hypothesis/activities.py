@@ -110,6 +110,7 @@ async def _ask(
     **kw: Any,  # noqa: ANN401
 ) -> dict[str, Any]:
     usage = RunUsage()  # Filled in as the run goes, so a call that fails still counts.
+    tag = f"{inp.hyp.id}-r{inp.hyp.round}-{stage}"
     with capture_run_messages() as messages:
         try:
             timeout = httpx2.Timeout(REQUEST_TIMEOUT, connect=CONNECT_TIMEOUT)
@@ -120,8 +121,14 @@ async def _ask(
             return {"error": e.message, "declined": True, "tokens": usage.total_tokens}
         except UnexpectedModelBehavior as e:
             return {"error": e.message, "tokens": usage.total_tokens}
+        except BaseException:
+            # Not an answer, so Temporal retries the activity, and the retry's transcript
+            # would replace this one's under the same name. Keep this attempt under its own.
+            attempt = activity.info().attempt if activity.in_activity() else 1
+            _record(f"{tag}-a{attempt}", messages)
+            raise
         finally:
-            _record(f"{inp.hyp.id}-r{inp.hyp.round}-{stage}", messages)
+            _record(tag, messages)
     return {"out": run.output, "tokens": usage.total_tokens}
 
 
