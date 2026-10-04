@@ -467,10 +467,16 @@ def critique_instructions(allow_requests: bool) -> str:
 
 
 CRITERIA_INSTRUCTIONS = """\
-Turn the goal into one to four criteria that decide whether it was met. Each is a claim a
-filter over the DAG's output could check. State what must be true, not how to do it.
+Turn the goal into one to four criteria that decide whether it was met: one for each
+requirement the goal states, such as "without changing the protein", and none for anything
+it does not (length, reading frame, start or stop codon, alphabet, a threshold it gives no
+number for). Each is a claim a filter over the DAG's output could check, from a score or
+count a node reports. Compare a score with a number the goal gives or an input it names,
+such as the first sequence, never with the input an output came from: no node sees which
+that was. Say each requirement once: "keep the ones above X" is one claim, not also "drop
+the ones that are not". State what must be true, not how to do it.
 Mark each quantitative when it names a measure or a comparison, qualitative when it
-states a property to judge."""
+states a property rather than a number."""
 
 COMPARATIVE_WORDS = (
     "higher",
