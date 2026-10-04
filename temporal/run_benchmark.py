@@ -12,6 +12,7 @@ which records the access in the ledger before any held-out sequence is read.
 
 import json
 import math
+import re
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
@@ -41,6 +42,7 @@ from node_dag.benchmark import (
     release_holdout as release_holdout_fn,
 )
 from node_dag.dna import codons
+from node_dag.storage import write_atomic
 from node_dag.types import Dna
 
 FLOOR = math.log(0.1)
@@ -65,7 +67,8 @@ def goal_for(instance: Instance, weights: Mapping[str, float]) -> dict:
     """
     table = json.dumps(dict(sorted(weights.items())), separators=(",", ":"))
     cs = codons(instance.parent.sequence)
-    keep = ", ".join(f"{cs[i]} at index {i}" for i in sorted(instance.fixed()))
+    fixed = sorted(instance.fixed())
+    keep = ", ".join(f"{cs[i]} at index {i}" for i in fixed)
     claims = {
         "protein_preserved": "Every kept output DNA sequence translates to exactly the same protein as the input sequence: only synonymous codon changes were made.",
         "higher_cai": "Every kept output sequence has a codon adaptation index, scored with the given weight table, strictly higher than that of the first input sequence.",
@@ -78,6 +81,8 @@ def goal_for(instance: Instance, weights: Mapping[str, float]) -> dict:
             "Raise the codon adaptation index of the DNA sequence without changing its protein. "
             f"Score it with this codon weight table: {table} . "
             f"Leave these codons as they are: {keep}. "
+            f"Check them with constraint_check using the input as reference and immutable={fixed}; "
+            "filter immutable_unchanged at 1. "
             "Keep the ones that score higher than the first sequence."
         ),
         "inputs": {"seqs": [{"kind": "dna", "sequence": instance.parent.sequence}]},
@@ -135,12 +140,17 @@ def _table(
     help="NCBI record to take coding sequences from.",
 )
 @click.option(
-    "--instances", "n_instances", default=10, help="How many genes to compare on."
+    "--instances",
+    "n_instances",
+    type=click.IntRange(min=1),
+    default=10,
+    help="How many genes to compare on.",
 )
 @click.option("--seed", default=11, help="Seeds the random synonymous baselines.")
 @click.option("--draws", default=8, help="How many draws the best-of-N baseline gets.")
 @click.option(
     "--holdout-fraction",
+    type=click.FloatRange(0, 1),
     default=0.3,
     help="Share of instances reserved for confirmation.",
 )
@@ -169,7 +179,7 @@ def _table(
     "--emit-goals",
     type=click.Path(file_okay=False, path_type=Path),
     default=None,
-    help="Write one loop goal file per instance to this directory, then stop: nothing is scored or recorded.",
+    help="Write one loop goal file per instance to this directory, then stop: no scores or attempts; held-out access is still recorded.",
 )
 def main(
     accession: str,
@@ -220,6 +230,8 @@ def main(
     if release:
         try:
             parsed = json.loads(frozen_raw) if frozen_raw else {}
+            if not isinstance(parsed, dict):
+                raise click.ClickException("--frozen must be a JSON object")
         except json.JSONDecodeError as e:
             raise click.ClickException(f"--frozen is not valid JSON: {e}") from e
         try:
@@ -239,13 +251,26 @@ def main(
         )
     click.echo(
         f"split {split.split_hash}: {len(split.dev)} development, "
-        f"{len(split.holdout)} held out. Scoring the {which} side.\n"
+        f"{len(split.holdout)} held out. "
+        f"{'Exporting' if emit_goals else 'Scoring'} the {which} side.\n"
     )
     if emit_goals:
-        emit_goals.mkdir(parents=True, exist_ok=True)
-        for i in instances:
-            goal = json.dumps(goal_for(i, cai_w), indent=1)
-            (emit_goals / f"goal_{i.key}.json").write_text(goal)
+        keys = [i.key for i in instances]
+        if len(set(keys)) != len(keys):
+            raise click.ClickException(
+                "Duplicate instance keys would overwrite goal files"
+            )
+        if any(not re.fullmatch(r"[A-Za-z0-9_.-]+", key) for key in keys):
+            raise click.ClickException(
+                "Instance keys must be safe filename labels: letters, digits, _, . or -"
+            )
+        paths = [emit_goals / f"goal_{key}.json" for key in keys]
+        if any(path.exists() for path in paths):
+            raise click.ClickException(
+                "Goal files already exist; use a fresh export directory"
+            )
+        for i, path in zip(instances, paths):
+            write_atomic(path, json.dumps(goal_for(i, cai_w), indent=2).encode())
         click.echo(f"wrote {len(instances)} goals to {emit_goals}; nothing was scored")
         return
 

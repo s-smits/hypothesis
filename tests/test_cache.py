@@ -128,3 +128,34 @@ def test_a_filter_without_a_reference_keeps_its_key_and_hash_from_before_referen
     assert inp.cache_path().name == (
         "7c9e2944895710a84844c5652155609bdd72b9a17244962ec1374358070d3ec9.json"
     )
+
+
+def test_constraint_check_cache_separates_positions_and_version_one(results_dir):
+    from node_dag.nodes.tools.constraint_check.config import ConstraintCheckConfig
+
+    ref, changed = Dna(sequence="ATGCTGTGA"), Dna(sequence="ATGCTGTAA")
+    free = RunNodeInput(
+        config=ConstraintCheckConfig(reference=ref), inputs={"sequence": [changed]}
+    )
+    fixed = RunNodeInput(
+        config=ConstraintCheckConfig(reference=ref, immutable=(2,)), inputs=free.inputs
+    )
+    assert run_score(free)[0]["immutable_unchanged"].value == 1
+    assert run_score(fixed)[0]["immutable_unchanged"].value == 0
+    assert fixed.cache_path() != free.cache_path()
+    old_fields = free.config.model_dump(
+        mode="json", exclude={"config_hash", "immutable"}
+    )
+    old_hash = hashlib.sha256(
+        json.dumps({"version": 1, **old_fields}, sort_keys=True).encode()
+    ).hexdigest()[:8]
+    old_key = free.model_dump(mode="json", exclude={"step", "reference"})
+    old_key["config"] = {**old_fields, "config_hash": old_hash}
+    old_key["version"] = 1
+    old_path = (
+        hashlib.sha256(json.dumps(old_key, sort_keys=True).encode()).hexdigest()
+        + ".json"
+    )
+    assert free.config.version == 2
+    assert free.config.config_hash != old_hash
+    assert free.cache_path().name != old_path
