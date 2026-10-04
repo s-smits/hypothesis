@@ -44,6 +44,10 @@ def _unscored(
         else "reads the output of a tool step, not an input"
     )
     where = f"is in input {holders}" if holders else "is in none of the inputs"
+    if read is not None and read & set(holders):
+        # Its input holds the reference, so a filter on the way dropped it.
+        reads = f"reads input {sorted(read)}, which holds the reference"
+        where = "was not kept by a filter on the way"
     return (
         f"Step {key!r} compares with {shown}, but {source!r} has no score for it in "
         f"{column!r}. {source!r} {reads}, and the reference "
