@@ -123,10 +123,14 @@ to it or one the user kept, so a citation is not invented; it is still only the 
 reading of that record, and it does not establish that the record justifies the
 configuration field or threshold beside it.
 
-`HypothesisLoop` (`temporal/hypothesis/`) repeats rounds: it fixes the criteria,
-critiques a missed round, and blocks on a requested node until `tool_added` is
-signalled. It is distinct from the outer recoding research loop that selects
-reusable algorithms. `docs/intended-structure.md` is a design sketch of `main`
+`HypothesisLoop` (`temporal/hypothesis/`) repeats rounds: it fixes the criteria and
+critiques a missed round. With `allow_requests` it also blocks on a requested node
+until `tool_added` is signalled. That flag is off by default: `check_plan` sends back
+a plan carrying `requests`, so the builder composes from the nodes that exist, and a
+node that goes missing another way ends the run rather than waiting. Turn it on with
+`--allow-requests` on `run_hypothesis`, or `allow_requests` in `POST /api/hypotheses`,
+when you intend to write the node. It is distinct from the outer recoding research
+loop that selects reusable algorithms. `docs/intended-structure.md` is a design sketch of `main`
 before the loop existed; do not treat its names as APIs, or turn an
 unavailable-tool request into an executable DAG node.
 

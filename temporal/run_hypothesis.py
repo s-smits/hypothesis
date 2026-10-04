@@ -39,9 +39,20 @@ from temporal.hypothesis.loop import (
     show_default=True,
     help="Most plans to try.",
 )
+@click.option(
+    "--allow-requests",
+    is_flag=True,
+    help="Let the builder ask for a node nobody has written, and wait for a person to "
+    "write it. Off by default: the builder composes from the nodes that exist.",
+)
 @click.option("--address", default="localhost:7233", help="Temporal server address.")
 def main(
-    path: Path, model: str, verify_model: str, max_rounds: int, address: str
+    path: Path,
+    model: str,
+    verify_model: str,
+    max_rounds: int,
+    allow_requests: bool,
+    address: str,
 ) -> None:
     """Run the Hypothesis JSON file at PATH to a verdict. Print the result."""
 
@@ -53,6 +64,7 @@ def main(
             build_model=model,
             verify_model=verify_model,
             max_rounds=max_rounds,
+            allow_requests=allow_requests,
         )
         done = await client.execute_workflow(
             HypothesisLoop.run, inp, id=hyp.id, task_queue=TASK_QUEUE

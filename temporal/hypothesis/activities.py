@@ -57,10 +57,15 @@ def save_hypothesis(hyp: Hypothesis) -> Hypothesis:
 
 
 class Stage(BaseModel):
-    """Input to an agent activity: the Hypothesis as it stands, and the model to use."""
+    """Input to an agent activity: the Hypothesis as it stands, and the model to use.
+
+    ``allow_requests`` lets the builder ask for a node that does not exist, which blocks
+    the run until a person writes it. Off by default: the builder composes what exists.
+    """
 
     hyp: Hypothesis
     model: str
+    allow_requests: bool = False
 
 
 class Out(BaseModel):
@@ -327,7 +332,12 @@ async def derive_criteria(inp: Stage) -> Out:
 async def plan_hypothesis(inp: Stage) -> Out:
     """Run the builder, which sees every earlier attempt, and return its Plan."""
     seen: Seen = {}
-    agent = build_agent(inp.model, Registry(results_subdir("registry")), seen)
+    agent = build_agent(
+        inp.model,
+        Registry(results_subdir("registry")),
+        seen,
+        allow_requests=inp.allow_requests,
+    )
     r = await _ask(agent, plan_prompt(inp.hyp), inp, "plan", deps=inp.hyp)
     plan: Plan | None = r.get("out")
     return Out(
