@@ -179,12 +179,17 @@ function renderGraph(p) {
   if (key === lastRender) return;
   lastRender = key;
   const byKey = Object.fromEntries(rows(p).map((r) => [r.key, r]));
+  // What a step reads: its inputs and, for a filter with a reference, the step that scored it.
+  const reads = (k) => {
+    const step = p.dag.steps[k];
+    return step ? [...Object.values(step.inputs), ...(step.config.scored_in ? [step.config.scored_in] : [])] : [];
+  };
   const nodes = Object.keys(byKey).map((k) => ({
     id: k,
-    dependencies: k in p.dag.steps ? [...new Set(Object.values(p.dag.steps[k].inputs).map((s) => s.split(".")[0]))] : [],
+    dependencies: [...new Set(reads(k).map((s) => s.split(".")[0]))],
   }));
   // An edge is "used" once its source has produced the value the target reads.
-  const used = (src, tgt) => tgt in p.dag.steps && Object.values(p.dag.steps[tgt].inputs).some((s) => s.split(".")[0] === src && s in p.values);
+  const used = (src, tgt) => reads(tgt).some((s) => s.split(".")[0] === src && s in p.values);
   dag?.destory();
   $("#graph").innerHTML = "";
   dag = niceDag.init({
@@ -343,8 +348,10 @@ function nodeData(p, key) {
     if (!yes) return { meta: `${inT.items.length} in · ${p.steps[key]}`, html: inT.items.length ? entities(inT.items, inT.scores, inCols, { hl: args.column }) : empty };
     const kept = new Set(yes.items.map((i) => i.id));
     const op = name === "at_most" ? "≤" : name === "at_least" ? "≥" : "vs";
+    const ref = args.reference;  // beats_reference compares with a measured score, not a threshold.
+    const bound = ref ? `beats ${ref.kind} ${ref.sequence.slice(0, 12)} scored in ${args.scored_in}${args.higher === false ? " (lower is better)" : ""}` : `${op} ${args.threshold}`;
     return {
-      meta: `${colLabel(args.column).label} ${op} ${args.threshold} · ${yes.items.length} kept, ${no.items.length} filtered out`,
+      meta: `${colLabel(args.column).label} ${bound} · ${yes.items.length} kept, ${no.items.length} filtered out`,
       html: entities(inT.items, inT.scores, inCols, {
         hl: args.column,
         extraCols: [{ label: "result" }],

@@ -1,4 +1,4 @@
-MODEL ?= anthropic:claude-haiku-4-5
+MODEL ?=
 LOGS := results/logs
 
 .PHONY: start stop restart logs
@@ -15,7 +15,7 @@ start:
 		echo "Temporal server already running"; \
 	fi
 	@nohup uv run python -m temporal.run_worker > $(LOGS)/worker.log 2>&1 &
-	@nohup uv run python -m temporal.run_ui --model $(MODEL) > $(LOGS)/ui.log 2>&1 &
+	@nohup uv run python -m temporal.run_ui $(if $(MODEL),--model $(MODEL)) > $(LOGS)/ui.log 2>&1 &
 	@echo "Started worker and UI (logs in $(LOGS)/)"
 	@echo "  UI:          http://127.0.0.1:8000"
 	@echo "  Temporal UI: http://localhost:8233"

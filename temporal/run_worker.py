@@ -22,6 +22,9 @@ from temporal.dag.activities import (
     save_workflow,
 )
 from temporal.dag.workflow import TASK_QUEUE, DagWorkflow
+from temporal.hypothesis import activities as hyp
+from temporal.hypothesis.loop import HypothesisLoop
+from temporal.ledger import record_ledger
 
 
 def _delayed(fn: FunctionType, seconds: float) -> FunctionType:
@@ -37,15 +40,26 @@ def _delayed(fn: FunctionType, seconds: float) -> FunctionType:
 
 async def _main(address: str, step_delay: float) -> None:
     client = await Client.connect(address, data_converter=pydantic_data_converter)
-    activities = [run_tool, run_score, run_filter]
+    activities: list[FunctionType] = [run_tool, run_score, run_filter]
     if step_delay:
         activities = [_delayed(fn, step_delay) for fn in activities]
-    activities.append(save_workflow)
+    activities += [
+        save_workflow,
+        hyp.derive_criteria,
+        hyp.draft_inputs,
+        hyp.plan_hypothesis,
+        hyp.resolve_plan,
+        hyp.verify_outcome,
+        hyp.critique_attempt,
+        hyp.save_state,
+        hyp.save_requests,
+        record_ledger,
+    ]
     with ThreadPoolExecutor() as pool:
         await Worker(
             client,
             task_queue=TASK_QUEUE,
-            workflows=[DagWorkflow],
+            workflows=[DagWorkflow, HypothesisLoop],
             activities=activities,
             activity_executor=pool,
         ).run()

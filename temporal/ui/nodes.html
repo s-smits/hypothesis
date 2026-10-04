@@ -37,6 +37,7 @@
     <span class="meta" id="count"></span>
     <input id="search" type="search" placeholder="Filter by name, description, score column…" autocomplete="off">
   </div>
+  <div id="requests"></div>
   <div id="list"><div class="empty">Loading…</div></div>
 </main>
 <script>
@@ -79,6 +80,39 @@ function card(n) {
     </details>`;
 }
 
+// Nodes the builder asked for. Resume tells every run blocked on one to resolve its plan again.
+function requestCard(r) {
+  const q = r.request;
+  return `
+    <div class="card">
+      <div class="top">
+        <span class="name">${esc(q.name)}</span><span class="cat">${esc(q.node)}</span>
+        <span class="meta">${r.blocked.length ? `${r.blocked.length} blocked` : "nobody blocked"}</span>
+        ${r.blocked.length ? `<button data-resume="${esc(r.blocked.join(","))}">Resume ${r.blocked.length}</button>` : ""}
+      </div>
+      <div class="desc">${esc(q.purpose)}</div>
+      <details><summary>Contract</summary><pre>${esc(JSON.stringify(q, null, 2))}</pre></details>
+    </div>`;
+}
+
+let lastRequests = "";
+function drawRequests(requests) {
+  const html = requests.length ? `<div class="label">Requested nodes, most blocked first</div>${requests.map(requestCard).join("")}` : "";
+  if (html !== lastRequests) $("#requests").innerHTML = lastRequests = html;
+}
+
+$("#requests").addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-resume]");
+  if (!b) return;
+  b.disabled = true;
+  try {
+    await Promise.all(b.dataset.resume.split(",").map((id) => fetch(`/api/hypotheses/${encodeURIComponent(id)}/tool_added`, { method: "POST" })));
+  } finally {
+    // The card is not redrawn when nothing on it changed, so a run that blocks again needs the button back.
+    b.disabled = false;
+  }
+});
+
 function draw() {
   if (nodes === null) return;
   const q = $("#search").value.trim().toLowerCase();
@@ -101,9 +135,10 @@ $("#list").addEventListener("toggle", (e) => {
 
 async function load() {
   try {
-    const r = await fetch("/api/nodes");
+    const [r, q] = await Promise.all([fetch("/api/nodes"), fetch("/api/requests")]);
     if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
     nodes = await r.json();
+    if (q.ok) drawRequests(await q.json());
     $("#updated").textContent = `updated ${new Date().toLocaleTimeString()}`;
     draw();
   } catch (e) {

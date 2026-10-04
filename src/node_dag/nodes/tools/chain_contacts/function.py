@@ -2,6 +2,7 @@ import io
 
 import mdtraj as md
 import numpy as np
+from mdtraj.core.topology import Residue
 from mdtraj.formats.pdbx.pdbxfile import PDBxFile
 from mdtraj.formats.pdbx.PdbxReader import PdbxReader
 
@@ -45,7 +46,7 @@ def load_mmcif(structure: str) -> tuple[md.Trajectory, list[str]]:
     return traj, chains
 
 
-def residue_label(residue: md.core.topology.Residue, chain: str) -> str:
+def residue_label(residue: Residue, chain: str) -> str:
     """``chain:res_name:res_num:insertion_code``.
 
     mdtraj's mmCIF reader passes the insertion code where ``add_residue`` takes a

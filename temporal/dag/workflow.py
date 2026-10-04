@@ -2,9 +2,15 @@ import asyncio
 from datetime import timedelta
 
 from temporalio import workflow
+from temporalio.common import RetryPolicy
+from temporalio.exceptions import (
+    ActivityError,
+    ApplicationError,
+    is_cancelled_exception,
+)
 
 with workflow.unsafe.imports_passed_through():
-    from node_dag.dag import DagInput, DagOutput, DagProgress, StepStatus
+    from node_dag.dag import Dag, DagInput, DagOutput, DagProgress, StepStatus
     from node_dag.nodes.base import BaseFilterConfig, BaseScoreConfig
     from node_dag.types import Table
     from temporal.dag.activities import (
@@ -18,6 +24,37 @@ with workflow.unsafe.imports_passed_through():
     )
 
 TASK_QUEUE = "node-dag"
+# A node that raises will raise again, so give up fast rather than retry until timeout.
+RETRY = RetryPolicy(maximum_attempts=3)
+
+
+def _unscored(
+    dag: Dag, values: dict[str, Table], key: str, source: str, ref_id: str, column: str
+) -> str:
+    """Why ``source`` has no score for a filter's reference, and what to change."""
+    held = {n: {i.id: i for i in values[n].items} for n in dag.inputs}
+    holders = [n for n, ids in held.items() if ref_id in ids]
+    shown = (
+        f"{held[holders[0]][ref_id].sequence[:20]} ({ref_id})" if holders else ref_id
+    )
+    read = dag.inputs_read(source)
+    reads = (
+        f"reads input {sorted(read)}"
+        if read is not None
+        else "reads the output of a tool step, not an input"
+    )
+    where = f"is in input {holders}" if holders else "is in none of the inputs"
+    if read is not None and read & set(holders):
+        # Its input holds the reference, so a filter on the way dropped it.
+        reads = f"reads input {sorted(read)}, which holds the reference"
+        where = "was not kept by a filter on the way"
+    return (
+        f"Step {key!r} compares with {shown}, but {source!r} has no score for it in "
+        f"{column!r}. {source!r} {reads}, and the reference "
+        f"{where}. Score the reference with the same node as the entities it is "
+        "compared with, in a step that runs first and reads the input that holds it, "
+        "and name that step in scored_in."
+    )
 
 
 @workflow.defn
@@ -69,7 +106,10 @@ class DagWorkflow:
             try:
                 if isinstance(config, BaseScoreConfig):
                     rows = await workflow.execute_activity(
-                        run_score, node_inp, start_to_close_timeout=timeout
+                        run_score,
+                        node_inp,
+                        start_to_close_timeout=timeout,
+                        retry_policy=RETRY,
                     )
                     new = {
                         col: {i.id: r[name].value for i, r in zip(table.items, rows)}
@@ -88,8 +128,22 @@ class DagWorkflow:
                     node_inp = node_inp.model_copy(
                         update={"values": by_col[cols[0]] if len(cols) == 1 else by_col}
                     )
+                    if ref := config.reads_reference():
+                        source, ref_id = ref
+                        score = values[source].scores.get(config.column, {}).get(ref_id)
+                        if score is None:
+                            raise ApplicationError(
+                                _unscored(
+                                    dag, values, key, source, ref_id, config.column
+                                ),
+                                non_retryable=True,
+                            )
+                        node_inp = node_inp.model_copy(update={"reference": score})
                     keep = await workflow.execute_activity(
-                        run_filter, node_inp, start_to_close_timeout=timeout
+                        run_filter,
+                        node_inp,
+                        start_to_close_timeout=timeout,
+                        retry_policy=RETRY,
                     )
                     for out, want in zip(outs, (True, False)):
                         values[out] = Table.of(
@@ -98,7 +152,10 @@ class DagWorkflow:
                         )
                 else:
                     items = await workflow.execute_activity(
-                        run_tool, node_inp, start_to_close_timeout=timeout
+                        run_tool,
+                        node_inp,
+                        start_to_close_timeout=timeout,
+                        retry_policy=RETRY,
                     )
                     values[key] = Table.of(items)
             except Exception:
@@ -145,12 +202,21 @@ class DagWorkflow:
                 close_time=workflow.now(),
                 error=error,
             )
-            await workflow.execute_activity(
-                save_workflow,
-                SaveWorkflowInput(
-                    workflow_id=workflow.info().workflow_id, progress=saved
-                ),
-                start_to_close_timeout=timedelta(seconds=30),
-            )
+            # A file that cannot be written never changes how the run ended: the caller
+            # still gets the result, or the step's own error, and Temporal has the run.
+            # A cancel that lands during the save is not a failed save: it is let through.
+            try:
+                await workflow.execute_activity(
+                    save_workflow,
+                    SaveWorkflowInput(
+                        workflow_id=workflow.info().workflow_id, progress=saved
+                    ),
+                    start_to_close_timeout=timedelta(seconds=30),
+                    retry_policy=RETRY,
+                )
+            except ActivityError as e:
+                if is_cancelled_exception(e):
+                    raise
+                workflow.logger.warning("The run was not saved: %s", e.cause or e)
         skipped = sorted(k for k, s in steps.items() if s == "skipped")
         return DagOutput(values=values, skipped=skipped)

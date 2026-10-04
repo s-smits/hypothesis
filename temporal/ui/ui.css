@@ -69,12 +69,12 @@ details.sec > .body { padding: 0 0 14px 18px; display: flex; flex-direction: col
   font-size: 11px; font-weight: 600; line-height: 1.6; white-space: nowrap; color: #fff;
 }
 .s-pending, .s-building { background: var(--pending); }
-.s-RUNNING, .s-running, .s-verifying { background: var(--running); }
+.s-RUNNING, .s-running, .s-verifying, .s-critiquing { background: var(--running); }
 .s-COMPLETED, .s-done, .s-achieved, .s-kept, .s-met { background: var(--done); }
-.s-not-achieved, .s-not-met, .s-out { background: var(--amber); }
+.s-not-achieved, .s-not-met, .s-out, .s-blocked { background: var(--amber); }
 .s-FAILED, .s-TERMINATED, .s-TIMED_OUT, .s-CANCELED, .s-failed { background: var(--failed); }
 .s-interrupted { background: var(--muted); }
-.s-skipped, .s-unclear { background: var(--skipped); color: var(--muted); }
+.s-skipped, .s-unclear, .s-abandoned { background: var(--skipped); color: var(--muted); }
 
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip {

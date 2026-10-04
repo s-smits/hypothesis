@@ -40,8 +40,9 @@
       </div>
       <div class="hint">
         The builder agent works out which sequences the goal is about and fetches them from NCBI,
-        writes the DAG and runs it, then the verifier judges the outcome. Name the gene, organism or
-        accession so it can find the right record.
+        writes the DAG and runs it; the goal is met only when each criterion's assertion holds. A
+        missing node blocks the run until someone adds it. Name the gene, organism or accession so
+        it can find the right record.
       </div>
     </div>
 
@@ -73,6 +74,17 @@
       </div>
     </details>
 
+    <details class="sec">
+      <summary>Limits <span class="count" id="rounds-count">default</span></summary>
+      <div class="body">
+        <div>
+          <label for="rounds">Max rounds</label>
+          <input id="rounds" type="number" min="1" max="10" placeholder="3">
+        </div>
+        <div class="hint">Most plans the loop will try before it stops. Left empty, it uses its own default.</div>
+      </div>
+    </details>
+
     <div class="go">
       <button class="primary" id="go">Start</button>
       <span class="hint">You can close this page; follow progress under Hypotheses.</span>
@@ -89,12 +101,12 @@ const explain = (d) => typeof d === "string" ? d : Array.isArray(d) ? d.map((e) 
 let GOALS = [];
 
 // One editable criterion row: its kind, its text, and a way to remove it.
-function criterionRow(c = { kind: "quantitative", text: "" }) {
+function criterionRow(c = { kind: "quantitative", claim: "" }) {
   const row = document.createElement("div");
   row.className = "criterion";
   row.innerHTML = `<select><option value="quantitative">quantitative</option><option value="qualitative">qualitative</option></select><input placeholder="e.g. expression above the input sequences&#39;"><button type="button" class="quiet" title="Remove">×</button>`;
   row.querySelector("select").value = c.kind;
-  row.querySelector("input").value = c.text;
+  row.querySelector("input").value = c.claim;
   row.querySelector("button").addEventListener("click", () => { row.remove(); counts(); });
   return row;
 }
@@ -135,6 +147,7 @@ function counts() {
   $("#crit-count").textContent = n("#criteria .criterion") || "none";
   $("#obs-count").textContent = n("#observations .observation") || "none";
   $("#hyp-count").textContent = $("#hypothesis").value.trim() ? "written" : "optional";
+  $("#rounds-count").textContent = $("#rounds").value ? `${$("#rounds").value} rounds` : "default";
 }
 
 // Picking a previous goal hides the text box: that goal, and the success criteria
@@ -176,6 +189,7 @@ const observations = () => [...document.querySelectorAll("#observations .observa
 
 $("#goal-pick").addEventListener("change", pickGoal);
 $("#hypothesis").addEventListener("input", counts);
+$("#rounds").addEventListener("input", counts);
 $("#add-criterion").addEventListener("click", () => { $("#criteria").append(criterionRow()); counts(); });
 
 // An agent fills a section in. Clicking the button must not toggle the section.
@@ -217,6 +231,7 @@ $("#form").addEventListener("submit", async (e) => {
   $("#go").disabled = true;
   try {
     const body = { goal: goalText(), hypothesis: $("#hypothesis").value, criteria: criteria(), observations: observations() };
+    if ($("#rounds").value) body.max_rounds = Number($("#rounds").value);  // Blank means absent, not null.
     const r = await fetch("/api/hypotheses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(explain(data.detail ?? `${r.status}`));

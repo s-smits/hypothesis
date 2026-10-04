@@ -7,6 +7,8 @@ from node_dag.nodes.filters.at_least.config import AtLeastConfig
 from node_dag.nodes.filters.at_least.function import AtLeast
 from node_dag.nodes.filters.at_most.config import AtMostConfig
 from node_dag.nodes.filters.at_most.function import AtMost
+from node_dag.nodes.filters.beats_reference.config import BeatsReferenceConfig
+from node_dag.nodes.filters.beats_reference.function import BeatsReference
 from node_dag.nodes.filters.pareto_front.config import ParetoFrontConfig
 from node_dag.nodes.filters.pareto_front.function import ParetoFront
 from node_dag.nodes.filters.top_k.config import TopKConfig
@@ -15,6 +17,8 @@ from node_dag.nodes.tools.chain_contacts.config import ChainContactsConfig
 from node_dag.nodes.tools.chain_contacts.function import ChainContacts
 from node_dag.nodes.tools.codon_adaptation.config import CodonAdaptationConfig
 from node_dag.nodes.tools.codon_adaptation.function import CodonAdaptation
+from node_dag.nodes.tools.codon_count.config import CodonCountConfig
+from node_dag.nodes.tools.codon_count.function import CodonCount
 from node_dag.nodes.tools.codon_optimise.config import CodonOptimiseConfig
 from node_dag.nodes.tools.codon_optimise.function import CodonOptimise
 from node_dag.nodes.tools.codon_pair_score.config import CodonPairScoreConfig
@@ -69,7 +73,9 @@ from node_dag.nodes.tools.rna_back_transcribe.function import RnaBackTranscribe
 NodeConfig = Annotated[
     AtLeastConfig
     | AtMostConfig
+    | BeatsReferenceConfig
     | ChainContactsConfig
+    | CodonCountConfig
     | CodonAdaptationConfig
     | CodonOptimiseConfig
     | CodonPairScoreConfig
@@ -103,7 +109,9 @@ NodeConfig = Annotated[
 MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
     AtLeastConfig: AtLeast,
     AtMostConfig: AtMost,
+    BeatsReferenceConfig: BeatsReference,
     ChainContactsConfig: ChainContacts,
+    CodonCountConfig: CodonCount,
     CodonAdaptationConfig: CodonAdaptation,
     CodonOptimiseConfig: CodonOptimise,
     CodonPairScoreConfig: CodonPairScore,

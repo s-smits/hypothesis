@@ -11,15 +11,13 @@ from pydantic_ai.messages import (
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from node_dag import amass
-from node_dag.agent import (
-    Hypothesis,
-    Observation,
-    build_agent,
-    observations_agent,
-)
+from node_dag.agent import Hypothesis, Seen, build_agent, cite, observations_agent
 from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
+from node_dag.plan import Observation
 from node_dag.registry import Registry
 from node_dag.types import Dna
+from temporal.hypothesis import activities
+from temporal.hypothesis.activities import Stage
 
 HIT = {
     "amassId": "AMBC_1",
@@ -75,7 +73,7 @@ def test_a_failure_is_not_cached(tmp_path, monkeypatch):
 
 
 def _builder(calls_: list, observations: list[dict]):
-    """A builder that searches, then submits a DAG citing ``observations``."""
+    """A builder that searches, then submits a plan citing ``observations``."""
     seen: list = []
 
     def script(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
@@ -87,8 +85,14 @@ def _builder(calls_: list, observations: list[dict]):
         turn = sum(isinstance(m, ModelResponse) for m in messages)
         if turn < len(calls_):
             return ModelResponse(parts=[ToolCallPart(*calls_[turn])])
-        args = {"hypothesis": "translate", "inputs": {"seq": "dna"}, "steps": {}}
-        args["steps"] = {"protein": {"node": PROTEIN, "inputs": {"sequence": "seq"}}}
+        args = {
+            "hypothesis": "translate",
+            "expected": "proteins",
+            "inputs": {"seq": "dna"},
+        }
+        args["steps"] = {
+            "protein": {"node": PROTEIN, "inputs": {"sequence": "seq"}, "why": "w"}
+        }
         # Cite a made-up record first; the retry cites only the real one.
         cite = observations if turn == len(calls_) else observations[-1:]
         args["observations"] = cite
@@ -109,7 +113,8 @@ async def test_builder_cites_only_records_it_was_shown(calls, tmp_path):
             {"amass_id": "AMBC_1", "summary": "RBS strength sets expression."},
         ],
     )
-    agent = build_agent(FunctionModel(script), Registry(tmp_path / "registry"))
+    shown: Seen = {}
+    agent = build_agent(FunctionModel(script), Registry(tmp_path / "registry"), shown)
     hyp = Hypothesis(goal="translate", inputs={"seq": [Dna(sequence="ATG")]})
     out = (await agent.run(hyp.goal, deps=hyp)).output
 
@@ -118,7 +123,7 @@ async def test_builder_cites_only_records_it_was_shown(calls, tmp_path):
         {"amassId": "AMBC_1", "title": "Ribosome binding sites", "abstract": "..."}
     ]
     assert "AMBC_made_up" in str(retry)
-    (obs,) = out.observations
+    (obs,) = cite(out, shown)
     assert obs.model_dump() == {
         "amass_id": "AMBC_1",
         "summary": "RBS strength sets expression.",
@@ -131,15 +136,40 @@ async def test_builder_cites_only_records_it_was_shown(calls, tmp_path):
     }
 
 
+async def test_the_plan_activity_returns_the_records_the_plan_cites(
+    calls, tmp_path, monkeypatch
+):
+    script, _ = _builder(
+        [("search_literature", {"query": "rbs"}), CREATE],
+        [{"amass_id": "AMBC_1", "summary": "RBS strength sets expression."}],
+    )
+    real = activities.build_agent
+    monkeypatch.setattr(
+        activities,
+        "build_agent",
+        lambda model, registry, seen: real(FunctionModel(script), registry, seen),
+    )
+    hyp = Hypothesis(goal="translate", inputs={"seq": [Dna(sequence="ATG")]})
+
+    out = await activities.plan_hypothesis(Stage(hyp=hyp, model="test"))
+
+    assert out.error is None and out.plan
+    assert [o.amass_id for o in out.plan.observations] == ["AMBC_1"]
+    (obs,) = out.observations
+    assert (obs.core, obs.title) == ("biomedcore", "Ribosome binding sites")
+    assert obs.summary == "RBS strength sets expression."
+
+
 async def test_a_failed_search_reaches_the_agent_as_an_error(monkeypatch, tmp_path):
     monkeypatch.setenv("NODE_DAG_RESULTS", str(tmp_path))
     monkeypatch.delenv("AMASS_API_KEY", raising=False)
     script, seen = _builder([("search_literature", {"query": "rbs"}), CREATE], [])
-    agent = build_agent(FunctionModel(script), Registry(tmp_path / "registry"))
+    shown: Seen = {}
+    agent = build_agent(FunctionModel(script), Registry(tmp_path / "registry"), shown)
     hyp = Hypothesis(goal="translate", inputs={"seq": [Dna(sequence="ATG")]})
     out = (await agent.run(hyp.goal, deps=hyp)).output
     assert seen[0] == {"error": "AMASS_API_KEY is not set."}
-    assert out.observations == []
+    assert out.observations == [] and cite(out, shown) == []
 
 
 GIVEN = Observation(
@@ -165,14 +195,16 @@ async def test_the_builder_cites_an_observation_it_was_given(tmp_path):
     script, _ = _builder(
         [CREATE], [{"amass_id": "AMBC_given", "summary": "Set the UTR."}]
     )
-    agent = build_agent(FunctionModel(script), Registry(tmp_path / "registry"))
+    shown: Seen = {}
+    agent = build_agent(FunctionModel(script), Registry(tmp_path / "registry"), shown)
     hyp = _given_hypothesis()
     out = (await agent.run(hyp.goal, deps=hyp)).output
+    cited = cite(out, shown, hyp.observations)
 
     # The user's summary stands and the record's title and link survive: it did
     # not refetch it. What the builder made of the record goes beside them, so a
     # citation cannot quietly delete the correction a reviewer wrote.
-    (obs,) = out.observations
+    (obs,) = cited
     assert obs == GIVEN.model_copy(update={"used": "Set the UTR."})
     assert obs.summary == "What the user kept."
 
@@ -180,10 +212,12 @@ async def test_the_builder_cites_an_observation_it_was_given(tmp_path):
 async def test_an_observation_the_builder_does_not_cite_is_kept(tmp_path):
     """Gathering a record before the build is not undone by going uncited."""
     script, _ = _builder([CREATE], [])
-    agent = build_agent(FunctionModel(script), Registry(tmp_path / "registry"))
+    shown: Seen = {}
+    agent = build_agent(FunctionModel(script), Registry(tmp_path / "registry"), shown)
     hyp = _given_hypothesis()
     out = (await agent.run(hyp.goal, deps=hyp)).output
-    assert out.observations == [GIVEN]
+    cited = cite(out, shown, hyp.observations)
+    assert cited == [GIVEN]
 
 
 async def test_a_cited_record_the_builder_found_is_added_after_the_given_ones(
@@ -196,18 +230,20 @@ async def test_a_cited_record_the_builder_found_is_added_after_the_given_ones(
             {"amass_id": "AMBC_1", "summary": "RBS strength sets expression."},
         ],
     )
-    agent = build_agent(FunctionModel(script), Registry(tmp_path / "registry"))
+    shown: Seen = {}
+    agent = build_agent(FunctionModel(script), Registry(tmp_path / "registry"), shown)
     hyp = _given_hypothesis()
     out = (await agent.run(hyp.goal, deps=hyp)).output
+    cited = cite(out, shown, hyp.observations)
 
     # The retry lists both the record it was shown and the one it was given.
     retry = str(seen[-1])
     assert "AMBC_made_up" in retry
     assert "AMBC_1" in retry and "AMBC_given" in retry
-    assert [o.amass_id for o in out.observations] == ["AMBC_given", "AMBC_1"]
+    assert [o.amass_id for o in cited] == ["AMBC_given", "AMBC_1"]
     # A record the builder found itself has no user summary to protect, so its
     # own text is the summary and `used` stays empty.
-    found = out.observations[1]
+    found = cited[1]
     assert found.summary == "RBS strength sets expression."
     assert found.used is None
 
@@ -264,3 +300,22 @@ async def test_the_observations_agent_may_find_nothing(calls):
     ).output
     assert out == []
     assert len(calls) == 1  # It did search before answering.
+
+
+async def test_the_plan_activity_keeps_the_records_the_user_gave(tmp_path, monkeypatch):
+    """The loop saves what the activity returns, so the user's list must survive it."""
+    script, _ = _builder(
+        [CREATE], [{"amass_id": "AMBC_given", "summary": "Set the UTR."}]
+    )
+    real = activities.build_agent
+    monkeypatch.setattr(
+        activities,
+        "build_agent",
+        lambda model, registry, seen: real(FunctionModel(script), registry, seen),
+    )
+    monkeypatch.setenv("NODE_DAG_RESULTS", str(tmp_path))
+
+    out = await activities.plan_hypothesis(Stage(hyp=_given_hypothesis(), model="test"))
+
+    assert out.error is None
+    assert out.observations == [GIVEN.model_copy(update={"used": "Set the UTR."})]
