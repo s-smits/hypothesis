@@ -3,5 +3,4 @@ src/node_dag/nodes/tools/esmfold2_fold/__init__.py: RUF022 [*] `__all__` is not 
 tests/test_agent.py: B017 Do not assert blind exception: `Exception`
 tests/test_agent.py: B017 Do not assert blind exception: `Exception`
 tests/test_agent.py: RUF015 Prefer `next(...)` over single element slice
-tests/test_agent.py: unformatted: File would be reformatted
 tests/test_dna.py: unformatted: File would be reformatted
