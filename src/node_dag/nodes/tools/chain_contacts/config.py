@@ -52,8 +52,9 @@ class ChainContactsConfig(BaseToolConfig):
         "e.g. an antibody-antigen or protein-protein interface, with distances."
     )
     when_not_to_use: ClassVar = (
-        "Do not use on single-chain structures, such as esmfold2_fold output: it "
-        "finds no intra-chain contacts. Do not use for protein-ligand contacts."
+        "Do not use on single-chain structures, such as esmfold2_fold output "
+        "without as_complex: it finds no intra-chain contacts. Do not use for "
+        "protein-ligand contacts."
     )
 
     @model_validator(mode="after")

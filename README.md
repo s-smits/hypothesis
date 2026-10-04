@@ -377,10 +377,12 @@ We also have $20 of HuggingFace Jobs, which is pretty similar.
 `esmfold2_fold` takes amino acid sequences and gives a `ProteinStructure` for each: the
 sequence and its predicted structure as an mmCIF string. It folds each sequence as a
 monomer with [ESMFold2-Fast](https://huggingface.co/biohub/ESMFold2-Fast), the
-single-sequence model, on one L40S on Modal. Single-sequence is about conditioning, not
-chain count: with `as_complex` the step folds every sequence that reaches it together
-as one complex, chains lettered in arrival order, and returns that one structure
-instead of one per sequence. Protein chains only — no nucleic acid or ligand — and a
+single-sequence model, on one L40S on Modal. With `as_complex` the step instead folds
+every sequence that reaches it together as one complex on
+[ESMFold2](https://huggingface.co/biohub/ESMFold2), the full model that conditions the
+chains on each other, and returns that one structure instead of one per sequence:
+chains are lettered in arrival order, and the entity's `sequence` is the chains
+concatenated in that order. Protein chains only — no nucleic acid or ligand — and a
 homodimer cannot be asked for, since identical entities are merged before the step.
 
 The GPU work lives in `nodes/tools/esmfold2_fold/modal_app.py`: the image, the volume
