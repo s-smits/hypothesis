@@ -18,6 +18,7 @@ from pathlib import Path
 import click
 
 from node_dag import entrez
+from node_dag.agent import Hypothesis
 from node_dag.benchmark import (
     Instance,
     Ledger,
@@ -96,6 +97,78 @@ def _table(
     return out
 
 
+def loop_runs(
+    results: Path, instances: Sequence[Instance], goal: str
+) -> tuple[Callable[[Instance], list[str]], dict[str, int], list[str], str]:
+    """Saved loop runs (``results/hypotheses/*.json``) as a strategy, with its cost.
+
+    A run counts for the one instance whose sequence is among its inputs, when its goal
+    contains ``goal``. It proposes the smallest non-empty ``.yes`` table of the last
+    round its verifier accepted; with none, the gene is a failed row, not dropped. The
+    budget sums every counted run's rounds and tokens, accepted or not. Returns the
+    strategy, the budget, notes on files not counted, and the selection rule.
+    """
+    by_sequence = {i.parent.sequence: i.key for i in instances}
+    kept: dict[str, list[str]] = {}
+    rounds = tokens = 0
+    notes: list[str] = []
+    for path in sorted((results / "hypotheses").glob("*.json")):
+        try:
+            run = Hypothesis.model_validate_json(path.read_text())
+        except ValueError as e:
+            notes.append(f"{path.name}: unreadable, not counted ({type(e).__name__})")
+            continue
+        genes = {
+            by_sequence[i.sequence]
+            for v in run.inputs.values()
+            for i in v
+            if isinstance(i, Dna) and i.sequence in by_sequence
+        }
+        if goal not in run.goal.lower() or len(genes) != 1:
+            notes.append(f"{path.name}: goal or input does not match, not counted")
+            continue
+        (gene,) = genes
+        if gene in kept:
+            raise click.ClickException(f"Two loop runs for {gene}; pass one per gene.")
+        won = [
+            a.outcome
+            for a in run.attempts
+            if a.verdict and a.verdict.achieved and a.outcome
+        ]
+        tables = [
+            [i.sequence for i in t.items if isinstance(i, Dna)]
+            for k, t in (won[-1].values if won else {}).items()
+            if k.endswith(".yes")
+        ]
+        kept[gene] = min((t for t in tables if t), key=len, default=[])
+        rounds += len(run.attempts)
+        tokens += run.usage.get("total", 0)
+    counts = {i.key: len(kept.get(i.key, [])) for i in instances}
+    selection = (
+        "fixed strategies: none. loop: the smallest non-empty filter .yes table of the "
+        "last round its verifier accepted, then the best of those by this objective; "
+        "the loop has no answer step, so that choice is the harness's and optimistic. "
+        f"No accepted round is a failed row. Kept per gene: {counts}"
+    )
+    return (
+        lambda i: kept.get(i.key, []),
+        {"rounds": rounds, "tokens": tokens},
+        notes,
+        selection,
+    )
+
+
+def loop_line(rows: Sequence[Result]) -> str:
+    """Passed, the mean over every instance, and the mean over those with a gap."""
+    gaps = [r.gap_closed for r in rows if r.gap_closed is not None]
+    whole = sum(r.gap_closed or 0.0 for r in rows if r.passed) / len(rows)
+    part = f"{sum(gaps) / len(gaps):.1%}" if gaps else "n/a"
+    return (
+        f"loop: passed {sum(r.passed for r in rows)}/{len(rows)}; mean gap closed "
+        f"{whole:.1%} over all {len(rows)} genes, {part} over the {len(gaps)} with a gap"
+    )
+
+
 @click.command()
 @click.option(
     "--accession",
@@ -127,6 +200,12 @@ def _table(
     help='JSON of what was fixed before looking, e.g. \'{"strategy": "exact_dp"}\'.',
 )
 @click.option(
+    "--loop-results",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=None,
+    help="A loop results dir: score its codon adaptation runs as strategy 'loop'.",
+)
+@click.option(
     "--ledger",
     "ledger_root",
     type=click.Path(path_type=Path),
@@ -143,6 +222,7 @@ def main(
     release_holdout: bool,
     reason: str,
     frozen: str,
+    loop_results: Path | None,
     ledger_root: Path | None,
 ) -> None:
     """Compare random, best-of-N, greedy and exact recoding on genes from ACCESSION."""
@@ -221,6 +301,14 @@ def main(
         "greedy_exact": lambda i: [exact_cai(i, cai_w)],
     }
 
+    cai_note = fixed = ("none: fixed strategies, no selection was made", None, [])
+    if loop_results:
+        propose, spent, skipped, how = loop_runs(
+            loop_results, instances, "codon adaptation"
+        )
+        cai_strategies = {**cai_strategies, "loop": propose}
+        cai_note = (how, {"loop": spent}, skipped)
+
     pair_obj = codon_pair_objective(pair_w, FLOOR)
     cai_obj = cai_objective(cai_w)
     pair_out = _table(
@@ -235,11 +323,14 @@ def main(
         cai_obj,
         cai_strategies,
     )
+    if loop_results:
+        click.echo(loop_line(cai_out["loop"]) + "\n")
 
     for objective, out, weights in (
         (pair_obj, pair_out, pair_w),
         (cai_obj, cai_out, cai_w),
     ):
+        selection, budget, errors = cai_note if objective is cai_obj else fixed
         path = record_attempt(
             led,
             manifest_=manifest(
@@ -256,7 +347,9 @@ def main(
             ),
             split=split,
             results=out,
-            selection="none: fixed strategies, no selection was made",
+            selection=selection,
+            budget=budget,
+            errors=errors,
         )
         click.echo(f"recorded {objective.name}: {path}")
 

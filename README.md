@@ -58,7 +58,7 @@ temporal/
   scaffold_node.py             write a requested node's package, all but run()
   pulse.py                     what changed in the open runs since the last look
   ledger.py                    one line per finished run, read the way pulse reads it
-  run_benchmark.py             compare recoding strategies on fixed genes (node_dag/benchmark.py); no Temporal
+  run_benchmark.py             compare recoding strategies on fixed genes (node_dag/benchmark.py); --loop-results scores saved loop runs; no Temporal
 ```
 
 ## Nodes
@@ -183,15 +183,16 @@ lot of sequences makes for a big `progress` response.
 
 http://127.0.0.1:8000/hypotheses lists every goal with a count of its hypotheses by
 status. Click a goal to list its hypotheses, each with its status, a summary and its
-inputs. Click a hypothesis to see all of it: inputs, criteria and whether each held, every
+inputs. Click a hypothesis to see all of it: inputs, each criterion marked met, not met or unclear by the assertions that covered it, every
 round, outcome, verdict, its DAG step by step, and a link to its run. A blocked one has
 Resume and Abandon buttons. It reads the files
 under `results/`, so it needs no worker.
 
 http://127.0.0.1:8000/new starts a hypothesis: enter a goal, optionally your own
-hypothesis for how to meet it, criteria (one per line, or drafted by the criteria agent
-through `POST /api/criteria` for you to edit) and, if you like, the inputs. With none,
-the agent fetches the sequences the goal names from NCBI before round 1. The server then
+hypothesis for how to meet it, and criteria (rows of a kind, quantitative or qualitative, and a
+claim, or drafted by the criteria agent through `POST /api/criteria` for you to edit). The form
+takes words only: the agent fetches the sequences the goal names from NCBI before round 1, and
+`POST /api/hypotheses` still takes `inputs` for a caller who has them. The server then
 starts the loop in the background, and the page jumps to the hypothesis so you can watch
 its rounds. This needs a worker running. Inputs that cannot run, an empty list or a list of
 mixed kinds, get a 422 and nothing is saved. If the workflow cannot be started (Temporal is
