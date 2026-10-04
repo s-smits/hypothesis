@@ -58,7 +58,7 @@ temporal/
   scaffold_node.py             write a requested node's package, all but run()
   pulse.py                     what changed in the open runs since the last look
   ledger.py                    one line per finished run, read the way pulse reads it
-  run_benchmark.py             compare recoding strategies on fixed genes (node_dag/benchmark.py); no Temporal
+  run_benchmark.py             compare recoding strategies on fixed genes (node_dag/benchmark.py); --loop-results scores saved loop runs; no Temporal
 ```
 
 ## Nodes
