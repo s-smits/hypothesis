@@ -82,7 +82,8 @@ class HypothesisInput(BaseModel):
     build_model: str = BUILD_MODEL
     verify_model: str = VERIFY_MODEL
     max_rounds: int = 20
-    # A round has cost a median of 115,000 tokens, so this ends a run near round 4.
+    # Checked before each round, never during one, so the round that crosses it still finishes.
+    # At the recorded median of 115,000 tokens a round, that is a stop after about five rounds.
     max_tokens: int = 500_000
 
 
