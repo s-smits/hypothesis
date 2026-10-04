@@ -1,10 +1,11 @@
 import json
 import uuid
 from collections.abc import Sequence
-from typing import Any
+from typing import Annotated, Any
 
 from pydantic import (
     BaseModel,
+    BeforeValidator,
     Field,
     TypeAdapter,
     ValidationError,
@@ -441,6 +442,20 @@ MAX_IDS_LISTED = 20  # Of the registered ids an unknown node's message names.
 ADAPTER: TypeAdapter[NodeConfig] = TypeAdapter(NodeConfig)
 
 
+def _json_object(value: object) -> object:
+    """A tool argument that is a JSON object sent as a string, parsed; anything else as is.
+
+    Models send ``config`` this way now and then, and each rejection is a retry that
+    carries the whole conversation again.
+    """
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except ValueError:
+            pass
+    return value
+
+
 def step_config(plan: Plan, key: str, registry: Registry) -> BaseNodeConfig:
     """The config of step ``key``: registered, an existing node, or a requested stand-in."""
     s = plan.steps[key]
@@ -568,7 +583,10 @@ def build_agent(
     """
     seen = {} if seen is None else seen
 
-    def create_node(config: dict[str, Any], description: str) -> dict[str, Any]:
+    def create_node(
+        config: Annotated[dict[str, Any], BeforeValidator(_json_object)],
+        description: str,
+    ) -> dict[str, Any]:
         """Make a node and add it to the registry. Make nodes one at a time.
 
         Returns the node's id, config, input port, outputs and score columns. If this
