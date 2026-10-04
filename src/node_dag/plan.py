@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any, ClassVar, Literal, Self
 
 from pydantic import BaseModel, Field, create_model, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 from node_dag.dag import Dag, DagOutput, Step
 from node_dag.nodes.base import (
@@ -258,6 +259,14 @@ class Plan(BaseModel):
         self.dag(configs)._check()  # ty: ignore[call-non-callable]
 
 
+class RequestlessPlan(Plan):
+    """The builder's plan for a goal, every step using a node that exists."""
+
+    # Hidden from the schema the model is shown, so it cannot fill a field it may not use.
+    # Still validated, so a plan that carries one anyway is sent back by check_plan.
+    requests: SkipJsonSchema[dict[str, ToolRequest]] = {}
+
+
 class Critique(BaseModel):
     """Why an attempt missed, and what the next plan must change."""
 
@@ -273,6 +282,15 @@ class Critique(BaseModel):
     evidence: list[str] = Field(min_length=1)
     keep: list[str] = []
     fix: str
+
+
+class RequestlessCritique(Critique):
+    """Why an attempt missed, and what the next plan must change."""
+
+    # No ``missing_tool``: with requests off, no person will write the node it asks for.
+    root_cause: Literal[
+        "wrong_node", "wrong_wiring", "wrong_config", "goal_misread", "node_raised"
+    ]
 
 
 class VerifyOpinion(BaseModel):
