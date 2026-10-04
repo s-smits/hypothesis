@@ -7,7 +7,7 @@ Validation here is shape only; checks against the node registry live activity-si
 import hashlib
 import json
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from datetime import datetime
 from typing import Any, ClassVar, Literal, Self
 
@@ -217,12 +217,44 @@ class Plan(BaseModel):
         "hypothesis, one per record. Leave out if you did not search.",
     )
     addresses_critique: str = ""
+    result_source: str | None = Field(
+        default=None,
+        description="Optional: the step output every criterion is about, a tool or scoring "
+        "step's key or '<filter>.yes' or '<filter>.no'. Leave it out unless the criteria "
+        "concern one set of entities.",
+    )
 
     @model_validator(mode="after")
     def _check(self) -> Self:
         if wrong := [k for k, r in self.requests.items() if k != r.name]:
             raise ValueError(f"Requests must be keyed by their own name: {wrong}")
         return self
+
+    def on_result(self, tools: Collection[str] = ()) -> set[str] | None:
+        """The steps an assertion may sit on to speak for ``result_source``, or None.
+
+        That is the result's own step and each step that reads it, directly or through
+        other steps. A step in ``tools`` makes new entities, so what it passes on is not
+        the result. None when no result is declared: every assertion counts.
+        """
+        if self.result_source is None:
+            return None
+        carries, on = {self.result_source}, {self.result_source.split(".")[0]}
+        while reading := {
+            k
+            for k, s in self.steps.items()
+            if k not in on and carries & set(s.inputs.values())
+        }:
+            on |= reading
+            carries |= {
+                f"{k}{b}" for k in reading - set(tools) for b in ("", ".yes", ".no")
+            }
+        return on
+
+    def covered(self, tools: Collection[str] = ()) -> set[str]:
+        """The criterion ids that an assertion counts for, given any declared result."""
+        on = self.on_result(tools)
+        return {a.criterion for a in self.assertions if on is None or a.step in on}
 
     def fingerprint(self) -> str:
         """A hash of the wiring alone, so re-wording cannot dodge the repeat check."""
@@ -364,14 +396,17 @@ def accepted(
         return False, "the hypothesis has no criteria, so nothing could be checked"
     if dup := repeated(criteria):
         return False, f"criteria share the ids {dup}, so one assertion would cover both"
-    if missing := sorted(
-        {c.id for c in criteria} - {a.criterion for a in plan.assertions}
-    ):
-        return False, f"no assertion covers {missing}"
+    if missing := sorted({c.id for c in criteria} - plan.covered()):
+        where = f" on result {plan.result_source!r}" if plan.result_source else ""
+        return False, f"no assertion covers {missing}{where}"
     if failed := sorted(
         s for s, ok in holds(plan.assertions, outcome).items() if not ok
     ):
         return False, f"these assertions did not hold: {failed}"
+    if (res := plan.result_source) and not (
+        outcome and res in outcome.values and outcome.values[res].items
+    ):
+        return False, f"the declared result {res!r} is empty"
     if not opinion.covers_goal:
         return False, "the verifier judged the assertions not to cover the goal"
     if not opinion.agrees:

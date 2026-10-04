@@ -16,7 +16,7 @@ from node_dag.plan import (
     accepted,
     holds,
 )
-from node_dag.types import Dna, Table
+from node_dag.types import Dna, Table, Value
 
 D = Dna(sequence="ATGTAA")
 CRIT = [Criterion(id="no_tcg", claim="no TCG remains")]
@@ -84,6 +84,129 @@ def test_two_criteria_on_one_step_and_branch_must_each_hold_to_accept():
     assert "did not hold" in accepted(both, plan, OK, _out(1, 1))[1]
     one = _plan(assertions=[{"criterion": "no_tcg", **ask}])
     assert "all_kept" in accepted(both, one, OK, _out(2, 0))[1]
+
+
+def _step(node: str, source: str, port: str = "sequence") -> dict:
+    return {"node": node, "config": {}, "inputs": {port: source}, "why": "w"}
+
+
+def _says(criterion: str, step: str, branch: str = "yes") -> dict:
+    return {"criterion": criterion, "step": step, "branch": branch, "claim": "c"}
+
+
+BOTH = [Criterion(id="higher", claim="above"), Criterion(id="protein", claim="same")]
+
+
+def _pools(**kw) -> Plan:
+    """Two separate candidate pools from one input, each with its own filter."""
+    steps = {
+        "gen_a": _step("mutate", "seqs"),
+        "score_a": _step("cai", "gen_a"),
+        "above": _step("at_least", "score_a", "items"),
+        "gen_b": _step("mutate", "seqs"),
+        "score_b": _step("constraint_check", "gen_b"),
+        "same": _step("at_least", "score_b", "items"),
+    }
+    seen = [_says("higher", "above"), _says("protein", "same")]
+    return _plan(steps=steps, assertions=seen, **kw)
+
+
+def _pools_out() -> DagOutput:
+    """Pool A is all above the baseline but changes the protein; pool B is the reverse."""
+    other = Dna(sequence="ATGAAATAA")
+    kept: dict[str, list[Value]] = {"above.yes": [D], "above.no": []}
+    kept |= {"same.yes": [other], "same.no": []}
+    return DagOutput(values={k: Table.of(v) for k, v in kept.items()}, skipped=[])
+
+
+def test_proofs_on_two_separate_pools_are_accepted_unless_a_result_is_declared():
+    assert accepted(BOTH, _pools(), OK, _pools_out())[0]
+    for result, left in [("gen_a", "protein"), ("gen_b", "higher")]:
+        ok, why = accepted(BOTH, _pools(result_source=result), OK, _pools_out())
+        assert not ok and left in why and result in why
+
+
+def test_a_declared_result_counts_its_own_step_and_the_steps_that_read_it():
+    steps = {
+        "pool": _step("mutate", "seqs"),
+        "above": _step("at_least", "pool", "items"),
+        "same": _step("at_least", "above.yes", "items"),
+    }
+    seen = [_says("higher", "above"), _says("protein", "same")]
+    full = {k: Table.of([D]) for k in ("pool", "above.yes", "same.yes")}
+    out = DagOutput(
+        values={**full, "above.no": Table(), "same.no": Table()}, skipped=[]
+    )
+    for result in ("pool", "above.yes"):
+        plan = _plan(steps=steps, assertions=seen, result_source=result)
+        assert accepted(BOTH, plan, OK, out)[0], result
+    # `above.no` is not what `same` reads: another set of entities.
+    plan = _plan(steps=steps, assertions=seen, result_source="above.no")
+    assert "protein" in accepted(BOTH, plan, OK, out)[1]
+
+
+def test_a_declared_pool_counts_a_proof_on_what_its_filter_dropped_but_a_kept_set_does_not():
+    """Saved accepts audit the dropped half too (arm-E 6148f02d r3, arm-F2 ce899c7c r2)."""
+    steps = {
+        "pool": _step("mutate", "seqs"),
+        "above": _step("at_least", "pool", "items"),
+        "audit": _step("at_most", "above.no", "items"),
+    }
+    seen = [_says("higher", "above", "produced"), _says("protein", "audit")]
+    other = Dna(sequence="ATGAAATAA")
+    kept: dict[str, list[Value]] = {"pool": [D, other], "above.yes": [D]}
+    kept |= {"above.no": [other], "audit.yes": [other], "audit.no": []}
+    out = DagOutput(values={k: Table.of(v) for k, v in kept.items()}, skipped=[])
+    pool = _plan(steps=steps, assertions=seen, result_source="pool")
+    assert accepted(BOTH, pool, OK, out)[0]
+    only_kept = _plan(steps=steps, assertions=seen, result_source="above.yes")
+    assert "protein" in accepted(BOTH, only_kept, OK, out)[1]
+
+
+def test_a_declared_result_must_have_entities():
+    plan = _plan(assertions=[_says("no_tcg", "none", "no")], result_source="none.yes")
+    assert holds(plan.assertions, _out(0, 2)) == {"none.no": True}
+    ok, why = accepted(CRIT, plan, OK, _out(0, 2))
+    assert not ok and "none.yes" in why and "empty" in why
+    assert accepted(CRIT, _plan(assertions=plan.assertions), OK, _out(0, 2))[0]
+
+
+def test_acceptance_with_no_declared_result_is_unchanged():
+    """Passes on the commit before ``result_source``: nothing is different until a plan sets it."""
+    saved = _plan().model_dump()
+    saved.pop("result_source", None)  # A file saved before the field existed.
+    old = Plan.model_validate(saved)
+    asked = [
+        (
+            CRIT,
+            old,
+            OK,
+            _out(2, 0),
+            "every criterion was covered by an assertion that held",
+        ),
+        (CRIT, _plan(assertions=[]), OK, _out(2, 0), "no assertion covers ['no_tcg']"),
+        (CRIT, old, OK, _out(1, 1), "these assertions did not hold: ['none.yes']"),
+    ]
+    for criteria, plan, opinion, outcome, why in asked:
+        assert accepted(criteria, plan, opinion, outcome)[1] == why
+    # The wiring check that stops a repeat reads nothing about a result.
+    assert old.fingerprint() == _plan(result_source="none.yes").fingerprint()
+
+
+def test_the_builder_is_told_about_result_source_where_it_reads_the_plan():
+    """Weak by nature: it shows the text is there, not that a model follows it."""
+    from node_dag.agent import BUILD_INSTRUCTIONS
+
+    said = Plan.model_json_schema()["properties"]["result_source"]
+    assert "step output" in said["description"]
+    assert BUILD_INSTRUCTIONS.count("result_source") == 1
+
+
+def test_the_result_is_optional_in_the_plan_schema():
+    schema = Plan.model_json_schema()
+    assert schema["required"] == ["hypothesis", "expected", "inputs", "steps"]
+    assert schema["properties"]["result_source"]["default"] is None
+    assert Plan.model_validate(_plan()).on_result() is None
 
 
 def test_holds_needs_the_branch_full_and_the_other_empty():
