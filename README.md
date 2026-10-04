@@ -94,7 +94,7 @@ There are three kinds of node:
 `beats_reference` is for a goal like "keep the ones that score higher than the first
 sequence". Use it instead of a typed threshold (`at_least`, `at_most`), which would have to be
 copied from an earlier round: the baseline is measured in the run. `reference` is the
-entity, `scored_in` is the step (or DAG input) whose table holds that entity's score in
+entity, `scored_in` is the step whose table holds that entity's score in
 `column`, and the filter keeps the entities that score strictly above it, or strictly
 below it with `higher` false. The reference itself only ties, so it goes to `.no`.
 Score the reference with the same node as the entities, for example in a second scoring

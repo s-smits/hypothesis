@@ -25,8 +25,7 @@ class BeatsReferenceConfig(BaseFilterConfig):
     Args:
         column: The score column to compare, ``<node name>__<config hash>__<score name>``.
         reference: The entity to beat, for example the first input sequence.
-        scored_in: The step or DAG input whose table holds the reference's score in
-            ``column``.
+        scored_in: The step whose table holds the reference's score in ``column``.
         higher: Keep the entities scoring above the reference. Set it False to keep the
             ones scoring below it.
     """
