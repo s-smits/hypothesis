@@ -267,22 +267,24 @@ def test_fingerprint_ignores_prose_not_wiring():
     assert _plan(steps={"fixed": other}).fingerprint() != base
 
 
-def _says(step: str, branch: str, criterion: str = "no_tcg") -> dict:
+def _says_on(step: str, branch: str, criterion: str = "no_tcg") -> dict:
     return {"criterion": criterion, "step": step, "branch": branch, "claim": "c"}
 
 
 def test_a_plan_reruns_an_earlier_one_unless_it_keeps_every_assertion_and_strengthens_one():
-    produced = _plan(assertions=[_says("f", "produced"), _says("g", "no", "other")])
-    yes = _plan(assertions=[_says("f", "yes"), _says("g", "no", "other")])
+    produced = _plan(
+        assertions=[_says_on("f", "produced"), _says_on("g", "no", "other")]
+    )
+    yes = _plan(assertions=[_says_on("f", "yes"), _says_on("g", "no", "other")])
     extra = _plan(
-        assertions=[*produced.assertions, _says("h", "produced", "third")],
+        assertions=[*produced.assertions, _says_on("h", "produced", "third")],
     )
     assert yes.reruns(produced) is False  # produced -> yes, nothing dropped
     assert extra.reruns(produced) is False  # one more assertion that must hold
     assert produced.reruns(produced) is True  # the same
     assert produced.reruns(yes) is True  # weaker
-    assert _plan(assertions=[_says("f", "yes")]).reruns(yes) is True  # dropped one
-    assert _plan(assertions=[_says("h", "yes"), *yes.assertions[1:]]).reruns(yes)
+    assert _plan(assertions=[_says_on("f", "yes")]).reruns(yes) is True  # dropped one
+    assert _plan(assertions=[_says_on("h", "yes"), *yes.assertions[1:]]).reruns(yes)
     other = _plan(steps={"renamed": next(iter(produced.steps.values()))})
     assert other.reruns(produced) is False  # other wiring: not a repeat at all
 
