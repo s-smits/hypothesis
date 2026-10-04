@@ -3,6 +3,7 @@ from datetime import timedelta
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
+from temporalio.exceptions import ActivityError
 
 with workflow.unsafe.imports_passed_through():
     from node_dag.dag import DagInput, DagOutput, DagProgress, StepStatus
@@ -157,12 +158,18 @@ class DagWorkflow:
                 close_time=workflow.now(),
                 error=error,
             )
-            await workflow.execute_activity(
-                save_workflow,
-                SaveWorkflowInput(
-                    workflow_id=workflow.info().workflow_id, progress=saved
-                ),
-                start_to_close_timeout=timedelta(seconds=30),
-            )
+            # A file that cannot be written never changes how the run ended: the caller
+            # still gets the result, or the step's own error, and Temporal has the run.
+            try:
+                await workflow.execute_activity(
+                    save_workflow,
+                    SaveWorkflowInput(
+                        workflow_id=workflow.info().workflow_id, progress=saved
+                    ),
+                    start_to_close_timeout=timedelta(seconds=30),
+                    retry_policy=RETRY,
+                )
+            except ActivityError as e:
+                workflow.logger.warning("The run was not saved: %s", e.cause or e)
         skipped = sorted(k for k, s in steps.items() if s == "skipped")
         return DagOutput(values=values, skipped=skipped)
