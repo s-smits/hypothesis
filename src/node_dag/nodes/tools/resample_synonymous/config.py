@@ -26,6 +26,7 @@ class ResampleSynonymousConfig(BaseToolConfig):
     """
 
     name: Literal["resample_synonymous"] = "resample_synonymous"
+    version: ClassVar[int] = 2  # 2: a stop codon is no longer redrawn.
     seed: int
     variants_per_sequence: int = Field(
         default=1,

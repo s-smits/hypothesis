@@ -27,6 +27,7 @@ class MutateSynonymousConfig(BaseToolConfig):
     """
 
     name: Literal["mutate_synonymous"] = "mutate_synonymous"
+    version: ClassVar[int] = 2  # 2: a stop codon is no longer swapped.
     seed: int
     count: int = Field(default=1, ge=1)
     variants_per_sequence: int = Field(

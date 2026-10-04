@@ -14,6 +14,11 @@
   details.sec > summary .draft { margin-left: auto; }
   .criterion { display: flex; gap: 6px; }
   .criterion input { flex: 1; }
+  #goal.over { outline: 2px dashed var(--running); outline-offset: 2px; }
+  #files { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .file-chip { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--line); border-radius: var(--radius); padding: 2px 6px 2px 8px; font-size: 12px; }
+  .file-chip .kind { color: var(--muted); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }
+  .file-chip code { color: var(--muted); }
   .observation { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; }
   .observation .head { display: flex; gap: 8px; align-items: baseline; }
   .observation .title { flex: 1; min-width: 0; font-weight: 500; }
@@ -37,6 +42,7 @@
         <select id="goal-pick" style="width: 100%"><option value="">New goal…</option></select>
         <textarea id="goal" rows="2" required placeholder="Increase the expression of the coding sequence without changing its protein." style="margin-top: 8px"></textarea>
         <div class="hint" id="goal-hint"></div>
+        <div id="files"></div>
       </div>
       <div class="hint">
         The agent reads the entities the goal is about out of its text, writes the DAG and runs
@@ -44,6 +50,8 @@
         the run until someone adds it. Give the entities in the goal — any kind the framework
         knows, not just DNA: a sequence, a structure, a set of contacts. Nothing is fetched for
         you, so a goal that names something without giving its value gets no input for it.
+        Drop a FASTA file on the goal to attach it: it is saved and mentioned as
+        FASTAFile &lt;id&gt;, which the run resolves to the file itself.
       </div>
     </div>
 
@@ -151,6 +159,43 @@ function counts() {
   $("#rounds-count").textContent = $("#rounds").value ? `${$("#rounds").value} rounds` : "default";
 }
 
+// A file dropped on the goal is uploaded once, saved under results/files, and
+// mentioned in the text as `FASTAFile <id> (<name>)`. The mention is what a run
+// resolves to the file: the chip only shows what was attached.
+function attach(f) {
+  const goal = $("#goal"), mention = `FASTAFile ${f.id} (${f.name.replace(/\s+/g, "_")})`;
+  goal.setRangeText(mention + " ", goal.selectionStart, goal.selectionStart, "end");
+  const chip = document.createElement("span");
+  chip.className = "file-chip";
+  chip.innerHTML = `<span class="kind">FASTAFile</span> <span class="file-name"></span> <code>${f.id}</code> <button type="button" class="quiet" title="Remove">×</button>`;
+  chip.querySelector(".file-name").textContent = f.name;
+  chip.querySelector("button").addEventListener("click", () => {
+    goal.value = goal.value.replace(mention, "");
+    chip.remove();
+  });
+  $("#files").append(chip);
+}
+
+const drop = async (e) => {
+  e.preventDefault();
+  $("#goal").classList.remove("over");
+  $("#error").textContent = "";
+  for (const f of e.dataTransfer.files) {
+    try {
+      const r = await fetch(`/api/files?name=${encodeURIComponent(f.name)}`, { method: "POST", body: f });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(explain(data.detail ?? `${r.status}`));
+      attach(data);
+    } catch (err) {
+      $("#error").textContent = err.message;
+    }
+  }
+};
+
+$("#goal").addEventListener("dragover", (e) => { e.preventDefault(); e.target.classList.add("over"); });
+$("#goal").addEventListener("dragleave", () => $("#goal").classList.remove("over"));
+$("#goal").addEventListener("drop", drop);
+
 // Picking a previous goal hides the text box: that goal, and the success criteria
 // and observations its latest hypothesis carried, are used as they stand. Reusing
 // the observations means the same search is not paid for twice.
@@ -159,6 +204,7 @@ function pickGoal() {
   $("#goal").hidden = !!g;
   $("#goal").required = !g;
   $("#goal-hint").textContent = g ? `${g.hypotheses} hypothesis${g.hypotheses === 1 ? "" : "es"} so far.` : "";
+  $("#files").replaceChildren();
   setCriteria(g?.criteria ?? []);
   setObservations(g?.observations ?? []);
 }

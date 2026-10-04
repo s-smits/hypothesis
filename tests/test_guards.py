@@ -4,7 +4,7 @@ import pytest
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 from test_agent import _reply, _returns, _turn
 
-from node_dag.agent import Hypothesis, build_agent, step_config
+from node_dag.agent import Hypothesis, build_agent, critique_agent, step_config
 from node_dag.nodes.base import BaseScoreConfig
 from node_dag.nodes.tools.codon_count.config import CodonCountConfig
 from node_dag.plan import Attempt, Criterion, Critique, Plan, ToolRequest
@@ -369,3 +369,55 @@ async def test_a_reference_that_the_scored_in_step_may_hold_is_accepted(results_
     ):
         _, errors = await _run(results_dir, plan, hyp=TWO)
         assert errors == [], errors
+
+
+FIX = {"evidence": ["e"], "fix": "f"}
+
+
+async def _builder_saw(results_dir, allow_requests: bool) -> AgentInfo:
+    """What the builder is shown before it writes anything: its instructions and schema."""
+    seen: list[AgentInfo] = []
+
+    def script(messages: list, info: AgentInfo):
+        seen.append(info)
+        return _reply(info, _plan())
+
+    agent = build_agent(
+        FunctionModel(script),
+        Registry(results_dir / "registry"),
+        allow_requests=allow_requests,
+    )
+    await agent.run("go", deps=HYP)
+    return seen[0]
+
+
+async def test_a_builder_that_may_not_request_is_never_shown_the_ability(results_dir):
+    """Else it fills `requests` for a conversion two nodes cover, and invents why."""
+    on = await _builder_saw(results_dir, True)
+    off = await _builder_saw(results_dir, False)
+    assert "requests" in on.output_tools[0].parameters_json_schema["properties"]
+    assert "requests" not in off.output_tools[0].parameters_json_schema["properties"]
+    assert "ToolRequest" not in str(off.output_tools[0].parameters_json_schema)
+    assert "request one" in str(on.instructions)
+    assert "request" not in str(off.instructions).replace(
+        "no node can be requested", ""
+    )
+
+
+async def _critic_saw(allowed: bool) -> AgentInfo:
+    seen: list[AgentInfo] = []
+
+    def script(messages: list, info: AgentInfo):
+        seen.append(info)
+        return _reply(info, {"diagnosis": "d", "root_cause": "wrong_node", **FIX})
+
+    await critique_agent(FunctionModel(script), allow_requests=allowed).run("go")
+    return seen[0]
+
+
+async def test_a_critic_that_may_not_request_is_not_offered_missing_tool():
+    for allowed in (True, False):
+        saw = await _critic_saw(allowed)
+        schema = str(saw.output_tools[0].parameters_json_schema)
+        assert ("missing_tool" in str(saw.instructions)) is allowed
+        assert ("missing_tool" in schema) is allowed

@@ -150,6 +150,35 @@ class ProteinStructure(Entity):
         ).hexdigest()[:12]
 
 
+class FastaFile(Entity):
+    """A FASTA file: its whole text, so its records can be read as entities.
+
+    ``sequence`` is the file's contents, so the id hashes the file itself: a file
+    saved under ``results/files/`` is named by exactly this id, and a ``FASTAFile
+    <id>`` in a goal means the file saved under that id.
+
+    Args:
+        sequence: The file's text: ``>`` header lines and sequences.
+        name: The file's name, for display. Not part of the id.
+    """
+
+    kind: Literal["fasta_file"] = "fasta_file"
+    name: str = ""
+
+    @field_validator("sequence")
+    @classmethod
+    def _check(cls, v: str) -> str:
+        if not any(line.startswith(">") for line in v.splitlines()):
+            raise ValueError(f"Not a FASTA file, no >header line: {v[:40]!r}")
+        return v
+
+    @computed_field
+    @property
+    def display(self) -> str:
+        """The file's name, or what it is."""
+        return self.name or "a FASTA file"
+
+
 class ResidueContact(BaseModel):
     """Two residues on different chains, and how close they come.
 
@@ -274,6 +303,7 @@ Value = Annotated[
     | Rna
     | AminoAcidSequence
     | ProteinStructure
+    | FastaFile
     | ProteinContacts
     | StructureAlignment,
     Discriminator("kind"),
@@ -283,6 +313,7 @@ TYPES: dict[str, type[Entity]] = {
     "rna": Rna,
     "amino_acid_sequence": AminoAcidSequence,
     "protein_structure": ProteinStructure,
+    "fasta_file": FastaFile,
     "protein_contacts": ProteinContacts,
     "structure_alignment": StructureAlignment,
 }

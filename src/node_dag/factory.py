@@ -41,6 +41,8 @@ from node_dag.nodes.tools.domesticate.config import DomesticateConfig
 from node_dag.nodes.tools.domesticate.function import Domesticate
 from node_dag.nodes.tools.esmfold2_fold.config import Esmfold2FoldConfig
 from node_dag.nodes.tools.esmfold2_fold.function import Esmfold2Fold
+from node_dag.nodes.tools.fasta_to_proteins.config import FastaToProteinsConfig
+from node_dag.nodes.tools.fasta_to_proteins.function import FastaToProteins
 from node_dag.nodes.tools.gc_content.config import GcContentConfig
 from node_dag.nodes.tools.gc_content.function import GcContent
 from node_dag.nodes.tools.gc_target_recode.config import GcTargetRecodeConfig
@@ -91,6 +93,7 @@ NodeConfig = Annotated[
     | DnaTranscribeConfig
     | DomesticateConfig
     | Esmfold2FoldConfig
+    | FastaToProteinsConfig
     | GcContentConfig
     | GcTargetRecodeConfig
     | MotifCountConfig
@@ -129,6 +132,7 @@ MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
     DnaTranscribeConfig: DnaTranscribe,
     DomesticateConfig: Domesticate,
     Esmfold2FoldConfig: Esmfold2Fold,
+    FastaToProteinsConfig: FastaToProteins,
     GcContentConfig: GcContent,
     GcTargetRecodeConfig: GcTargetRecode,
     MotifCountConfig: MotifCount,

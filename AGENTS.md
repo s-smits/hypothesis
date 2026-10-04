@@ -109,7 +109,10 @@ The `/new` page takes a goal and its success criteria, each a row with a kind
 (quantitative or qualitative) and a claim: the user writes them, or `criteria_agent`
 drafts them through `POST /api/criteria` and the user edits the draft. It does not ask
 for inputs: the loop takes them from the goal before round 1, and `POST /api/hypotheses`
-still takes `inputs` from a caller who has them. Nothing fetches an input: `add_input`
+still takes `inputs` from a caller who has them. A file dropped on the goal goes through
+`POST /api/files` to `results/files/<id>` — the id a hash of its contents — and a
+`FASTAFile <id>` mention is put in the goal; the inputs stage resolves the mention to
+the file itself, so no model ever copies its contents. Nothing fetches an input: `add_input`
 accepts any entity kind in `TYPES` as an object, and an entity the model wrote out rather
 than was given is unverified. The hypotheses page marks each
 criterion met, not met or unclear from the assertions the plan set against it
@@ -154,8 +157,10 @@ of the goal selects one run.
 
 Each line starts with a mark:
 
-- `◆` something happened: criteria fixed, a round opened, a plan accepted, blocked, a
-  verdict, the run ended. Report it; no action needed.
+- `◆` something happened: criteria fixed, a round opened, a plan accepted, how many
+  assertions held (`r1 assertions 2/4; did not hold: improved.produced`: the count is per
+  assertion, the names are each failed `step.branch`), blocked, a verdict, the run ended.
+  Report it; no action needed.
 - `⚠` something to act on or decide (below).
 - `·` a detail, such as a model call that went through, or an alert that cleared.
 
@@ -187,7 +192,9 @@ Every run that ends, achieved or not, abandoned or failed, adds one line to
 as its last step, and `temporal/ledger.py` builds the line from pulse's reading of the run, so
 the ledger and `pulse` always agree on what a run did. Nothing in it is judged by a model: each
 value is read from the saved Hypothesis and the saved model calls. A line has the run, its goal,
-how it ended and why, the rounds and what held in each, the tokens and seconds spent, the guard
+how it ended and why, the rounds and the assertions that held in each (`3/4`, counted per
+assertion, so two criteria asserted on one step and branch count twice; a line written before
+that counted each step and branch once), the tokens and seconds spent, the guard
 retries, errors and repeated wirings, the nodes used and the ones it asked for, the model per
 stage, and a one-line summary. A ledger that cannot be written never changes how a run ended. A
 worker that predates the activity must be restarted before runs it starts will be recorded.
@@ -252,7 +259,8 @@ To read it: `jq -r '[.ended[:16], .hypothesis, .state, .rounds, .tokens, .summar
   `storage.write_atomic`. `$NODE_DAG_RESULTS` defaults to `results/`, containing
   `nodes/`, `workflows/`, `registry/`, `hypotheses/`, `requests/` and `trajectories/`,
   plus `ledger.jsonl`, `pulse.json`, `ledger/` (the benchmark's attempts, one file
-  each), `links/` (what nodes report) and the `amass/` reply cache. It is
+  each), `links/` (what nodes report), `files/` (uploads a goal names as
+  `FASTAFile <id>`) and the `amass/` reply cache. It is
   local disk, so workers on different machines do not automatically share a cache.
 - A file that cannot be written must not change how a run ended. `save_workflow` gets
   three attempts, then the workflow logs the failure and the run still ends as it would

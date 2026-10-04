@@ -1,10 +1,11 @@
 import json
 import uuid
 from collections.abc import Sequence
-from typing import Any
+from typing import Annotated, Any, cast
 
 from pydantic import (
     BaseModel,
+    BeforeValidator,
     Field,
     TypeAdapter,
     ValidationError,
@@ -26,6 +27,8 @@ from node_dag.plan import (
     HypothesisState,
     Observation,
     Plan,
+    RequestlessCritique,
+    RequestlessPlan,
     ToolRequest,
     VerifyOpinion,
     repeated,
@@ -36,6 +39,18 @@ from node_dag.types import TYPES, Entity, Value
 NODES = {c.model_fields["name"].default: c for c in MAPPING}
 # What a file from before the loop kept on the Hypothesis, and each Attempt keeps now.
 TOP_LEVEL_RUN = ("dag", "workflow_id", "outcome", "verdict")
+
+# Longest entity text a prompt shows whole; longer shows its two ends and length.
+SHOWN = 4000
+
+
+def _shown(sequence: str) -> str:
+    """A sequence short enough for a prompt: whole, or its two ends and its length."""
+    if len(sequence) <= SHOWN:
+        return sequence
+    return (
+        f"{sequence[: SHOWN // 2]}...{sequence[-SHOWN // 2 :]} ({len(sequence)} long)"
+    )
 
 
 class Hypothesis(BaseModel):
@@ -132,13 +147,14 @@ class Hypothesis(BaseModel):
         """What the builder is shown of each input: its kind, size and first entities.
 
         The builder needs the values themselves to fill in config fields such as a
-        reference sequence or a threshold.
+        reference sequence or a threshold. An entity far longer than a gene, such as
+        a FASTA file, shows its two ends and its length instead of its whole text.
         """
         return {
             k: {
                 "kind": v[0].kind,
                 "count": len(v),
-                "sequences": [i.sequence for i in v[:limit]],
+                "sequences": [_shown(i.sequence) for i in v[:limit]],
             }
             for k, v in self.inputs.items()
         }
@@ -162,8 +178,8 @@ def search_nodes(
 
     Args:
         query: Words or phrase describing what you want to do (e.g. "score expression", "mutate", "lower atoms", "translate").
-        input_type: Input entity kind to filter by ('dna', 'rna', 'amino_acid_sequence', 'protein_structure', 'protein_contacts',
-            'structure_alignment', 'entity').
+        input_type: Input entity kind to filter by ('dna', 'rna', 'amino_acid_sequence', 'protein_structure', 'fasta_file',
+            'protein_contacts', 'structure_alignment', 'entity').
         category: Node category to filter by ('scoring', 'filter', 'generation', 'conversion').
 
     Returns a list of matching nodes with their intents, when to use them, and input/output contracts.
@@ -318,16 +334,24 @@ If no existing node can do a step, put its contract in `requests`, keyed by name
    filter on a requested scorer's column gets that column name from the error you are shown."""
 
 REQUESTS_REFUSED = """\
-Every step must use a node that already exists: `requests` is disabled, and a plan
-   carrying one is sent back. If no node seems to fit, look again with search_nodes and
-   describe_node, since a node's config often covers a case its summary does not name."""
+Every step must use a node that already exists, and no node can be requested. If none
+   seems to fit, look again with search_nodes and describe_node, since a node's config
+   often covers a case its summary does not name, and a conversion is often two nodes in
+   a row: search by the kind you have and by the kind you need."""
+
+UNMEASURED_ALLOWED = "If none does, request one."
+UNMEASURED_REFUSED = (
+    "If none does, assert what the nodes you have can show, and say in your hypothesis "
+    "what that leaves unchecked."
+)
 
 
 def build_instructions(allow_requests: bool) -> str:
-    """The builder's instructions, with step 4 saying whether a node may be requested."""
+    """The builder's instructions, saying in each place whether a node may be requested."""
+    on = allow_requests
     return BUILD_TEMPLATE.replace(
-        "{requests_step}", REQUESTS_ALLOWED if allow_requests else REQUESTS_REFUSED
-    )
+        "{requests_step}", REQUESTS_ALLOWED if on else REQUESTS_REFUSED
+    ).replace("{unmeasured}", UNMEASURED_ALLOWED if on else UNMEASURED_REFUSED)
 
 
 BUILD_TEMPLATE = f"""\
@@ -390,7 +414,7 @@ Every source is a list of entities, and a node runs once on the whole list that 
 A kind refuses anything outside its alphabet (dna holds only A, C, G, T), so an alphabet
 criterion on DNA holds by type: "produced" on the step that makes the DNA is enough for it,
 and no node is needed to check it. Any other part of the criterion (length, start or stop
-codon) needs an assertion on a node that measures it; if none does, request one.
+codon) needs an assertion on a node that measures it. {{unmeasured}}
 Known kinds: {sorted(TYPES)}."""
 
 VERIFY_INSTRUCTIONS = """\
@@ -412,7 +436,10 @@ only if the filter's bar is the bar the criterion names, in its direction and st
 (read it in the DAG): a repeat of a filter on its own yes branch holds by construction and
 adds nothing to the first filter's bar. A type guarantees its own alphabet, so "produced"
 on the step that makes DNA covers an alphabet criterion on DNA, and only that: length,
-start codon and stop codon are not guaranteed by type. Take what a node does
+start codon and stop codon are not guaranteed by type. A node that converts one kind into
+another (translates, transcribes, complements) does so by construction, so "produced" on
+that step covers a criterion that its output is that conversion of its input, and nothing
+beyond it: you have already checked the output against the result you worked out. Take what a node does
 from `nodes`, not from a guess:
 do not say a node returns its inputs unchanged unless `nodes` says it can. You cannot declare success: false is a veto and
 true grants nothing.
@@ -428,14 +455,11 @@ Set agrees to false, whatever else the DAG did, when:
   is one the goal says to leave out, as when each clears the baseline. Equal to the
   baseline does not clear it."""
 
-CRITIQUE_INSTRUCTIONS = """\
+CRITIQUE_TEMPLATE = """\
 You get a round that missed its goal as JSON: the plan, the outcome, the verdict and earlier
 rounds. Say what went wrong in terms of its steps and values, the one root cause, which
 step keys were right (keep), and what the next plan must do differently. Do not send it
-back to a wiring an earlier round already ran. If no available node can check or do
-something the goal needs, say so with root_cause "missing_tool" and name the tool in fix:
-it becomes a request for a person to write that node. Use "missing_tool" for a need that no
-node meets, not for a result you did not expect. Before you say a node misbehaves, read what
+back to a wiring an earlier round already ran. {missing_tool}Before you say a node misbehaves, read what
 it does in `nodes` and check the claim against the outcome's values. Entities with the same
 sequence are one entity, so a variant can equal an input without being a copy of it. Blame a
 threshold only when the values show it let through entities the goal says to leave out,
@@ -443,11 +467,36 @@ such as ones at or below the baseline: every entity passing is no fault when non
 goal says to leave out, as when each clears the baseline. Equal to the baseline does not
 clear it."""
 
+MISSING_TOOL = """\
+If no available node can check or do something the goal needs, say so with root_cause
+"missing_tool" and name the tool in fix: it becomes a request for a person to write that
+node. Use "missing_tool" for a need that no node meets, not for a result you did not
+expect. """
+
+COMPOSE_INSTEAD = """\
+Every fix must use the nodes that exist: none can be requested or written. If a step
+failed, say which node to use instead or how to configure it, and never say a node is
+missing. """
+
+
+def critique_instructions(allow_requests: bool) -> str:
+    """The critic's instructions, offering ``missing_tool`` only when a node may be requested."""
+    return CRITIQUE_TEMPLATE.replace(
+        "{missing_tool}", MISSING_TOOL if allow_requests else COMPOSE_INSTEAD
+    )
+
+
 CRITERIA_INSTRUCTIONS = """\
-Turn the goal into one to four criteria that decide whether it was met. Each is a claim a
-filter over the DAG's output could check. State what must be true, not how to do it.
+Turn the goal into one to four criteria that decide whether it was met: one for each
+requirement the goal states, such as "without changing the protein", and none for anything
+it does not (length, reading frame, start or stop codon, alphabet, a threshold it gives no
+number for). Each is a claim a filter over the DAG's output could check, from a score or
+count a node reports. Compare a score with a number the goal gives or an input it names,
+such as the first sequence, never with the input an output came from: no node sees which
+that was. Say each requirement once: "keep the ones above X" is one claim, not also "drop
+the ones that are not". State what must be true, not how to do it.
 Mark each quantitative when it names a measure or a comparison, qualitative when it
-states a property to judge."""
+states a property rather than a number."""
 
 COMPARATIVE_WORDS = (
     "higher",
@@ -467,6 +516,20 @@ COMPARATIVE_WORDS = (
 MAX_REQUESTS = 3
 MAX_IDS_LISTED = 20  # Of the registered ids an unknown node's message names.
 ADAPTER: TypeAdapter[NodeConfig] = TypeAdapter(NodeConfig)
+
+
+def _json_object(value: object) -> object:
+    """A tool argument that is a JSON object sent as a string, parsed; anything else as is.
+
+    Models send ``config`` this way now and then, and each rejection is a retry that
+    carries the whole conversation again.
+    """
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except ValueError:
+            pass
+    return value
 
 
 def step_config(plan: Plan, key: str, registry: Registry) -> BaseNodeConfig:
@@ -604,7 +667,10 @@ def build_agent(
     """
     seen = {} if seen is None else seen
 
-    def create_node(config: dict[str, Any], description: str) -> dict[str, Any]:
+    def create_node(
+        config: Annotated[dict[str, Any], BeforeValidator(_json_object)],
+        description: str,
+    ) -> dict[str, Any]:
         """Make a node and add it to the registry. Make nodes one at a time.
 
         Returns the node's id, config, input port, outputs and score columns. If this
@@ -773,6 +839,9 @@ def build_agent(
             )
         return plan
 
+    # A RequestlessPlan is a Plan whose schema leaves out `requests`: typed as the Plan it is.
+    shape = Plan if allow_requests else RequestlessPlan
+    output = ToolOutput[Plan](cast("type[Plan]", shape), strict=False)
     agent = Agent(
         model,
         deps_type=Hypothesis,
@@ -787,7 +856,7 @@ def build_agent(
         ],
         # Not strict: strict output sets additionalProperties false on every object,
         # which leaves steps, inputs, config and requests only able to be {}.
-        output_type=ToolOutput(Plan, strict=False),
+        output_type=output,
         retries={"output": 3},
     )
     agent.output_validator(check_plan)
@@ -799,9 +868,20 @@ def verify_agent(model: Model | str) -> Agent[None, VerifyOpinion]:
     return Agent(model, instructions=VERIFY_INSTRUCTIONS, output_type=VerifyOpinion)
 
 
-def critique_agent(model: Model | str) -> Agent[None, Critique]:
-    """Return an agent that says why a round missed and what the next plan must change."""
-    return Agent(model, instructions=CRITIQUE_INSTRUCTIONS, output_type=Critique)
+def critique_agent(
+    model: Model | str, *, allow_requests: bool = False
+) -> Agent[None, Critique]:
+    """Return an agent that says why a round missed and what the next plan must change.
+
+    Without ``allow_requests`` it cannot name ``missing_tool``, since no person is
+    going to write the node, so a gap it sees has to become a different wiring.
+    """
+    shape = Critique if allow_requests else RequestlessCritique
+    return Agent(
+        model,
+        instructions=critique_instructions(allow_requests),
+        output_type=cast("type[Critique]", shape),
+    )
 
 
 _INPUTS_CORE = f"""\
@@ -818,7 +898,9 @@ INPUTS_INSTRUCTIONS = (
     + """
 You have no database or network tools: every entity must come from the goal or the
 proposed hypothesis. If the goal names something whose value it does not give, say so
-plainly and add nothing for it, rather than writing out a sequence from memory."""
+plainly and add nothing for it, rather than writing out a sequence from memory.
+A `FASTAFile <hash>` mention names a file the user attached: it becomes an input by
+itself, so leave it out of add_input rather than copying any part of it."""
 )
 
 

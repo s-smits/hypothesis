@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any, ClassVar, Literal, Self
 
 from pydantic import BaseModel, Field, create_model, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 from node_dag.dag import Dag, DagOutput, Step
 from node_dag.nodes.base import (
@@ -38,8 +39,8 @@ class Criterion(BaseModel):
 
     ``source`` says who wrote it: a person (typed or edited by them), or the criteria
     agent, which the loop sets itself. ``kind`` is ``quantitative`` for a claim that names
-    a measure or a comparison and ``qualitative`` for a property to judge; it labels the
-    claim for a reader and does not change how it is checked.
+    a measure or a comparison and ``qualitative`` for a property rather than a number; it
+    labels the claim for a reader and does not change how it is checked.
     """
 
     id: str = Field(pattern=SLUG)
@@ -151,6 +152,11 @@ class Assertion(BaseModel):
     branch: Literal["yes", "no", "produced"]
     claim: str
 
+    @property
+    def key(self) -> str:
+        """Where ``Attempt.held`` records it. Assertions on one step and branch share a key."""
+        return f"{self.step}.{self.branch}"
+
 
 class DraftObservation(BaseModel):
     """A finding from an Amass record that bears on the hypothesis.
@@ -253,6 +259,14 @@ class Plan(BaseModel):
         self.dag(configs)._check()  # ty: ignore[call-non-callable]
 
 
+class RequestlessPlan(Plan):
+    """The builder's plan for a goal, every step using a node that exists."""
+
+    # Hidden from the schema the model is shown, so it cannot fill a field it may not use.
+    # Still validated, so a plan that carries one anyway is sent back by check_plan.
+    requests: SkipJsonSchema[dict[str, ToolRequest]] = {}
+
+
 class Critique(BaseModel):
     """Why an attempt missed, and what the next plan must change."""
 
@@ -268,6 +282,15 @@ class Critique(BaseModel):
     evidence: list[str] = Field(min_length=1)
     keep: list[str] = []
     fix: str
+
+
+class RequestlessCritique(Critique):
+    """Why an attempt missed, and what the next plan must change."""
+
+    # No ``missing_tool``: with requests off, no person will write the node it asks for.
+    root_cause: Literal[
+        "wrong_node", "wrong_wiring", "wrong_config", "goal_misread", "node_raised"
+    ]
 
 
 class VerifyOpinion(BaseModel):
@@ -352,9 +375,9 @@ def holds(assertions: list[Assertion], outcome: DagOutput | None) -> dict[str, b
         if a.branch == "produced":
             return n(a.step) > 0 or n(f"{a.step}.yes") > 0
         other = "no" if a.branch == "yes" else "yes"
-        return n(f"{a.step}.{a.branch}") > 0 and n(f"{a.step}.{other}") == 0
+        return n(a.key) > 0 and n(f"{a.step}.{other}") == 0
 
-    return {f"{a.step}.{a.branch}": holds_one(a) for a in assertions}
+    return {a.key: holds_one(a) for a in assertions}
 
 
 def accepted(

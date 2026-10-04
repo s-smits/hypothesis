@@ -8,6 +8,8 @@ import asyncio
 import inspect
 import json
 import math
+import re
+from pathlib import Path
 from typing import Any, cast
 
 import httpx2
@@ -43,7 +45,7 @@ from node_dag.plan import (
     VerifyOpinion,
 )
 from node_dag.registry import Registry
-from node_dag.types import Table, Value
+from node_dag.types import FastaFile, Table, Value
 from temporal.dag.activities import results_subdir, write_atomic
 
 
@@ -289,22 +291,79 @@ def _views(hyp: Hypothesis) -> list[dict[str, Any]]:
         room = int(room * 0.8)  # The cost was an estimate, and it was too low.
 
 
+# A file dropped on the goal is saved under results/files/<id> and mentioned in the
+# goal as ``FASTAFile <id> (<name>)``; the name in brackets is optional.
+_FILE_MENTION = re.compile(r"FASTAFile\s+([0-9a-f]{12})(?:\s*\(([^)]*)\))?")
+
+
+def _attachments(text: str) -> tuple[list[FastaFile], list[str]]:
+    """The FastaFile each ``FASTAFile <id>`` mention means, and the ids not on disk."""
+    files, missing = [], []
+    for m in _FILE_MENTION.finditer(text):
+        file_id = m.group(1)
+        if any(f.id == file_id for f in files) or file_id in missing:
+            continue  # Mentioned twice: one file is still one input.
+        path = results_subdir("files") / file_id
+        try:
+            f = FastaFile(sequence=path.read_text(), name=m.group(2) or "")
+        except (OSError, ValidationError):
+            f = None
+        if f is None or f.id != file_id:
+            # No file there, unreadable, or edited after it was saved: an id is a
+            # hash of the contents, so whatever is on disk is not this file.
+            missing.append(file_id)
+        else:
+            files.append(f)
+    return files, missing
+
+
+def _input_name(file: FastaFile, taken: set[str]) -> str:
+    """An input name for an attached file: its stem, or ``file``, unique in ``taken``."""
+    stem = re.sub(r"\W+", "_", Path(file.name).stem).strip("_") or "file"
+    name, n = stem, 2
+    while name in taken:
+        name, n = f"{stem}_{n}", n + 1
+    taken.add(name)
+    return name
+
+
 @activity.defn
 async def draft_inputs(inp: Stage) -> Out:
     """Take the entities a goal with no inputs is about. Runs once, before round 1.
 
     The agent has no database: it reads the entities out of the goal and the proposed
-    hypothesis, whatever kind they are.
+    hypothesis, whatever kind they are. A ``FASTAFile <id>`` mention is not read by
+    the agent at all: the file it names, dropped on the goal and saved under
+    results/files, becomes an input here, so what it holds is the file itself, never
+    a model's copy of it.
     """
     hyp = inp.hyp
+    text = hyp.goal + (f"\n{hyp.hypothesis}" if hyp.hypothesis else "")
+    files, missing = _attachments(text)
+    if missing:
+        return Out(
+            error="the goal names "
+            + ", ".join(f"FASTAFile {m}" for m in missing)
+            + " but nothing under results/files has that id"
+        )
     agent, found = inputs_agent(inp.model)
     prompt = f"Goal: {hyp.goal}" + (
         f"\nProposed hypothesis: {hyp.hypothesis}" if hyp.hypothesis else ""
     )
     r = await _ask(agent, prompt, inp, "inputs")
+    inputs, sources = dict(found.inputs), dict(found.sources)
+    taken = set(inputs)
+    for f in files:
+        name = _input_name(f, taken)
+        inputs[name] = [f]
+        sources[name] = (
+            f"the file {f.name} attached to the goal"
+            if f.name
+            else "a file attached to the goal"
+        )
     return Out(
-        inputs=found.inputs,
-        sources=found.sources,
+        inputs=inputs,
+        sources=sources,
         error=r.get("error"),
         declined=r.get("declined", False),
         tokens=r.get("tokens", 0),
@@ -396,7 +455,7 @@ async def critique_attempt(inp: Stage) -> Out:
     earlier = [a.summary() for a in inp.hyp.attempts[:-1]]
     verdict = inp.hyp.attempts[-1].verdict
     r = await _ask(
-        critique_agent(inp.model),
+        critique_agent(inp.model, allow_requests=inp.allow_requests),
         to_json(
             {**_views(inp.hyp)[0], "verdict": verdict, "earlier": earlier}
         ).decode(),

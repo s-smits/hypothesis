@@ -583,7 +583,16 @@ def test_the_rounds_field_on_the_form_matches_what_the_api_takes_and_the_loop_de
 def test_the_hypotheses_page_keeps_the_last_round_on_screen_while_the_next_is_planned():
     """Nothing is saved for a round until its plan lands; the page must not fall back to round 1's view."""
     page = HYPOTHESES.read_text()
-    assert "const shown = (h) => cur(h) ?? h.attempts.at(-1)" in page
+    # A round that wrote no plan is not one to show: the last round with a plan is.
+    assert (
+        "const shown = (h) => cur(h)?.plan ? cur(h) : h.attempts.findLast((a) => a.plan) ?? cur(h)"
+        in page
+    )
+    # A run that has stopped is not waiting for the plan the note speaks of.
+    assert (
+        '${STOPPED.has(state) ? "wrote no plan" : "has no plan yet"}' in page
+        and "viewNote(h, row.status)" in page
+    )
     # What it describes comes from the round shown, not from this round's attempt.
     assert "const att = shown(h)" in page and "a = shown(h)" in page
     assert "shown(h)?.plan?.hypothesis" in page
@@ -595,6 +604,15 @@ def test_the_new_page_takes_words_and_the_builder_chooses_what_to_run_on():
     page = NEW.read_text()
     assert 'id="inputs"' not in page and "readInputs" not in page
     assert "inputs:" not in page  # The request body carries no inputs.
+
+
+async def test_the_runs_page_draws_a_beats_reference_filter_as_it_reads():
+    page = await _endpoint("/")()
+    index = (Path(page.path).parent / "index.html").read_text()
+    # The filter also reads the step named in scored_in, so the graph draws that edge,
+    # and its label names the reference, not a threshold it does not have.
+    assert "config.scored_in" in index
+    assert "scored in" in index
 
 
 async def test_the_criteria_endpoint_drafts_a_list_to_edit():

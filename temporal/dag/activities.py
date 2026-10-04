@@ -28,10 +28,10 @@ def results_root() -> Path:
 
 
 def results_subdir(name: str) -> Path:
-    """``<results root>/<name>``: ``hypotheses``, ``registry``, ``requests`` or ``trajectories``.
+    """``<results root>/<name>``: ``hypotheses``, ``registry``, ``requests``, ``trajectories`` or ``files``.
 
-    One file each: ``<hypothesis id>.json``, ``<node id>.json``, ``<node name>.json`` and
-    ``<hypothesis id>-r<round>-<stage>.json``.
+    One file each: ``<hypothesis id>.json``, ``<node id>.json``, ``<node name>.json``,
+    ``<hypothesis id>-r<round>-<stage>.json`` and ``<entity id>``.
     """
     return results_root() / name
 

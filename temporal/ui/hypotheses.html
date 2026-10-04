@@ -77,9 +77,9 @@ const showValue = (v) => v == null ? "" : Array.isArray(v) ? `${v.length} × ${v
 const chips = (values) => Object.entries(values).map(([k, v]) => `<span class="chip">${esc(k)}: ${esc(showValue(v))}</span>`).join("");
 // This round's attempt: its plan, DAG, outcome and verdict. Missing while the builder plans.
 const cur = (h) => h.attempts.find((a) => a.round === h.round);
-// The round the sections describe: this round's, else the last the loop finished, so the page
-// does not go back to the start while the next plan is written.
-const shown = (h) => cur(h) ?? h.attempts.at(-1);
+// The round the sections describe: this round's once it has a plan, else the last round that had one,
+// so the page does not go back to the start while the next plan is written, or after a round wrote none.
+const shown = (h) => cur(h)?.plan ? cur(h) : h.attempts.findLast((a) => a.plan) ?? cur(h);
 // The builder's plan once there is one, else the idea the user gave.
 const idea = (h) => shown(h)?.plan?.hypothesis ?? h.hypothesis;
 const noIdea = (status) => status === "building" ? "The builder agent is writing it…" : "No plan was written.";
@@ -94,8 +94,8 @@ function nowLine(h, state) {
   return `<div class="now">${what} · ${used}${ceiling} tokens</div>`;
 }
 // Says so when the sections below describe a round that is not this one.
-const viewNote = (h) => !shown(h) || shown(h) === cur(h) ? ""
-  : `<div class="meta">Showing round ${shown(h).round}, the latest: round ${h.round} has no plan yet.</div>`;
+const viewNote = (h, state) => !shown(h) || shown(h) === cur(h) ? ""
+  : `<div class="meta">Showing round ${shown(h).round}, the latest: round ${h.round} ${STOPPED.has(state) ? "wrote no plan" : "has no plan yet"}.</div>`;
 
 // An expandable section. `key` keeps it open across the poll's redraw.
 const sec = (key, title, count, body) => !body ? "" : `
@@ -212,7 +212,7 @@ function hypothesis(row) {
   const obs = h.observations ?? [];
   const steps = a?.dag ? Object.keys(a.dag.steps).length : 0;
   const body = `
-    ${nowLine(h, row.status)}${viewNote(h)}
+    ${nowLine(h, row.status)}${viewNote(h, row.status)}
     ${blockedView(h)}
     ${h.stopped_because ? `<div class="meta">Stopped: ${esc(h.stopped_because)}${h.usage?.total ? ` · ${h.usage.total} tokens` : ""}</div>` : ""}
     ${sec(`${key}:verdict`, a?.verdict ? `Verdict · goal ${a.verdict.achieved ? "achieved" : "not achieved"}` : "", null,
