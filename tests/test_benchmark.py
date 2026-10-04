@@ -238,6 +238,7 @@ def test_gate_passes_a_synonymous_candidate():
     row = gate(i, random_synonymous(i, seed=3))
     assert row["protein_unchanged"] == 1.0
     assert row["length_unchanged"] == 1.0
+    assert row["immutable_unchanged"] == 1.0
 
 
 def test_gate_catches_a_changed_protein():
@@ -249,6 +250,21 @@ def test_gate_catches_a_changed_protein():
 def test_gate_catches_a_changed_length():
     i = inst()
     assert gate(i, SHORT[:-3])["length_unchanged"] == 0.0
+
+
+def test_gate_catches_a_swapped_stop_codon():
+    """The three stops translate alike, so only the immutable check can see this."""
+    row = gate(inst(), SHORT[:-3] + "TAG")
+    assert row["protein_unchanged"] == 1.0
+    assert row["immutable_unchanged"] == 0.0
+
+
+def test_gate_reads_the_instances_own_immutable_set():
+    i = Instance(key="g", parent=Dna(sequence=SHORT), immutable=frozenset({1}))
+    assert gate(i, "ATGTTAAAAGGCTTTTAA")["immutable_unchanged"] == 0.0  # CTG -> TTA
+    assert gate(i, "ATGCTGAAGGGCTTTTAA")["immutable_unchanged"] == 1.0  # AAA -> AAG
+    # The explicit set replaces the default, as in choices(): the stop is free here.
+    assert gate(i, SHORT[:-3] + "TAG")["immutable_unchanged"] == 1.0
 
 
 # --- running strategies ------------------------------------------------------
@@ -350,6 +366,31 @@ def test_a_mixed_proposal_list_keeps_only_the_valid_best():
     rows = run_strategy(insts, obj, "mixed", lambda i: [broken, good])
     assert rows[0].candidate == good
     assert rows[0].evaluations == 2  # the broken one still cost an evaluation
+
+
+def test_a_stop_swap_cannot_win_a_row_or_push_gap_closed_past_one():
+    i = three_instances()[0]
+    best = exact_codon_pair(i, PAIRS)
+    swapped = best[:-3] + "TAG"
+    pairs = {**PAIRS, best[-6:-3] + "TAG": 5.0}  # a stop pair worth more than any other
+    obj = codon_pair_objective(pairs)
+    assert obj.score(swapped) > obj.score(best)  # the hole pays on this objective
+    (only,) = run_strategy([i], obj, "swap", lambda x: [swapped])
+    assert only.candidate is None and only.passed is False
+    (mixed,) = run_strategy([i], obj, "mixed", lambda x: [best, swapped])
+    assert mixed.candidate == best
+    assert mixed.gap_closed == pytest.approx(1.0)
+
+
+@pytest.mark.filterwarnings("ignore:Partial codon")
+def test_a_candidate_that_breaks_the_length_does_not_beat_a_passing_one():
+    i = three_instances()[0]
+    obj = codon_pair_objective(PAIRS)
+    good = exact_codon_pair(i, PAIRS)
+    # A trailing partial codon is ignored by the protein check and by the score, so
+    # the two tie, and the longer string would win the tie without the length gate.
+    (row,) = run_strategy([i], obj, "padded", lambda x: [good, good + "A"])
+    assert row.candidate == good and row.passed
 
 
 def test_fraction_is_none_when_the_optimum_is_not_positive():

@@ -75,12 +75,17 @@ class Instance:
         parent: The original coding sequence.
         immutable: Codon indices that must keep their codon, whatever the objective.
             The start and the stop codon by default, since recoding either changes
-            what the sequence is rather than how it is written.
+            what the sequence is rather than how it is written. ``gate`` rejects a
+            candidate that changes any of them.
     """
 
     key: str
     parent: Dna
     immutable: frozenset[int] = field(default_factory=frozenset)
+
+    def fixed(self) -> frozenset[int]:
+        """The indices that keep their codon: ``immutable``, else the default pair."""
+        return self.immutable or default_immutable(self.parent.sequence)
 
     def choices(self) -> list[tuple[str, ...]]:
         """The codons allowed at each position, in order.
@@ -89,7 +94,7 @@ class Instance:
         all give a single choice, so a caller does not special-case them.
         """
         cs = codons(self.parent.sequence)
-        fixed = self.immutable or default_immutable(self.parent.sequence)
+        fixed = self.fixed()
         return [
             (c,) if i in fixed or len(c) != 3 else tuple(SYNONYMS[CODON_TABLE[c]])
             for i, c in enumerate(cs)
@@ -250,10 +255,27 @@ def gate(instance: Instance, candidate: str) -> dict[str, float]:
 
     Reported separately from any score, so a candidate that changed the protein is a
     failure rather than a low number inside an average.
+
+    ``immutable_unchanged`` is 1.0 when the candidate keeps its codon at every index in
+    ``instance.fixed()``, else 0.0. The node cannot see it: the three stop codons all
+    translate to ``*``, so a swapped stop keeps the protein, yet it lies outside the
+    space ``Instance.choices`` defines and the exact optimum is exact over.
     """
     cfg = ConstraintCheckConfig(reference=instance.parent)
     (row,) = ConstraintCheck(cfg).run(sequence=[Dna(sequence=candidate)])
-    return {k: v.value for k, v in row.items()}
+    old, new = codons(instance.parent.sequence), codons(candidate)
+    same = all(new[i : i + 1] == old[i : i + 1] for i in instance.fixed())
+    return {k: v.value for k, v in row.items()} | {"immutable_unchanged": float(same)}
+
+
+def passes(gates: Mapping[str, float]) -> bool:
+    """Whether every hard constraint held, given the outcome of ``gate``."""
+    return (
+        gates.get("protein_unchanged") == 1.0
+        and gates.get("length_unchanged") == 1.0
+        and gates.get("immutable_unchanged") == 1.0
+        and gates.get("targets_remaining", 0.0) == 0.0
+    )
 
 
 # --- running a strategy over instances ---------------------------------------
@@ -288,13 +310,7 @@ class Result:
     @property
     def passed(self) -> bool:
         """Whether a candidate exists and every hard constraint held."""
-        if self.candidate is None:
-            return False
-        return (
-            self.gates.get("protein_unchanged") == 1.0
-            and self.gates.get("length_unchanged") == 1.0
-            and self.gates.get("targets_remaining", 0.0) == 0.0
-        )
+        return self.candidate is not None and passes(self.gates)
 
     @property
     def fraction_of_optimum(self) -> float | None:
@@ -354,8 +370,8 @@ def run_strategy(
         parent = objective.score(inst.parent.sequence)
         scored: list[tuple[float, str]] = []
         for candidate in proposals:
-            if gate(inst, candidate)["protein_unchanged"] != 1.0:
-                continue  # A broken candidate cannot be the strategy's best.
+            if not passes(gate(inst, candidate)):
+                continue  # A candidate that breaks any gate cannot be the best.
             value = objective.score(candidate)
             if math.isfinite(value):
                 scored.append((value, candidate))
@@ -458,9 +474,7 @@ def manifest(
                 "key": i.key,
                 "sequence_sha256_16": _digest(i.parent.sequence),
                 "codons": len(codons(i.parent.sequence)),
-                "immutable": sorted(
-                    i.immutable or default_immutable(i.parent.sequence)
-                ),
+                "immutable": sorted(i.fixed()),
             }
             for i in instances
         ],
