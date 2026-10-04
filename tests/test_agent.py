@@ -313,6 +313,32 @@ async def test_each_model_call_leaves_its_transcript_even_when_it_fails(results_
     )
 
 
+async def test_a_retry_does_not_overwrite_the_transcript_of_the_attempt_that_died(results_dir):
+    import dataclasses
+
+    from pydantic_ai import Agent
+    from pydantic_ai.models.test import TestModel
+    from temporalio.testing import ActivityEnvironment
+
+    def drops(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        raise RuntimeError("the connection dropped")
+
+    stage = Stage(hyp=Hypothesis(goal="g", inputs={"seq": [Dna(sequence="ATG")]}, round=1), model="test")
+    with pytest.raises(RuntimeError):  # Temporal retries an activity that raises.
+        await ActivityEnvironment().run(_ask, Agent(FunctionModel(drops), output_type=str), "first try", stage, "plan")
+    retry = ActivityEnvironment()
+    retry.info = dataclasses.replace(retry.info, attempt=2)
+    await retry.run(_ask, Agent(TestModel(), output_type=str), "second try", stage, "plan")
+
+    saved = results_dir / "trajectories"
+    tag = f"{stage.hyp.id}-r1-plan"
+    assert "first try" in (saved / f"{tag}-a1.json").read_text()
+    # The call the workflow used keeps the name pulse reads, and an answer is not a dead attempt.
+    assert "second try" in (saved / f"{tag}.json").read_text()
+    assert "first try" not in (saved / f"{tag}.json").read_text()
+    assert not (saved / f"{tag}-a2.json").exists()
+
+
 def test_a_hypothesis_refuses_criteria_that_share_an_id():
     twins = [
         Criterion(id="no_tcg", claim="no TCG remains"),
