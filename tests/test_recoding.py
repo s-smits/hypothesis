@@ -167,6 +167,7 @@ def test_passes_a_clean_recoding():
     assert row == {
         "protein_unchanged": 1.0,
         "length_unchanged": 1.0,
+        "immutable_unchanged": 1.0,
         "targets_remaining": 0.0,
         "targets_unreachable": 0.0,
     }
@@ -367,3 +368,36 @@ def test_a_variant_is_never_its_own_source_but_can_equal_another_input():
     from_three = {d.sequence for d in node.run([three])}
     assert one.sequence not in from_one and three.sequence not in from_three
     assert three.sequence in from_one and one.sequence in from_three
+
+
+@pytest.mark.parametrize("positions", [(-1,), (5,), (1, 1), (True,), (1.5,)])
+def test_fixed_codon_indices_must_be_distinct_and_inside_the_reference(positions):
+    with pytest.raises(ValidationError):
+        ConstraintCheckConfig(reference=SEQ, immutable=positions)
+
+
+def test_fixed_codon_check_rejects_synonyms_and_missing_positions_in_order():
+    ref = Dna(sequence="ATGCTGAAATGA")
+    candidates = [
+        ref,
+        Dna(sequence="ATGCTGAAATAA"),  # synonymous stop swap
+        Dna(sequence="ATGTTAAAATGA"),  # synonymous interior swap
+        Dna(sequence="ATGCTGAAA"),  # missing fixed stop
+        Dna(sequence="ATGCTGAAGTGA"),  # allowed synonym
+    ]
+    cfg = ConstraintCheckConfig(reference=ref, immutable=(0, 1, 3))
+    rows = ConstraintCheck(cfg).run(sequence=candidates)
+    assert [r["immutable_unchanged"].value for r in rows] == [1, 0, 0, 0, 1]
+    assert [r["protein_unchanged"].value for r in rows] == [1, 1, 1, 0, 1]
+    assert all(set(row) == set(cfg.output) for row in rows)
+    assert ConstraintCheck(cfg).run(sequence=[]) == []
+
+
+def test_empty_immutable_checks_no_positions_and_explicit_indices_replace_defaults():
+    ref, changed = Dna(sequence="ATGCTGTGA"), Dna(sequence="ATGCTGTAA")
+    for positions in [(), (1,)]:
+        cfg = ConstraintCheckConfig(reference=ref, immutable=positions)
+        assert (
+            ConstraintCheck(cfg).run(sequence=[changed])[0]["immutable_unchanged"].value
+            == 1
+        )

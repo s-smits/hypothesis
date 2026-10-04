@@ -27,6 +27,14 @@ class ConstraintCheck(BaseNode[ConstraintCheckConfig]):
                 value=float(str(Seq(s.sequence).translate()) == ref_protein)
             ),
             "length_unchanged": Score(value=float(len(s.sequence) == len(ref))),
+            "immutable_unchanged": Score(
+                value=float(
+                    all(
+                        s.sequence[3 * i : 3 * i + 3] == ref[3 * i : 3 * i + 3]
+                        for i in self.config.immutable
+                    )
+                )
+            ),
             "targets_remaining": Score(value=len(remaining)),
             "targets_unreachable": Score(value=len(unreachable)),
         }

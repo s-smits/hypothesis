@@ -258,15 +258,15 @@ def gate(instance: Instance, candidate: str) -> dict[str, float]:
     failure rather than a low number inside an average.
 
     ``immutable_unchanged`` is 1.0 when the candidate keeps its codon at every index in
-    ``instance.fixed()``, else 0.0. The node cannot see it: the three stop codons all
+    ``instance.fixed()``, else 0.0. The three stop codons all
     translate to ``*``, so a swapped stop keeps the protein, yet it lies outside the
     space ``Instance.choices`` defines and the exact optimum is exact over.
     """
-    cfg = ConstraintCheckConfig(reference=instance.parent)
+    cfg = ConstraintCheckConfig(
+        reference=instance.parent, immutable=tuple(sorted(instance.fixed()))
+    )
     (row,) = ConstraintCheck(cfg).run(sequence=[Dna(sequence=candidate)])
-    old, new = codons(instance.parent.sequence), codons(candidate)
-    same = all(new[i : i + 1] == old[i : i + 1] for i in instance.fixed())
-    return {k: v.value for k, v in row.items()} | {"immutable_unchanged": float(same)}
+    return {k: v.value for k, v in row.items()}
 
 
 def passes(gates: Mapping[str, float]) -> bool:

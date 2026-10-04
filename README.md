@@ -61,6 +61,42 @@ temporal/
   run_benchmark.py             compare recoding strategies on fixed genes (node_dag/benchmark.py); --loop-results scores saved loop runs; no Temporal
 ```
 
+## Exporting benchmark goals
+
+Generate CAI goals from the benchmark's development instances:
+
+```sh
+uv run python -m temporal.run_benchmark --instances 10 --emit-goals results/goals
+uv run python -m temporal.run_hypothesis 'results/goals/goal_<instance>.json'
+```
+
+The first command fetches the NCBI record, derives weights from the unselected
+CDS and writes one goal per development instance. It runs no model, scores no
+candidates and records no benchmark attempt. Use a fresh export directory:
+existing goal files, duplicate instance keys and unsafe filename labels are
+rejected. The second command needs a running Temporal server and worker, plus
+model credentials; substitute an exported filename.
+
+Each goal includes the sequence, weight table and five criteria: preserved
+protein, higher CAI, exclusion of unimproved outputs, preserved length and exact
+preservation of fixed codons. The final criterion names zero-based positions from
+`Instance.fixed()`. `constraint_check(reference=..., immutable=(...))` measures
+those positions with `immutable_unchanged`; filter at 1.0 using `at_least`. An
+empty `immutable` tuple checks no positions, so pass the goal's positions
+explicitly. The benchmark gate uses this same scorer. A synonymous stop change
+fails the fixed-codon check even though its protein is unchanged.
+
+`constraint_check` is now version 2. Its new output and configuration change its
+hash and score columns; recreate old configurations and their dependent filters.
+Version 1 cache entries are not reused. Old saved records with the previous hash
+may be reported as unreadable; do not rewrite their hashes to make them load.
+
+Held-out export requires `--release-holdout --reason ... --frozen '<JSON object>'`
+and records the access **before** writing goals, even if the export then fails.
+Feeding these goals to a planner reveals the held-out sequences: do this only
+under a predeclared frozen evaluation protocol. Export tests and scripted loop
+runs establish the wiring, not live-model planning quality or biological benefit.
+
 ## Nodes
 
 A DAG works like Pipeline Pilot or KNIME. You pass in a list of entities for each
