@@ -309,6 +309,43 @@ async def test_a_call_that_fails_still_counts_its_tokens():
     assert "error" in bad and bad["tokens"] > 0
 
 
+async def test_a_request_the_api_never_answers_is_given_up_and_retried_by_the_client(
+    results_dir, monkeypatch
+):
+    import asyncio
+
+    from pydantic_ai import Agent
+    from pydantic_ai.exceptions import ModelAPIError
+    from pydantic_ai.models.anthropic import AnthropicModel
+    from pydantic_ai.providers.anthropic import AnthropicProvider
+
+    seen: list[asyncio.StreamWriter] = []
+
+    async def silent(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+        seen.append(writer)  # One per connection: a retry opens a new one.
+        while await reader.read(65536):  # Take the request, and never answer it.
+            pass
+        writer.close()
+
+    server = await asyncio.start_server(silent, "127.0.0.1", 0)  # Any free port.
+    port = server.sockets[0].getsockname()[1]
+    provider = AnthropicProvider(api_key="not-a-key", base_url=f"http://127.0.0.1:{port}")
+    agent = Agent(AnthropicModel("claude-sonnet-5-5", provider=provider), output_type=str)
+    monkeypatch.setattr("temporal.hypothesis.activities.REQUEST_TIMEOUT", 1)
+    stage = Stage(hyp=Hypothesis(goal="g", inputs={"seq": [Dna(sequence="ATG")]}), model="test")
+    try:
+        # Without the timeout the client waits 600 s, and this bound fails the test instead.
+        with pytest.raises(ModelAPIError):
+            await asyncio.wait_for(_ask(agent, "plan it", stage, "plan"), 30)
+        assert len(seen) > 1  # The client's own retries ran, inside the activity's 10 minutes.
+    finally:
+        for writer in seen:
+            writer.close()
+        server.close()
+        await asyncio.wait_for(provider.client.close(), 5)
+        await asyncio.wait_for(server.wait_closed(), 5)
+
+
 def test_search_nodes_finds_and_ranks_by_intent():
     from node_dag.agent import search_nodes
 
