@@ -33,6 +33,7 @@ from node_dag.types import (
 from temporal.dag.activities import (
     RunNodeInput,
     SavedRun,
+    SaveWorkflowInput,
     run_filter,
     run_score,
     run_tool,
@@ -344,6 +345,69 @@ async def test_a_failed_run_is_saved_with_its_error(results_dir):
     assert saved.status == "FAILED"
     assert saved.error == "out of GPUs"
     assert saved.steps == {"protein": "failed"}
+
+
+async def _run_when_saving_always_fails(tool, tries: list[int]) -> DagOutput:
+    """Run one protein step whose save fails every time, counting the attempts."""
+
+    @activity.defn(name="save_workflow")
+    async def full_disk(inp: SaveWorkflowInput) -> None:
+        tries.append(1)
+        raise OSError("disk full")
+
+    dag = {
+        "inputs": {"seq": "dna"},
+        "steps": {"protein": _step({"name": "dna_to_protein"}, "seq")},
+    }
+    async with (
+        await WorkflowEnvironment.start_time_skipping(
+            data_converter=pydantic_data_converter
+        ) as env,
+        Worker(
+            env.client,
+            task_queue="t",
+            workflows=[DagWorkflow],
+            activities=[tool, full_disk],
+        ),
+    ):
+        # Bounded, so a save that is retried for ever fails the test, not hangs it.
+        return await asyncio.wait_for(
+            env.client.execute_workflow(
+                DagWorkflow.run,
+                DagInput(
+                    dag=Dag.model_validate(dag), inputs={"seq": [Dna(sequence="ATG")]}
+                ),
+                id="no-save",
+                task_queue="t",
+            ),
+            timeout=10,
+        )
+
+
+async def test_a_save_that_keeps_failing_does_not_fail_a_finished_run():
+    @activity.defn(name="run_tool")
+    async def tool(inp: RunNodeInput) -> list[Value]:
+        return run_tool(inp)
+
+    tries: list[int] = []
+    out = await _run_when_saving_always_fails(tool, tries)
+    assert out.values["protein"].items == [AminoAcidSequence(sequence="M")]
+    assert len(tries) == 3
+
+
+async def test_a_save_that_keeps_failing_does_not_hide_why_a_run_failed():
+    @activity.defn(name="run_tool")
+    async def broken_tool(inp: RunNodeInput) -> list[Value]:
+        raise ApplicationError("out of GPUs", non_retryable=True)
+
+    tries: list[int] = []
+    with pytest.raises(WorkflowFailureError) as raised:
+        await _run_when_saving_always_fails(broken_tool, tries)
+    cause: BaseException = raised.value
+    while cause.__cause__:
+        cause = cause.__cause__
+    assert str(cause) == "out of GPUs"
+    assert len(tries) == 3
 
 
 async def test_progress_reports_each_step_while_running():
