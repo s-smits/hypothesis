@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Body, FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, StringConstraints, ValidationError
 from temporalio.client import (
@@ -21,7 +21,8 @@ from node_dag.dag import DagProgress
 from node_dag.links import Link
 from node_dag.plan import Criterion, HypothesisState, Observation, ToolRequest
 from node_dag.registry import Registry
-from node_dag.types import Value
+from node_dag.storage import write_atomic
+from node_dag.types import FastaFile, Value
 from temporal.dag.activities import (
     SavedRun,
     SaveWorkflowInput,
@@ -313,6 +314,20 @@ class ObservationDetail(BaseModel):
     cited_by: list[Citation]
 
 
+class SavedFile(BaseModel):
+    """A file saved under ``results/files``, as the upload answers.
+
+    Args:
+        id: The file's entity id, a hash of its contents: ``results/files/<id>``.
+        name: The name it was uploaded with.
+        kind: The entity kind it became.
+    """
+
+    id: str
+    name: str
+    kind: str
+
+
 def make_app(
     client: Client,
     build_model: str | None = None,
@@ -435,6 +450,25 @@ def make_app(
         except Exception as e:
             raise HTTPException(502, f"The observations agent failed: {e}") from e
         return result.output
+
+    @app.post("/api/files", status_code=201)
+    async def save_file(name: str = "", data: bytes = Body(b"")) -> SavedFile:
+        """Save a file dropped on the goal, named by the hash of what it holds.
+
+        Only FASTA is taken today. The reply's id is how a goal references the
+        file: ``FASTAFile <id>`` in the goal makes it an input when the run
+        starts.
+        """
+        try:
+            text = data.decode()
+        except UnicodeDecodeError as e:
+            raise HTTPException(422, f"Not a text file: {e}") from e
+        try:
+            file = FastaFile(sequence=text, name=name)
+        except ValidationError as e:
+            raise HTTPException(422, e.errors()[0]["msg"]) from e
+        write_atomic(results_subdir("files") / file.id, data)
+        return SavedFile(id=file.id, name=file.name, kind=file.kind)
 
     @app.get("/", include_in_schema=False)
     async def index() -> FileResponse:
