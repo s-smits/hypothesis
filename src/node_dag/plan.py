@@ -174,6 +174,11 @@ class Observation(DraftObservation):
         url: Where to read the record, if it has a link.
         source: The journal, or whatever else published it.
         date: When it was published.
+        used: How the builder used this record, when it cited one the prompt
+            listed. The ``summary`` beside it stays as the user wrote it, so a
+            citation adds the builder's reading rather than overwriting the
+            user's. None for a record the builder found itself, whose own
+            ``summary`` already says how it shaped the plan.
     """
 
     core: str
@@ -181,6 +186,7 @@ class Observation(DraftObservation):
     url: str | None = None
     source: str | None = None
     date: str | None = None
+    used: str | None = None
 
     @classmethod
     def from_record(
@@ -211,8 +217,10 @@ class Plan(BaseModel):
     requests: dict[str, ToolRequest] = {}
     observations: list[DraftObservation] = Field(
         default=[],
-        description="The findings from search_literature or get_record that bear on the "
-        "hypothesis, one per record. Leave out if you did not search.",
+        description="The findings that bear on the hypothesis, one per record: from "
+        "search_literature or get_record, or from the observations the prompt listed. "
+        "Cite one for each record that shaped the plan, with a summary of how it did. "
+        "Leave out if there are none.",
     )
     addresses_critique: str = ""
 

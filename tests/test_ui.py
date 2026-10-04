@@ -32,8 +32,8 @@ from temporal.dag.activities import SavedRun, SaveWorkflowInput, results_subdir
 from temporal.hypothesis.activities import save_hypothesis
 from temporal.hypothesis.loop import HypothesisInput
 from temporal.ui.app import (
-    NewCriteria,
     NewCriterion,
+    NewDraft,
     NewHypothesis,
     _hypothesis_row,
     make_app,
@@ -436,6 +436,56 @@ async def test_a_new_hypothesis_keeps_the_kind_and_text_of_the_criteria_the_user
     ]
 
 
+async def test_the_observations_endpoint_searches_the_literature_for_a_goal():
+    """The page asks for this before a run, so the user can edit what it found."""
+    seen: list[ModelMessage] = []
+
+    def script(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        seen.extend(messages)
+        # Nothing cited, so nothing to check against a record: the empty answer is
+        # the one an agent with no search behind it can give.
+        return ModelResponse(
+            parts=[ToolCallPart(info.output_tools[0].name, {"observations": []})]
+        )
+
+    search = _endpoint("/api/observations", "POST", None, FunctionModel(script))
+    got = await search(NewDraft(goal="faster lacZ", hypothesis="mutate codons"))
+
+    assert got == []
+    prompt = next(p.content for p in seen[0].parts if isinstance(p, UserPromptPart))
+    assert "Goal: faster lacZ" in str(prompt)
+    assert "Proposed hypothesis: mutate codons" in str(prompt)
+
+    with pytest.raises(HTTPException) as e:  # No model, no agent.
+        await _endpoint("/api/observations", "POST")(NewDraft(goal="faster lacZ"))
+    assert e.value.status_code == 503
+
+    def down(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        raise RuntimeError("no API key")
+
+    broken = _endpoint("/api/observations", "POST", None, FunctionModel(down))
+    with pytest.raises(HTTPException) as e:  # The page shows why, not a bare 500.
+        await broken(NewDraft(goal="faster lacZ"))
+    assert e.value.status_code == 502 and "no API key" in e.value.detail
+
+
+async def test_a_new_hypothesis_keeps_the_literature_the_user_sent():
+    client = _Client()
+    kept = [
+        Observation(
+            amass_id="AMBC_1",
+            summary="Codon usage sets expression.",
+            core="biomedcore",
+            title="Codon usage and expression",
+        )
+    ]
+    await _endpoint("/api/hypotheses", "POST", client, "model")(
+        NewHypothesis(goal="g", observations=kept)
+    )
+    ((inp, _),) = client.started
+    assert inp.hypothesis.observations == kept
+
+
 def test_the_new_page_edits_criteria_and_can_draft_them_with_the_agent():
     page = NEW.read_text()
     for s in ("Success criteria", "quantitative", "qualitative", "Add criterion"):
@@ -444,6 +494,16 @@ def test_the_new_page_edits_criteria_and_can_draft_them_with_the_agent():
     assert "/api/criteria" in page  # The "draft with the agent" button's call.
     assert "criteria: criteria()" in page  # They are sent when the run starts.
     assert "max_rounds" in page  # The loop's own limit stays on the form.
+
+
+def test_the_new_page_edits_the_observations_it_gathers_before_a_run():
+    page = NEW.read_text()
+    assert "Observations" in page
+    assert "/api/observations" in page  # The "search the literature" button's call.
+    assert "observations: observations()" in page  # Sent when the run starts.
+    # A summary is editable, and the record it cites is not re-typed by hand.
+    assert "observationRow" in page
+    assert "...r.obs" in page
 
 
 def test_the_hypotheses_page_marks_each_criterion_met_not_met_or_unclear():
@@ -477,7 +537,7 @@ async def test_the_criteria_endpoint_drafts_a_list_to_edit():
         )
 
     draft = _endpoint("/api/criteria", "POST", None, FunctionModel(script))
-    got = await draft(NewCriteria(goal="faster lacZ", hypothesis="mutate codons"))
+    got = await draft(NewDraft(goal="faster lacZ", hypothesis="mutate codons"))
 
     assert got == [
         Criterion(id="faster", claim="twice the expression"),
@@ -488,7 +548,7 @@ async def test_the_criteria_endpoint_drafts_a_list_to_edit():
     assert "Proposed hypothesis: mutate codons" in str(prompt)
 
     with pytest.raises(HTTPException) as e:  # No model, no agent.
-        await _endpoint("/api/criteria", "POST")(NewCriteria(goal="faster lacZ"))
+        await _endpoint("/api/criteria", "POST")(NewDraft(goal="faster lacZ"))
     assert e.value.status_code == 503
 
     def down(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
@@ -496,11 +556,11 @@ async def test_the_criteria_endpoint_drafts_a_list_to_edit():
 
     broken = _endpoint("/api/criteria", "POST", None, FunctionModel(down))
     with pytest.raises(HTTPException) as e:  # The page shows why, not a bare 500.
-        await broken(NewCriteria(goal="faster lacZ"))
+        await broken(NewDraft(goal="faster lacZ"))
     assert e.value.status_code == 502 and "no API key" in e.value.detail
 
 
 def test_a_blank_goal_is_refused_before_it_can_reach_the_criteria_agent():
     with pytest.raises(ValidationError):  # Blank after trimming: no goal at all.
-        NewCriteria(goal="  \n")
-    assert NewCriteria(goal="  faster lacZ \n").goal == "faster lacZ"
+        NewDraft(goal="  \n")
+    assert NewDraft(goal="  faster lacZ \n").goal == "faster lacZ"

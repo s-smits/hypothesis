@@ -1,5 +1,3 @@
-
-
 import pytest
 from pydantic import ValidationError
 from pydantic_ai.messages import (
@@ -19,11 +17,12 @@ from node_dag.agent import (
     build_agent,
     criteria_agent,
     inputs_agent,
+    plan_prompt,
 )
 from node_dag.nodes.filters.at_most.config import AtMostConfig
 from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
 from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
-from node_dag.plan import Criterion
+from node_dag.plan import Criterion, Observation
 from node_dag.registry import Registry
 from node_dag.types import Dna
 from temporal.dag.activities import results_subdir
@@ -63,7 +62,12 @@ def _reply(info: AgentInfo, args: dict) -> ModelResponse:
 
 def _submit(info: AgentInfo, dag: dict) -> ModelResponse:
     steps = {k: {**v, "why": "w"} for k, v in dag["steps"].items()}
-    plan = {"hypothesis": "convert DNA to protein", "expected": "proteins", **dag, "steps": steps}
+    plan = {
+        "hypothesis": "convert DNA to protein",
+        "expected": "proteins",
+        **dag,
+        "steps": steps,
+    }
     return _reply(info, plan)
 
 
@@ -184,6 +188,32 @@ async def test_agent_sees_the_score_columns_a_scorer_adds_and_filters_on_one(
     assert out.steps["small"].node.startswith("at_most__")
 
 
+OBSERVED = Observation(
+    amass_id="AMBC_1",
+    summary="Codon usage sets expression in E. coli.",
+    core="biomedcore",
+    title="Codon usage and expression",
+)
+
+
+def test_the_literature_the_user_kept_reaches_the_plan_and_survives_the_save(
+    results_dir,
+):
+    """What the user accepted before the build is shown to the builder and saved with the run."""
+    hyp = Hypothesis(
+        goal="Convert DNA to protein.",
+        observations=[OBSERVED],
+        inputs={"seq": [Dna(sequence="ATG")]},
+    )
+    prompt = plan_prompt(hyp)
+    assert "[biomedcore AMBC_1] Codon usage and expression" in prompt
+    assert "Codon usage sets expression in E. coli." in prompt
+
+    save_hypothesis(hyp)
+    (path,) = results_subdir("hypotheses").iterdir()
+    assert _hypothesis_row(path).hypothesis.observations == [OBSERVED]
+
+
 def test_a_hypothesis_without_a_dag_is_building():
     hyp = Hypothesis(
         goal="Convert DNA to protein.", inputs={"seq": [Dna(sequence="ATG")]}
@@ -202,7 +232,9 @@ def test_goals_are_distinct_newest_first_with_latest_inputs():
     for goal, seq in [("a", "ATG"), ("b", "AAA"), ("a", "TTT")]:
         save_hypothesis(Hypothesis(goal=goal, inputs={"seq": [Dna(sequence=seq)]}))
         time.sleep(0.01)
-    paths = sorted(results_subdir("hypotheses").iterdir(), key=lambda p: p.stat().st_mtime)
+    paths = sorted(
+        results_subdir("hypotheses").iterdir(), key=lambda p: p.stat().st_mtime
+    )
     for i, p in enumerate(paths):  # mtimes can tie on coarse filesystems.
         os.utime(p, (1000 + i, 1000 + i))
     goals = _goals([_hypothesis_row(p) for p in paths])
@@ -232,10 +264,16 @@ async def test_each_model_call_leaves_its_transcript_even_when_it_fails(results_
     from node_dag.agent import Hypothesis
     from node_dag.types import Dna
 
-    stage = Stage(hyp=Hypothesis(goal="g", inputs={"seq": [Dna(sequence="ATG")]}, round=2), model="test")
+    stage = Stage(
+        hyp=Hypothesis(goal="g", inputs={"seq": [Dna(sequence="ATG")]}, round=2),
+        model="test",
+    )
     ok = await _ask(Agent(TestModel(), output_type=str), "hello", stage, "verify")
     assert ok["out"] and ok["tokens"] > 0
-    assert "hello" in (results_dir / "trajectories" / f"{stage.hyp.id}-r2-verify.json").read_text()
+    assert (
+        "hello"
+        in (results_dir / "trajectories" / f"{stage.hyp.id}-r2-verify.json").read_text()
+    )
 
     never = Agent(TestModel(), output_type=str, retries={"output": 0})
 
@@ -244,20 +282,35 @@ async def test_each_model_call_leaves_its_transcript_even_when_it_fails(results_
         raise ModelRetry("a guard said no")
 
     bad = await _ask(never, "plan it", stage, "plan")
-    assert "error" in bad and "plan it" in (results_dir / "trajectories" / f"{stage.hyp.id}-r2-plan.json").read_text()
+    assert (
+        "error" in bad
+        and "plan it"
+        in (results_dir / "trajectories" / f"{stage.hyp.id}-r2-plan.json").read_text()
+    )
 
 
 def test_a_hypothesis_refuses_criteria_that_share_an_id():
-    twins = [Criterion(id="no_tcg", claim="no TCG remains"), Criterion(id="no_tcg", claim="no TCA remains")]
+    twins = [
+        Criterion(id="no_tcg", claim="no TCG remains"),
+        Criterion(id="no_tcg", claim="no TCA remains"),
+    ]
     with pytest.raises(ValidationError, match="no_tcg"):
         Hypothesis(goal="g", inputs={"seq": [Dna(sequence="ATG")]}, criteria=twins)
 
 
 async def test_derived_criteria_that_share_an_id_are_sent_back():
-    replies = iter([
-        [{"id": "no_tcg", "claim": "no TCG remains"}, {"id": "no_tcg", "claim": "no TCA remains"}],
-        [{"id": "no_tcg", "claim": "no TCG remains"}, {"id": "no_tca", "claim": "no TCA remains"}],
-    ])
+    replies = iter(
+        [
+            [
+                {"id": "no_tcg", "claim": "no TCG remains"},
+                {"id": "no_tcg", "claim": "no TCA remains"},
+            ],
+            [
+                {"id": "no_tcg", "claim": "no TCG remains"},
+                {"id": "no_tca", "claim": "no TCA remains"},
+            ],
+        ]
+    )
 
     def script(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         return _reply(info, {"response": next(replies)})
@@ -288,7 +341,9 @@ async def test_a_refusal_is_reported_as_declined_with_the_short_message(results_
     def refuse(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         raise ContentFilterError("the response was filtered", body='{"big": "body"}')
 
-    stage = Stage(hyp=Hypothesis(goal="g", inputs={"seq": [Dna(sequence="ATG")]}), model="test")
+    stage = Stage(
+        hyp=Hypothesis(goal="g", inputs={"seq": [Dna(sequence="ATG")]}), model="test"
+    )
     out = await _ask(Agent(FunctionModel(refuse), output_type=str), "p", stage, "plan")
     assert out["declined"] and out["error"] == "the response was filtered"
 
@@ -297,8 +352,9 @@ async def test_a_call_that_fails_still_counts_its_tokens():
     from pydantic_ai import Agent, ModelRetry
     from pydantic_ai.models.test import TestModel
 
-
-    stage = Stage(hyp=Hypothesis(goal="g", inputs={"seq": [Dna(sequence="ATG")]}), model="test")
+    stage = Stage(
+        hyp=Hypothesis(goal="g", inputs={"seq": [Dna(sequence="ATG")]}), model="test"
+    )
     never = Agent(TestModel(), output_type=str, retries={"output": 0})
 
     @never.output_validator
@@ -329,15 +385,23 @@ async def test_a_request_the_api_never_answers_is_given_up_and_retried_by_the_cl
 
     server = await asyncio.start_server(silent, "127.0.0.1", 0)  # Any free port.
     port = server.sockets[0].getsockname()[1]
-    provider = AnthropicProvider(api_key="not-a-key", base_url=f"http://127.0.0.1:{port}")
-    agent = Agent(AnthropicModel("claude-sonnet-5-5", provider=provider), output_type=str)
+    provider = AnthropicProvider(
+        api_key="not-a-key", base_url=f"http://127.0.0.1:{port}"
+    )
+    agent = Agent(
+        AnthropicModel("claude-sonnet-5-5", provider=provider), output_type=str
+    )
     monkeypatch.setattr("temporal.hypothesis.activities.REQUEST_TIMEOUT", 1)
-    stage = Stage(hyp=Hypothesis(goal="g", inputs={"seq": [Dna(sequence="ATG")]}), model="test")
+    stage = Stage(
+        hyp=Hypothesis(goal="g", inputs={"seq": [Dna(sequence="ATG")]}), model="test"
+    )
     try:
         # Without the timeout the client waits 600 s, and this bound fails the test instead.
         with pytest.raises(ModelAPIError):
             await asyncio.wait_for(_ask(agent, "plan it", stage, "plan"), 30)
-        assert len(seen) > 1  # The client's own retries ran, inside the activity's 10 minutes.
+        assert (
+            len(seen) > 1
+        )  # The client's own retries ran, inside the activity's 10 minutes.
     finally:
         for writer in seen:
             writer.close()
@@ -358,7 +422,9 @@ async def test_a_request_keeps_the_clients_five_second_connect_limit(results_dir
             raise UnexpectedModelBehavior("stop here")
 
     probe = Probe()
-    stage = Stage(hyp=Hypothesis(goal="g", inputs={"seq": [Dna(sequence="ATG")]}), model="test")
+    stage = Stage(
+        hyp=Hypothesis(goal="g", inputs={"seq": [Dna(sequence="ATG")]}), model="test"
+    )
     await _ask(probe, "plan it", stage, "plan")
     timeout = probe.settings["timeout"]
     assert (timeout.connect, timeout.read) == (5.0, REQUEST_TIMEOUT)
@@ -592,7 +658,10 @@ async def test_add_input_rejects_what_it_cannot_stand_behind(results_dir):
     seen, found = await _find(
         [
             ("add_input", {"name": "seq", "source": "memory", "sequences": ["ATGXYZ"]}),
-            ("add_input", {"name": "seq", "source": "a record", "handles": ["J01636.1"]}),
+            (
+                "add_input",
+                {"name": "seq", "source": "a record", "handles": ["J01636.1"]},
+            ),
             ("add_input", {"name": "a.b", "source": "goal", "sequences": ["ATG"]}),
         ]
     )

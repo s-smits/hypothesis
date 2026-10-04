@@ -69,8 +69,8 @@ class Out(BaseModel):
     ``declined`` is set when the model refused the request: asking again would only be
     refused again.
 
-    ``observations`` are the records the plan cites, filled in from the literature the
-    builder was shown.
+    ``observations`` are the hypothesis's records after this plan: those the user kept,
+    the ones the plan cites, filled in from the literature the builder was shown.
     """
 
     inputs: dict[str, list[Value]] = {}
@@ -207,7 +207,7 @@ async def plan_hypothesis(inp: Stage) -> Out:
     plan: Plan | None = r.get("out")
     return Out(
         plan=plan,
-        observations=cite(plan, seen) if plan else [],
+        observations=cite(plan, seen, inp.hyp.observations) if plan else [],
         error=r.get("error") and f"no valid plan: {r['error']}",
         declined=r.get("declined", False),
         tokens=r.get("tokens", 0),

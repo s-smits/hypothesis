@@ -96,12 +96,31 @@ string must be checked against the chosen provider. `temporal/run_hypothesis.py`
 | Benchmark harness | `src/node_dag/benchmark.py`, `temporal/run_benchmark.py` | `tests/test_benchmark.py` |
 | UI and API | `temporal/ui/app.py`, adjacent HTML, `temporal/run_ui.py` | `tests/test_ui.py`, UI cases in `test_agent.py` |
 | Translation initiation prediction | `nodes/tools/ostir_expression/` under `src/node_dag/` | `tests/test_ostir.py` |
+| Sequence lookup for inputs | `src/node_dag/entrez.py` | `tests/test_entrez.py` |
+| Literature search and observations | `src/node_dag/amass.py` | `tests/test_amass.py` |
 
 One round is `Hypothesis → build_agent → validated Dag → DagWorkflow → DagOutput →
 verify_agent`. The builder's `create_node` registers a **configuration of existing
 Python code**. It does not author an implementation. The registry persists those
 configurations across hypotheses; this alone is not an iterative search loop or
 research memory.
+
+The `/new` page takes a goal and its success criteria, each a row with a kind
+(quantitative or qualitative) and a claim: the user writes them, or `criteria_agent`
+drafts them through `POST /api/criteria` and the user edits the draft. It does not ask
+for inputs: the loop fetches them from NCBI before round 1, and `POST /api/hypotheses`
+still takes `inputs` from a caller who has them. The hypotheses page marks each
+criterion met, not met or unclear from the assertions the plan set against it
+(`Attempt.held`), never from a model's call.
+`Hypothesis.observations` holds the literature the run is built on. The `/new` page
+gathers it before the build: `observations_agent` searches Amass through
+`POST /api/observations` and the user edits or drops each summary. The planner sees the
+kept list in its prompt and may cite it in the plan's observations; `cite` in
+`src/node_dag/agent.py` merges the citations into the list, so a record that goes
+uncited stays on the hypothesis. An agent can only cite a record Amass actually returned
+to it or one the user kept, so a citation is not invented; it is still only the model's
+reading of that record, and it does not establish that the record justifies the
+configuration field or threshold beside it.
 
 `HypothesisLoop` (`temporal/hypothesis/`) repeats rounds: it fixes the criteria,
 critiques a missed round, and blocks on a requested node until `tool_added` is
