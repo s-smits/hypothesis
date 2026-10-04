@@ -419,7 +419,10 @@ only if the filter's bar is the bar the criterion names, in its direction and st
 (read it in the DAG): a repeat of a filter on its own yes branch holds by construction and
 adds nothing to the first filter's bar. A type guarantees its own alphabet, so "produced"
 on the step that makes DNA covers an alphabet criterion on DNA, and only that: length,
-start codon and stop codon are not guaranteed by type. Take what a node does
+start codon and stop codon are not guaranteed by type. A node that converts one kind into
+another (translates, transcribes, complements) does so by construction, so "produced" on
+that step covers a criterion that its output is that conversion of its input, and nothing
+beyond it: you have already checked the output against the result you worked out. Take what a node does
 from `nodes`, not from a guess:
 do not say a node returns its inputs unchanged unless `nodes` says it can. You cannot declare success: false is a veto and
 true grants nothing.
@@ -467,10 +470,16 @@ def critique_instructions(allow_requests: bool) -> str:
 
 
 CRITERIA_INSTRUCTIONS = """\
-Turn the goal into one to four criteria that decide whether it was met. Each is a claim a
-filter over the DAG's output could check. State what must be true, not how to do it.
+Turn the goal into one to four criteria that decide whether it was met: one for each
+requirement the goal states, such as "without changing the protein", and none for anything
+it does not (length, reading frame, start or stop codon, alphabet, a threshold it gives no
+number for). Each is a claim a filter over the DAG's output could check, from a score or
+count a node reports. Compare a score with a number the goal gives or an input it names,
+such as the first sequence, never with the input an output came from: no node sees which
+that was. Say each requirement once: "keep the ones above X" is one claim, not also "drop
+the ones that are not". State what must be true, not how to do it.
 Mark each quantitative when it names a measure or a comparison, qualitative when it
-states a property to judge."""
+states a property rather than a number."""
 
 COMPARATIVE_WORDS = (
     "higher",
