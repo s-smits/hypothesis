@@ -134,6 +134,39 @@ def test_request_with_unknown_kind_is_rejected():
         )
 
 
+@pytest.mark.parametrize("confused", ["tool", "score", "filter"])
+def test_a_request_that_puts_its_node_type_in_kind_is_told_what_kind_means(confused):
+    """Two saved runs wrote kind='tool' or kind='filter'. The error must say what to write."""
+    with pytest.raises(ValidationError) as e:
+        ToolRequest(
+            name="x",
+            node="tool",
+            purpose="p",
+            kind=confused,
+            output="dna",
+            why_needed="w",
+            why_not_composable="w",
+            example="e",
+        )
+    text = str(e.value)
+    assert "input port" in text and "'tool', 'score' or 'filter'" in text
+
+
+def test_a_request_with_a_bad_output_says_what_it_was_given():
+    ask: dict[str, Any] = {
+        "name": "x",
+        "purpose": "p",
+        "kind": "dna",
+        "why_needed": "w",
+        "why_not_composable": "w",
+        "example": "e",
+    }
+    with pytest.raises(ValidationError, match=r"not 'valid_dna'"):
+        ToolRequest(node="score", output="valid_dna", **ask)
+    with pytest.raises(ValidationError, match=r"not None"):
+        ToolRequest(node="tool", **ask)
+
+
 def _step(node: str, source: str, port: str = "sequence") -> dict:
     return {"node": node, "inputs": {port: source}, "why": "w"}
 

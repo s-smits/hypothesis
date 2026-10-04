@@ -113,6 +113,69 @@ async def test_a_goal_with_nothing_to_filter_may_assert_that_a_step_produced(
     assert errors == [] and out.assertions[0].branch == "produced"
 
 
+def _says(step: str, branch: str) -> dict:
+    return {"criterion": "no_tcg", "step": step, "branch": branch, "claim": "c"}
+
+
+async def test_no_and_produced_on_one_filter_are_sent_back(results_dir):
+    """no needs the yes branch empty and produced needs it not empty: never both."""
+    clash = _plan(assertions=[_says("small", "no"), _says("small", "produced")])
+    _, errors = await _run(results_dir, clash, _plan())
+    assert "cannot both hold" in errors[0] and "['small']" in errors[0]
+    assert "no" in errors[0] and "produced" in errors[0]
+
+
+async def test_assertions_that_can_hold_together_are_not_sent_back(results_dir):
+    """yes with produced on one filter, or yes on one filter and no on another, can hold."""
+    both_kinds = _plan(assertions=[_says("small", "yes"), _says("small", "produced")])
+    audit = {
+        **_plan()["steps"],
+        "rest": _step("at_most", "small.no", "items", column=COLUMN, threshold=0),
+    }
+    split = _plan(steps=audit, assertions=[_says("small", "yes"), _says("rest", "no")])
+    for ok in (both_kinds, split):
+        out, errors = await _run(results_dir, ok)
+        assert errors == [] and len(out.assertions) == 2
+
+
+async def test_a_step_with_an_unknown_node_is_named_with_the_ids_it_could_use(
+    results_dir,
+):
+    scorer, _ = Registry(results_dir / "registry").register(
+        CodonCountConfig(codons=("TCG",)), "counts TCG"
+    )
+    bad = _plan(
+        steps={
+            **_plan()["steps"],
+            "small": _step("at_most__deadbeef", "counted", "items"),
+        }
+    )
+    _, errors = await _run(results_dir, bad, _plan())
+    assert "Step 'small'" in errors[0] and "'at_most__deadbeef'" in errors[0]
+    assert scorer.id in errors[0] and "requests" in errors[0]
+    assert "tagged-union" not in errors[0]
+
+
+async def test_a_config_that_does_not_fit_its_node_names_the_step_and_the_field(
+    results_dir,
+):
+    no_threshold = _step("at_most", "counted", "items", column=COLUMN)
+    steps = {**_plan()["steps"], "small": no_threshold}
+    _, errors = await _run(results_dir, _plan(steps=steps), _plan())
+    assert "Step 'small'" in errors[0] and "threshold" in errors[0]
+    assert "tagged-union" not in errors[0] and "pydantic.dev" not in errors[0]
+
+
+async def test_a_requested_filter_with_no_column_is_told_where_to_put_it(results_dir):
+    ask = ToolRequest(name="valid_dna", node="filter", **ASK).model_dump()
+    steps = {**_plan()["steps"], "small": _step("valid_dna", "counted", "items")}
+    _, errors = await _run(
+        results_dir, _plan(steps=steps, requests={"valid_dna": ask}), _plan()
+    )
+    assert "Step 'small'" in errors[0] and "column" in errors[0]
+    assert "config" in errors[0] and "pydantic.dev" not in errors[0]
+
+
 async def test_a_wiring_that_already_ran_is_not_resubmitted_and_a_critique_must_be_addressed(
     results_dir,
 ):
