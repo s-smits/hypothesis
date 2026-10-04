@@ -27,6 +27,17 @@ class ConstraintCheck(BaseNode[ConstraintCheckConfig]):
                 value=float(str(Seq(s.sequence).translate()) == ref_protein)
             ),
             "length_unchanged": Score(value=float(len(s.sequence) == len(ref))),
+            # Compared codon for codon, so a synonymous stop counts as a change: it
+            # keeps the protein but moves a position the goal said to keep.
+            "immutable_unchanged": Score(
+                value=float(
+                    all(
+                        s.sequence[3 * i : 3 * i + 3] == ref[3 * i : 3 * i + 3]
+                        for i in self.config.immutable
+                    )
+                )
+            ),
+            "immutable_checked": Score(value=len(self.config.immutable)),
             "targets_remaining": Score(value=len(remaining)),
             "targets_unreachable": Score(value=len(unreachable)),
         }
