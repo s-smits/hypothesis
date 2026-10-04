@@ -11,7 +11,12 @@ from pydantic_ai.messages import (
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from node_dag import amass
-from node_dag.agent import Hypothesis, build_agent
+from node_dag.agent import (
+    Hypothesis,
+    Observation,
+    build_agent,
+    observations_agent,
+)
 from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
 from node_dag.registry import Registry
 from node_dag.types import Dna
@@ -134,3 +139,119 @@ async def test_a_failed_search_reaches_the_agent_as_an_error(monkeypatch, tmp_pa
     out = (await agent.run(hyp.goal, deps=hyp)).output
     assert seen[0] == {"error": "AMASS_API_KEY is not set."}
     assert out.observations == []
+
+
+GIVEN = Observation(
+    amass_id="AMBC_given",
+    summary="What the user kept.",
+    core="biomedcore",
+    title="Codon usage and expression",
+    url="https://example.invalid/given",
+)
+
+
+def _given_hypothesis() -> Hypothesis:
+    """A hypothesis carrying an observation gathered before the build."""
+    return Hypothesis(
+        goal="translate",
+        observations=[GIVEN],
+        inputs={"seq": [Dna(sequence="ATG")]},
+    )
+
+
+async def test_the_builder_cites_an_observation_it_was_given(tmp_path):
+    """A record the agent did not fetch, but was shown, is its to cite."""
+    script, _ = _builder(
+        [CREATE], [{"amass_id": "AMBC_given", "summary": "Set the UTR."}]
+    )
+    agent = build_agent(FunctionModel(script), Registry(tmp_path / "registry"))
+    hyp = _given_hypothesis()
+    out = (await agent.run(hyp.goal, deps=hyp)).output
+
+    # The builder's summary of how it used the record replaces the one it was
+    # given, and the record's own title and link survive: it did not refetch it.
+    (obs,) = out.observations
+    assert obs == GIVEN.model_copy(update={"summary": "Set the UTR."})
+
+
+async def test_an_observation_the_builder_does_not_cite_is_kept(tmp_path):
+    """Gathering a record before the build is not undone by going uncited."""
+    script, _ = _builder([CREATE], [])
+    agent = build_agent(FunctionModel(script), Registry(tmp_path / "registry"))
+    hyp = _given_hypothesis()
+    out = (await agent.run(hyp.goal, deps=hyp)).output
+    assert out.observations == [GIVEN]
+
+
+async def test_a_cited_record_the_builder_found_is_added_after_the_given_ones(
+    calls, tmp_path
+):
+    script, seen = _builder(
+        [("search_literature", {"query": "rbs"}), CREATE],
+        [
+            {"amass_id": "AMBC_made_up", "summary": "invented"},
+            {"amass_id": "AMBC_1", "summary": "RBS strength sets expression."},
+        ],
+    )
+    agent = build_agent(FunctionModel(script), Registry(tmp_path / "registry"))
+    hyp = _given_hypothesis()
+    out = (await agent.run(hyp.goal, deps=hyp)).output
+
+    # The retry lists both the record it was shown and the one it was given.
+    retry = str(seen[-1])
+    assert "AMBC_made_up" in retry
+    assert "AMBC_1" in retry and "AMBC_given" in retry
+    assert [o.amass_id for o in out.observations] == ["AMBC_given", "AMBC_1"]
+
+
+def _observer(calls_: list, observations: list[dict]):
+    """An observations agent that searches, then submits ``observations``."""
+
+    def script(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        turn = sum(isinstance(m, ModelResponse) for m in messages)
+        if turn < len(calls_):
+            return ModelResponse(parts=[ToolCallPart(*calls_[turn])])
+        # Cite a made-up record first; the retry cites only the real one.
+        cite = observations if turn == len(calls_) else observations[-1:]
+        return ModelResponse(
+            parts=[ToolCallPart(info.output_tools[0].name, {"observations": cite})]
+        )
+
+    return script
+
+
+async def test_the_observations_agent_returns_records_it_was_shown(calls):
+    script = _observer(
+        [("search_literature", {"query": "rbs"})],
+        [
+            {"amass_id": "AMBC_made_up", "summary": "invented"},
+            {"amass_id": "AMBC_1", "summary": "RBS strength sets expression."},
+        ],
+    )
+    out = (
+        await observations_agent(FunctionModel(script)).run("Goal: express lacZ")
+    ).output
+
+    # The invented citation was rejected, so only the searched record comes back,
+    # with the provenance the record itself carried.
+    assert [o.model_dump() for o in out] == [
+        {
+            "amass_id": "AMBC_1",
+            "summary": "RBS strength sets expression.",
+            "core": "biomedcore",
+            "title": "Ribosome binding sites",
+            "url": None,
+            "source": None,
+            "date": None,
+        }
+    ]
+
+
+async def test_the_observations_agent_may_find_nothing(calls):
+    """An empty list is a usable answer: the search settled nothing."""
+    script = _observer([("search_literature", {"query": "rbs"})], [])
+    out = (
+        await observations_agent(FunctionModel(script)).run("Goal: express lacZ")
+    ).output
+    assert out == []
+    assert len(calls) == 1  # It did search before answering.

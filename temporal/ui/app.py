@@ -18,7 +18,13 @@ from temporalio.client import (
 from temporalio.service import RPCError, RPCStatusCode
 
 from node_dag import amass
-from node_dag.agent import Criterion, Hypothesis, criteria_agent
+from node_dag.agent import (
+    Criterion,
+    Hypothesis,
+    Observation,
+    criteria_agent,
+    observations_agent,
+)
 from node_dag.dag import DagProgress
 from node_dag.links import Link
 from node_dag.registry import Registry
@@ -165,6 +171,9 @@ class Goal(BaseModel):
         hypotheses: How many hypotheses it has.
         inputs: The inputs of its most recently saved hypothesis.
         criteria: The success criteria of its most recently saved hypothesis.
+        observations: The observations of its most recently saved hypothesis, so a
+            new run on the same goal starts from the literature already gathered
+            rather than paying for the same search again.
         updated: When its most recent hypothesis was saved.
     """
 
@@ -172,6 +181,7 @@ class Goal(BaseModel):
     hypotheses: int
     inputs: dict[str, list[Value]]
     criteria: list[Criterion]
+    observations: list[Observation] = []
     updated: datetime
 
 
@@ -202,6 +212,7 @@ def _goals(rows: list[HypothesisRow]) -> list[Goal]:
                 hypotheses=1,
                 inputs=h.inputs,
                 criteria=h.criteria,
+                observations=h.observations,
                 updated=r.updated,
             )
     return list(goals.values())
@@ -259,6 +270,9 @@ class NewHypothesis(BaseModel):
         criteria: The success criteria of the goal, written by the user or
             drafted by the criteria agent and then edited. The builder sees them
             and the verifier judges against them.
+        observations: What the literature says about the goal: gathered by the
+            observations agent and then edited, so the builder is shown them as it
+            chooses its nodes. Empty means it searches for itself, or not at all.
         inputs: The values to run on, keyed by DAG input name. Optional, and the
             page does not ask for them: left out, the builder agent works out what
             the goal is about and fetches the sequences itself.
@@ -267,16 +281,20 @@ class NewHypothesis(BaseModel):
     goal: str = Field(min_length=1)
     hypothesis: str | None = None
     criteria: list[Criterion] = []
+    observations: list[Observation] = []
     inputs: dict[str, list[Value]] = {}
 
 
-class NewCriteria(BaseModel):
-    """A goal to draft success criteria for.
+class NewDraft(BaseModel):
+    """A goal for an agent to draft something about, before a run starts.
+
+    What ``/api/criteria`` and ``/api/observations`` both take: the goal, and the
+    user's own idea of how to meet it where they wrote one.
 
     Args:
-        goal: The goal to describe success for, in plain English.
+        goal: The goal, in plain English.
         hypothesis: The user's idea of how to meet it, if they wrote one. It can
-            sharpen what success means.
+            sharpen what success means, and what to search the literature for.
     """
 
     goal: str = Field(min_length=1)
@@ -341,6 +359,7 @@ def make_app(
             goal=new.goal.strip(),
             hypothesis=(new.hypothesis or "").strip() or None,
             criteria=new.criteria,
+            observations=new.observations,
             inputs=new.inputs,
         )
         logger.info("Starting hypothesis %s: %s", hyp.id, hyp.goal)
@@ -361,15 +380,31 @@ def make_app(
         task.add_done_callback(on_done)
         return hyp
 
-    @app.post("/api/criteria")
-    async def draft_criteria(new: NewCriteria) -> list[Criterion]:
-        """Draft a goal's success criteria with the criteria agent, to edit next."""
-        if build_model is None:
-            raise HTTPException(503, "The server was started without --model.")
+    def _draft_prompt(new: NewDraft) -> str:
         prompt = f"Goal: {new.goal.strip()}"
         if new.hypothesis and new.hypothesis.strip():
             prompt += f"\nProposed hypothesis: {new.hypothesis.strip()}"
-        result = await criteria_agent(build_model).run(prompt)
+        return prompt
+
+    @app.post("/api/criteria")
+    async def draft_criteria(new: NewDraft) -> list[Criterion]:
+        """Draft a goal's success criteria with the criteria agent, to edit next."""
+        if build_model is None:
+            raise HTTPException(503, "The server was started without --model.")
+        result = await criteria_agent(build_model).run(_draft_prompt(new))
+        return result.output
+
+    @app.post("/api/observations")
+    async def draft_observations(new: NewDraft) -> list[Observation]:
+        """Search the literature for what bears on a goal, for the user to edit.
+
+        The list the user keeps goes back as a new hypothesis's ``observations``,
+        and the builder agent is shown it. Searching costs Amass calls, so the page
+        asks for this rather than doing it on every run.
+        """
+        if build_model is None:
+            raise HTTPException(503, "The server was started without --model.")
+        result = await observations_agent(build_model).run(_draft_prompt(new))
         return result.output
 
     @app.get("/", include_in_schema=False)
