@@ -34,6 +34,10 @@ include = ["node_dag*", "temporal*"]
 "" = "src"
 "temporal" = "temporal"
 
+# The benchmark's gene set ships with the package: it is the reference data, not a cache.
+[tool.setuptools.package-data]
+node_dag = ["data/*.json"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 

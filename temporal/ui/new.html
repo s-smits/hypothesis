@@ -39,10 +39,11 @@
         <div class="hint" id="goal-hint"></div>
       </div>
       <div class="hint">
-        The builder agent works out which sequences the goal is about and fetches them from NCBI,
-        writes the DAG and runs it; the goal is met only when each criterion's assertion holds. A
-        missing node blocks the run until someone adds it. Name the gene, organism or accession so
-        it can find the right record.
+        The agent reads the entities the goal is about out of its text, writes the DAG and runs
+        it; the goal is met only when each criterion's assertion holds. A missing node blocks
+        the run until someone adds it. Give the entities in the goal — any kind the framework
+        knows, not just DNA: a sequence, a structure, a set of contacts. Nothing is fetched for
+        you, so a goal that names something without giving its value gets no input for it.
       </div>
     </div>
 

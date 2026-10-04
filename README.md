@@ -195,8 +195,8 @@ http://127.0.0.1:8000/new starts a hypothesis: enter a goal, and open a section 
 anything else you want to set — your own hypothesis for how to meet it, criteria (rows of
 a kind, quantitative or qualitative, and a claim, or drafted by the criteria agent through
 `POST /api/criteria` for you to edit), the observations to build on, and a cap on the
-rounds. The form takes words only: the agent fetches the sequences the goal names from
-NCBI before round 1, and `POST /api/hypotheses` still takes `inputs` for a caller who has
+rounds. The form takes words only: an agent reads the entities the goal gives out of its
+text before round 1, and `POST /api/hypotheses` still takes `inputs` for a caller who has
 them. The server then starts the loop in the background, and the page jumps to the
 hypothesis so you can watch its rounds. This needs a worker running. Inputs that cannot
 run, an empty list or a list of mixed kinds, get a 422 and nothing is saved. If the
@@ -205,9 +205,11 @@ with that reason and the server answers 503. `--model` and `--verify-model` on `
 default to `anthropic:claude-sonnet-5-5` to build and `anthropic:claude-haiku-4-5` to
 verify; [The loop](#the-loop) says which calls each covers.
 
-Sequences are fetched through `src/node_dag/entrez.py`, which queries NCBI Nucleotide through the
-E-utilities API and caches every reply under `results/entrez/`. Set `NCBI_EMAIL` to identify yourself
-to NCBI, as it asks callers to do, and `NCBI_API_KEY` for a higher rate limit.
+Nothing fetches an input. `add_input` takes entities as objects, so any kind in `TYPES`
+can be an input — a DNA or RNA sequence, a protein sequence, a structure, a set of
+contacts — and the goal or the proposed hypothesis has to carry the value. An entity the
+model wrote out rather than was given is unverified; `input_sources` records what each
+input was taken from, and is the only provenance a run carries.
 
 http://127.0.0.1:8000/nodes lists every node in the registry, as the builder agent sees
 it: its description, input port, outputs, the full name of each score column a scorer
@@ -262,9 +264,11 @@ name, as in `examples/optimise.json`) and optional `criteria`: claims the result
 satisfy. `HypothesisLoop` (`temporal/hypothesis/`) runs it as a durable Temporal
 workflow. Only the model calls are non-deterministic, and each is an activity:
 
-1. **Inputs.** If you gave none, an agent searches and fetches the sequences the goal
-   names through `entrez` and freezes them on the Hypothesis, with where each came from.
-   Inputs you give are used as they are, and are never changed mid-run.
+1. **Inputs.** If you gave none, an agent reads the entities the goal names out of its
+   text — any kind in `TYPES`, not only DNA — and freezes them on the Hypothesis, with
+   where each came from. It has no database: a goal that names something without giving
+   its value gets no input for it. Inputs you give are used as they are, and are never
+   changed mid-run.
 2. **Criteria.** If you gave none, an agent derives them from the goal. They are frozen.
    Each is an `id`, a `claim` and a `source`: `human` if it came from you (the new-hypothesis page sends every criterion as `human`), else `derived`.
 3. **Plan.** The builder agent makes the nodes it needs (`create_node`), reuses
@@ -363,7 +367,11 @@ We also have $20 of HuggingFace Jobs, which is pretty similar.
 `esmfold2_fold` takes amino acid sequences and gives a `ProteinStructure` for each: the
 sequence and its predicted structure as an mmCIF string. It folds each sequence as a
 monomer with [ESMFold2-Fast](https://huggingface.co/biohub/ESMFold2-Fast), the
-single-sequence model, on one L40S on Modal.
+single-sequence model, on one L40S on Modal. Single-sequence is about conditioning, not
+chain count: with `as_complex` the step folds every sequence that reaches it together
+as one complex, chains lettered in arrival order, and returns that one structure
+instead of one per sequence. Protein chains only — no nucleic acid or ligand — and a
+homodimer cannot be asked for, since identical entities are merged before the step.
 
 The GPU work lives in `nodes/tools/esmfold2_fold/modal_app.py`: the image, the volume
 that caches the Hugging Face weights between cold starts, and the `fold` function. The

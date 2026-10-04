@@ -350,16 +350,14 @@ async def test_a_goal_with_no_inputs_has_them_fetched_once_and_frozen_before_rou
     @activity.defn(name="draft_inputs")
     async def draft(inp: Stage) -> Out:
         asked.append(inp.hyp.inputs)
-        return Out(inputs=found, sources={"seq": "NCBI J01636.1 CDS lacZ"}, tokens=9)
+        return Out(inputs=found, sources={"seq": "given in the goal"}, tokens=9)
 
     calls: dict = {}
     fakes = _fakes(calls, [PLAN], [ResolveOut(dag=DAG)], [True])
     bare = HYP.model_copy(update={"inputs": {}})
     done = await _drive([draft, *fakes], hyp=bare)
     assert asked == [{}] and done.state == "achieved"
-    assert done.inputs == found and done.input_sources == {
-        "seq": "NCBI J01636.1 CDS lacZ"
-    }
+    assert done.inputs == found and done.input_sources == {"seq": "given in the goal"}
     assert calls["plan"][0].hyp.inputs == found  # The builder is shown them.
     assert done.usage["inputs"] == 9
 
@@ -367,12 +365,28 @@ async def test_a_goal_with_no_inputs_has_them_fetched_once_and_frozen_before_rou
 async def test_a_goal_whose_inputs_cannot_be_found_ends_the_run_as_failed():
     @activity.defn(name="draft_inputs")
     async def none_found(inp: Stage) -> Out:
-        return Out(error="no record for that gene", tokens=4)
+        return Out(error="the goal named no entity", tokens=4)
 
     bare = HYP.model_copy(update={"inputs": {}})
     done = await _drive([none_found, *_fakes({}, [], [], [])], hyp=bare)
     assert done.state == "failed"
-    assert "no inputs could be found" in (done.stopped_because or "")
+    assert "no inputs could be taken from the goal" in (done.stopped_because or "")
+    assert "the goal named no entity" in (done.stopped_because or "")
+
+
+async def test_a_goal_that_gives_no_entity_is_told_to_give_one():
+    """Nothing is fetched, so the run says what the goal has to carry."""
+
+    @activity.defn(name="draft_inputs")
+    async def nothing_to_take(inp: Stage) -> Out:
+        return Out(tokens=4)  # The agent did as told: it invented nothing.
+
+    bare = HYP.model_copy(update={"inputs": {}})
+    done = await _drive([nothing_to_take, *_fakes({}, [], [], [])], hyp=bare)
+    assert done.state == "failed"
+    why = done.stopped_because or ""
+    assert "nothing is fetched for it" in why
+    assert "paste the sequence or structure into the goal" in why
 
 
 async def test_a_model_that_declines_ends_the_run_instead_of_being_asked_again():

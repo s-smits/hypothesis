@@ -10,7 +10,6 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from node_dag import entrez
 from node_dag.agent import (
     FoundInputs,
     Hypothesis,
@@ -24,7 +23,7 @@ from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
 from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
 from node_dag.plan import Criterion, Observation
 from node_dag.registry import Registry
-from node_dag.types import Dna
+from node_dag.types import AminoAcidSequence, Dna, ProteinStructure
 from temporal.dag.activities import results_subdir
 from temporal.hypothesis.activities import REQUEST_TIMEOUT, Stage, _ask, save_hypothesis
 from temporal.ui.app import _hypothesis_row
@@ -262,7 +261,6 @@ async def test_each_model_call_leaves_its_transcript_even_when_it_fails(results_
     from pydantic_ai.models.test import TestModel
 
     from node_dag.agent import Hypothesis
-    from node_dag.types import Dna
 
     stage = Stage(
         hyp=Hypothesis(goal="g", inputs={"seq": [Dna(sequence="ATG")]}, round=2),
@@ -609,13 +607,9 @@ async def test_agent_rejects_trivial_expression_threshold(results_dir):
     assert any("allows every sequence to pass trivially" in err for err in seen_errors)
 
 
-LACZ = """\
->lcl|J01636.1_cds_AAB59138.1_1 [gene=lacZ] [protein=beta-D-galactosidase] [location=1..15]
-ATGGCTCTGAAATAA
-"""
-
-
-async def _find(calls: list[tuple[str, dict]]) -> tuple[list[str], FoundInputs]:
+async def _find(
+    calls: list[tuple[str, dict]], goal: str = "translate ATGGCTCTGAAATAA"
+) -> tuple[list[str], FoundInputs]:
     """Run the inputs agent on a script of tool calls, and say what each call answered."""
     seen: list[str] = []
 
@@ -627,47 +621,108 @@ async def _find(calls: list[tuple[str, dict]]) -> tuple[list[str], FoundInputs]:
         return ModelResponse(parts=[TextPart("done")])
 
     agent, found = inputs_agent(FunctionModel(script))
-    await agent.run("Goal: translate the E. coli lacZ CDS")
+    await agent.run(f"Goal: {goal}")
     return seen, found
 
 
-async def test_the_inputs_agent_finds_a_record_and_adds_its_cds(
-    results_dir, monkeypatch
-):
-    monkeypatch.setattr(entrez, "_get", lambda *a, **k: LACZ)
-    monkeypatch.setattr(entrez, "search", lambda *a, **k: [{"accession": "J01636.1"}])
-    add = {
-        "name": "seq",
-        "source": "NCBI J01636.1 CDS lacZ",
-        "handles": ["J01636.1:lacZ"],
-    }
+async def test_the_inputs_agent_takes_the_entities_the_goal_gives_it(results_dir):
+    """Its one tool reads entities out of the goal: there is no database to consult."""
     seen, found = await _find(
         [
-            ("search_sequences", {"term": "lacZ[gene]"}),
-            ("fetch_sequences", {"accession": "J01636.1", "gene": "lacZ"}),
-            ("add_input", add),
-        ]
-    )
-    assert found.inputs == {"seq": [Dna(sequence="ATGGCTCTGAAATAA")]}
-    assert found.sources == {"seq": "NCBI J01636.1 CDS lacZ"}
-    assert "J01636.1:lacZ" in seen[1] and "'count': 1" in seen[2]
-
-
-async def test_add_input_rejects_what_it_cannot_stand_behind(results_dir):
-    """A made-up sequence, a handle nobody fetched, a dotted name, and an empty input."""
-    seen, found = await _find(
-        [
-            ("add_input", {"name": "seq", "source": "memory", "sequences": ["ATGXYZ"]}),
             (
                 "add_input",
-                {"name": "seq", "source": "a record", "handles": ["J01636.1"]},
-            ),
-            ("add_input", {"name": "a.b", "source": "goal", "sequences": ["ATG"]}),
-        ]
+                {
+                    "name": "seq",
+                    "source": "given in the goal",
+                    "entities": [{"kind": "dna", "sequence": "ATGGCTCTGAAATAA"}],
+                },
+            )
+        ],
+        goal="translate the coding sequence ATGGCTCTGAAATAA",
     )
-    assert "not valid dna" in seen[0]
-    assert "No such handle: ['J01636.1']" in seen[1]
-    assert "no dots" in seen[2]
+
+    assert found.inputs == {"seq": [Dna(sequence="ATGGCTCTGAAATAA")]}
+    assert found.sources == {"seq": "given in the goal"}
+    assert "'count': 1" in seen[0]
+
+
+def _ent(kind: str, sequence: str, **rest) -> dict:
+    return {"kind": kind, "sequence": sequence, **rest}
+
+
+@pytest.mark.parametrize(
+    ("call", "says"),
+    [
+        (
+            {"name": "seq", "source": "memory", "entities": [_ent("dna", "ATGXYZ")]},
+            "not valid dna",
+        ),
+        (
+            {"name": "a.b", "source": "goal", "entities": [_ent("dna", "ATG")]},
+            "no dots",
+        ),
+        (
+            {"name": "seq", "source": "goal", "entities": [{"sequence": "ATG"}]},
+            "needs a `kind`",
+        ),
+        (
+            {"name": "seq", "source": "goal", "entities": [_ent("peptide", "MK")]},
+            "Unknown kind 'peptide'",
+        ),
+        (
+            {
+                "name": "mixed",
+                "source": "goal",
+                "entities": [_ent("dna", "ATG"), _ent("rna", "AUG")],
+            },
+            "holds one kind",
+        ),
+        ({"name": "seq", "source": "nothing", "entities": []}, "at least one entity"),
+    ],
+)
+async def test_add_input_rejects_what_it_cannot_stand_behind(
+    results_dir, call: dict, says: str
+):
+    """A made-up sequence, a bad name, a bad or missing kind, mixed kinds, nothing at all."""
+    seen, found = await _find([("add_input", call)])
+
+    assert says in seen[0]
     assert found.inputs == {} and found.sources == {}
-    empty, _ = await _find([("add_input", {"name": "seq", "source": "nothing"})])
-    assert "at least one handle or sequence" in empty[0]
+
+
+async def test_an_input_can_be_any_entity_kind_not_only_a_nucleic_acid(results_dir):
+    """The framework scores and optimises any kind in TYPES, so any kind can be an input."""
+    cif = "data_x\n_atom_site.id\n1\n"
+    _, found = await _find(
+        [
+            (
+                "add_input",
+                {
+                    "name": "proteins",
+                    "source": "given in the goal",
+                    "entities": [_ent("amino_acid_sequence", "mkv")],
+                },
+            ),
+            (
+                "add_input",
+                {
+                    "name": "folded",
+                    "source": "given in the goal",
+                    "entities": [_ent("protein_structure", "MKV", structure=cif)],
+                },
+            ),
+        ],
+        goal="score the folded protein MKV",
+    )
+
+    # The residues are upper-cased as every kind writes them; the structure is untouched.
+    assert found.inputs["proteins"] == [AminoAcidSequence(sequence="MKV")]
+    assert found.inputs["folded"] == [ProteinStructure(sequence="MKV", structure=cif)]
+    assert found.sources["folded"] == "given in the goal"
+
+
+async def test_the_inputs_agent_has_no_database_tool_at_all():
+    """Nothing fetches: a gene set to benchmark on is a committed file, not a download."""
+    agent, _ = inputs_agent("test")
+
+    assert {t.name for t in agent._function_toolset.tools.values()} == {"add_input"}
