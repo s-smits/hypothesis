@@ -10,6 +10,7 @@ from temporalio.client import Client
 from temporalio.contrib.pydantic import pydantic_data_converter
 
 from node_dag.agent import Hypothesis
+from node_dag.skills import body
 from temporal.dag.workflow import TASK_QUEUE
 from temporal.hypothesis.loop import (
     BUILD_MODEL,
@@ -45,6 +46,11 @@ from temporal.hypothesis.loop import (
     help="Let the builder ask for a node nobody has written, and wait for a person to "
     "write it. Off by default: the builder composes from the nodes that exist.",
 )
+@click.option(
+    "--skill",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    help="A SKILL.md the builder reads before it plans. Left out, the builder reads none.",
+)
 @click.option("--address", default="localhost:7233", help="Temporal server address.")
 def main(
     path: Path,
@@ -52,6 +58,7 @@ def main(
     verify_model: str,
     max_rounds: int,
     allow_requests: bool,
+    skill: Path | None,
     address: str,
 ) -> None:
     """Run the Hypothesis JSON file at PATH to a verdict. Print the result."""
@@ -59,6 +66,9 @@ def main(
     async def run() -> None:
         client = await Client.connect(address, data_converter=pydantic_data_converter)
         hyp = Hypothesis.model_validate_json(path.read_text())
+        if skill:
+            # Assigned, not validated, so the file's bookkeeping is dropped here.
+            hyp.skill = body(skill.read_text()) or None
         inp = HypothesisInput(
             hypothesis=hyp,
             build_model=model,

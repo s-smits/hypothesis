@@ -35,6 +35,8 @@ class Entry(BaseModel):
         nodes: Every node the plans used, requested ones included.
         asked: Every node a plan asked for that did not exist when it was planned.
         models: The model that answered each stage.
+        skill: Which rules the builder read, as a short digest. None when it read none,
+            and for a line written before skills.
         summary: The run in one line.
     """
 
@@ -54,6 +56,7 @@ class Entry(BaseModel):
     nodes: list[str]
     asked: list[str]
     models: dict[str, str] = {}
+    skill: str | None = None
     summary: str
 
 
@@ -88,6 +91,7 @@ def entry_for(r: Reading) -> Entry:
         nodes=sorted({n for x in r.rounds for n in x.nodes}),
         asked=asked,
         models={c.stage: c.model for c in r.calls if c.model},
+        skill=r.skill,
         summary=summary,
     )
 
