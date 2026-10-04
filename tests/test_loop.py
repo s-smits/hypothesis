@@ -318,6 +318,32 @@ async def test_an_agent_activity_that_keeps_failing_ends_the_run_as_failed(resul
     assert saved.state == "failed"  # The pages show it ended, not "building".
 
 
+async def test_a_model_that_goes_silent_is_retried_and_the_run_says_for_how_long(
+    results_dir, monkeypatch
+):
+    import httpx2
+    from pydantic_ai import Agent
+    from pydantic_ai.exceptions import ModelAPIError
+    from pydantic_ai.models.function import FunctionModel
+
+    from temporal.hypothesis.activities import plan_hypothesis
+
+    asked = []
+
+    def silent(messages, info):
+        asked.append(1)
+        raise ModelAPIError("m", "") from httpx2.ReadTimeout("")
+
+    monkeypatch.setattr(
+        "temporal.hypothesis.activities.build_agent",
+        lambda model, registry, seen: Agent(FunctionModel(silent), output_type=str),
+    )
+    done = await _drive([plan_hypothesis, *_fakes({}, [], [], [])[1:]])
+    assert len(asked) == 2  # AGENT allows two attempts, as before.
+    assert done.state == "failed"
+    assert done.stopped_because == "plan_hypothesis failed: the model was silent for more than 90 s"
+
+
 async def test_a_bug_in_the_loop_ends_the_run_as_failed_instead_of_wedging_it(
     results_dir,
 ):
