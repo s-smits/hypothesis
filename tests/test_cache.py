@@ -7,6 +7,7 @@ from node_dag import factory
 from node_dag.nodes.filters.at_least.config import AtLeastConfig
 from node_dag.nodes.filters.beats_reference.config import BeatsReferenceConfig
 from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
+from node_dag.nodes.tools.esmfold2_fold.config import Esmfold2FoldConfig
 from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
 from node_dag.types import AminoAcidSequence, Dna
 from temporal.dag.activities import RunNodeInput, run_filter, run_score, run_tool
@@ -128,3 +129,32 @@ def test_a_filter_without_a_reference_keeps_its_key_and_hash_from_before_referen
     assert inp.cache_path().name == (
         "7c9e2944895710a84844c5652155609bdd72b9a17244962ec1374358070d3ec9.json"
     )
+
+
+def test_an_unwired_optional_port_keeps_the_key_the_node_had_without_it():
+    # The literal is the key from before esmfold2_fold had a partner port: a change
+    # that moves it re-folds, on a GPU, everything already cached.
+    sequence = [AminoAcidSequence(sequence="MALK")]
+    without = RunNodeInput(config=Esmfold2FoldConfig(), inputs={"sequence": sequence})
+    unwired = RunNodeInput(
+        config=Esmfold2FoldConfig(), inputs={"sequence": sequence, "partner": []}
+    )
+    assert without.cache_path() == unwired.cache_path()
+    assert without.cache_path().name == (
+        "492a296be81ffde8eb8d31dc98f6b64cd8ee7098fb2769a953b2c89db9c14687.json"
+    )
+
+
+def test_a_wired_partner_caches_apart_from_an_unwired_one():
+    sequence = [AminoAcidSequence(sequence="MALK")]
+    unwired = RunNodeInput(
+        config=Esmfold2FoldConfig(), inputs={"sequence": sequence, "partner": []}
+    )
+    wired = RunNodeInput(
+        config=Esmfold2FoldConfig(),
+        inputs={
+            "sequence": sequence,
+            "partner": [AminoAcidSequence(sequence="MKWVTF")],
+        },
+    )
+    assert unwired.cache_path() != wired.cache_path()

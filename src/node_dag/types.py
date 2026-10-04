@@ -232,9 +232,80 @@ class ProteinContacts(Entity):
         )
 
 
+class StructureAlignment(Entity):
+    """How one protein structure superposes on another, as TM-align measured it.
+
+    The two structures need not share a length or a sequence: TM-align finds the
+    alignment itself, from the Cα traces, so ``aligned_length`` is how many residue
+    pairs it ended up using and is usually shorter than either chain.
+
+    ``rmsd`` covers those aligned pairs only, under the superposition that maximises
+    the TM-score rather than the one that minimises the RMSD. A pair of structures
+    that align over a short, well-fitting fragment can therefore show a lower
+    ``rmsd`` than one that aligns over the whole fold, so an ``rmsd`` is only
+    comparable alongside its ``aligned_length``. The TM-scores already account for
+    length: they run from 0 to 1, and are normalised by the query's and the
+    reference's residue count respectively, so the two differ whenever the chains do.
+
+    Args:
+        sequence: The query structure's amino acids.
+        structure_id: The id of the query structure, the one that was superposed.
+        reference_id: The id of the structure it was superposed on.
+        rmsd: The deviation over the aligned residue pairs, in ångströms.
+        tm_score_query: TM-score normalised by the query's residue count.
+        tm_score_reference: TM-score normalised by the reference's residue count.
+        aligned_length: How many residue pairs the alignment used.
+        seq_identity: The fraction of those pairs holding the same amino acid.
+    """
+
+    kind: Literal["structure_alignment"] = "structure_alignment"
+    structure_id: str
+    reference_id: str
+    rmsd: float
+    tm_score_query: float
+    tm_score_reference: float
+    aligned_length: int
+    seq_identity: float
+
+    @computed_field
+    @property
+    def id(self) -> str:
+        """A short, stable hash of the kind, both structure ids and the measurements.
+
+        The measurements are part of it because the same pair of structures aligned
+        under a different configuration, such as on another chain, is a different
+        result, and two results that shared an id would merge into one.
+        """
+        measured = (
+            self.rmsd,
+            self.tm_score_query,
+            self.tm_score_reference,
+            self.aligned_length,
+            self.seq_identity,
+        )
+        return hashlib.sha256(
+            f"{self.kind}:{self.structure_id}:{self.reference_id}:{measured}".encode()
+        ).hexdigest()[:12]
+
+    @computed_field
+    @property
+    def display(self) -> str:
+        """The RMSD, how many residues it covers, and the reference TM-score."""
+        return (
+            f"RMSD {self.rmsd:.2f} Å over {self.aligned_length} residues; "
+            f"TM-score {self.tm_score_reference:.3f}"
+        )
+
+
 # Add a new entity type to both.
 Value = Annotated[
-    Dna | Rna | AminoAcidSequence | ProteinStructure | FastaFile | ProteinContacts,
+    Dna
+    | Rna
+    | AminoAcidSequence
+    | ProteinStructure
+    | FastaFile
+    | ProteinContacts
+    | StructureAlignment,
     Discriminator("kind"),
 ]
 TYPES: dict[str, type[Entity]] = {
@@ -244,6 +315,7 @@ TYPES: dict[str, type[Entity]] = {
     "protein_structure": ProteinStructure,
     "fasta_file": FastaFile,
     "protein_contacts": ProteinContacts,
+    "structure_alignment": StructureAlignment,
 }
 
 
