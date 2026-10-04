@@ -245,6 +245,9 @@ class NewHypothesis(BaseModel):
             does not ask for them: left out, the agent fetches the sequences the goal
             names from NCBI before round 1.
         max_rounds: Most plans to try. Omit for the default.
+        allow_requests: Let the builder ask for a node nobody has written, blocking the
+            run until a person writes it and resumes. Off by default, so the builder
+            composes the plan from the nodes that exist.
     """
 
     goal: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
@@ -253,6 +256,7 @@ class NewHypothesis(BaseModel):
     inputs: dict[str, list[Value]] = {}
     criteria: list[NewCriterion] = []
     max_rounds: int | None = Field(default=None, ge=1, le=10)
+    allow_requests: bool = False
 
 
 class RequestRow(BaseModel):
@@ -354,6 +358,7 @@ def make_app(
             hypothesis=hyp,
             build_model=build_model,
             verify_model=verify_model or VERIFY_MODEL,
+            allow_requests=new.allow_requests,
             **cfg,
         )
         # Saved first, so the page has something to show before any worker picks it up.

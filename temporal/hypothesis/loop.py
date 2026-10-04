@@ -76,13 +76,21 @@ class Declined(Exception):
 
 
 class HypothesisInput(BaseModel):
-    """Start a Hypothesis loop. Models are pydantic-ai model strings."""
+    """Start a Hypothesis loop. Models are pydantic-ai model strings.
+
+    ``allow_requests`` lets the builder ask for a node nobody has written, which blocks
+    the run until a person writes it and signals ``tool_added``. It is off by default: a
+    plan carrying a request is sent back to the builder to compose from what exists,
+    since a guard the builder cannot satisfy turns into a request for a node that was
+    never needed.
+    """
 
     hypothesis: Hypothesis
     build_model: str = BUILD_MODEL
     verify_model: str = VERIFY_MODEL
     max_rounds: int = 3
     max_tokens: int = 500_000
+    allow_requests: bool = False
 
 
 @workflow.defn
@@ -132,7 +140,11 @@ class HypothesisLoop:
     ) -> Out:
         out = await workflow.execute_activity(
             activity,
-            Stage(hyp=self._hyp, model=model),
+            Stage(
+                hyp=self._hyp,
+                model=model,
+                allow_requests=self._cfg.allow_requests,
+            ),
             **AGENT,
         )
         used = self._hyp.usage
@@ -252,6 +264,18 @@ class HypothesisLoop:
                 )
                 await workflow.execute_activity(save_requests, res.missing, **QUICK)
                 att = await self._put(att, "blocked", requests=res.missing, error=note)
+                if not self._cfg.allow_requests:
+                    # check_plan sends a request back, so reaching here means a node went
+                    # missing another way. Waiting is off, so end rather than hang. The
+                    # contract is written and the blocked state saved first, so what the
+                    # run wanted is still on disk, and so that a run already waiting when
+                    # this shipped replays its commands in the same order and can end.
+                    return await self._stop(
+                        "not achieved",
+                        "the plan needs nodes nobody has written "
+                        f"({', '.join(r.name for r in res.missing)}), and requesting a "
+                        "node is off: start the run with allow_requests to wait for one",
+                    )
                 await workflow.wait_condition(lambda: self._added or self._abandoned)
                 if self._abandoned:
                     return await self._stop(

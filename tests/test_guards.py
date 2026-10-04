@@ -47,15 +47,20 @@ def _plan(**kw) -> dict:
 
 
 async def _run(
-    results_dir, *plans: dict, hyp: Hypothesis = HYP
+    results_dir, *plans: dict, hyp: Hypothesis = HYP, allow_requests: bool = True
 ) -> tuple[Plan, list[str]]:
+    """Run the builder on scripted plans. Requests are on, since the guards here use them."""
     errors: list[str] = []
 
     def script(messages: list, info: AgentInfo):
         errors.extend(str(p.content) for p in _returns(messages))
         return _reply(info, plans[_turn(messages)])
 
-    agent = build_agent(FunctionModel(script), Registry(results_dir / "registry"))
+    agent = build_agent(
+        FunctionModel(script),
+        Registry(results_dir / "registry"),
+        allow_requests=allow_requests,
+    )
     return (await agent.run("go", deps=hyp)).output, errors
 
 
@@ -70,6 +75,23 @@ async def test_a_plan_may_use_a_node_nobody_has_written(results_dir):
         results_dir, _plan(steps=steps, requests={"gc_count": req.model_dump()})
     )
     assert errors == [] and out.requests["gc_count"] == req
+
+
+async def test_a_request_is_sent_back_when_requesting_a_node_is_off(results_dir):
+    """The default: the builder composes what exists rather than asking for a node."""
+    req = ToolRequest(name="gc_count", node="score", output=["gc"], **ASK)
+    column = cast("BaseScoreConfig", req.stand_in()()).columns()["gc"]
+    asking = _plan(
+        steps={
+            "counted": _step("gc_count", "seq"),
+            "small": _step("at_most", "counted", "items", column=column, threshold=0),
+        },
+        requests={"gc_count": req.model_dump()},
+    )
+    out, errors = await _run(results_dir, asking, _plan(), allow_requests=False)
+    assert len(errors) == 1, errors
+    assert "Requesting a node is disabled" in errors[0] and "gc_count" in errors[0]
+    assert out.requests == {}
 
 
 async def test_an_assertion_on_a_criterion_or_step_the_plan_lacks_is_sent_back(

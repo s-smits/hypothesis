@@ -306,7 +306,25 @@ def _literature_tools(seen: Seen | None = None) -> tuple[Seen, list[Tool]]:
     return seen, [Tool(search_literature), Tool(get_record)]
 
 
-BUILD_INSTRUCTIONS = f"""\
+REQUESTS_ALLOWED = """\
+If no existing node can do a step, put its contract in `requests`, keyed by name, and use
+   that name in a step. Name the existing nodes you considered in why_not_composable. A
+   filter on a requested scorer's column gets that column name from the error you are shown."""
+
+REQUESTS_REFUSED = """\
+Every step must use a node that already exists: `requests` is disabled, and a plan
+   carrying one is sent back. If no node seems to fit, look again with search_nodes and
+   describe_node, since a node's config often covers a case its summary does not name."""
+
+
+def build_instructions(allow_requests: bool) -> str:
+    """The builder's instructions, with step 4 saying whether a node may be requested."""
+    return BUILD_TEMPLATE.replace(
+        "{requests_step}", REQUESTS_ALLOWED if allow_requests else REQUESTS_REFUSED
+    )
+
+
+BUILD_TEMPLATE = f"""\
 Plan a DAG of nodes that meets the user's goal. You are shown the input entities and the
 criteria you will be marked against, which you cannot change. An entity is any kind the
 framework knows, not only a nucleic acid: {", ".join(sorted(TYPES))}. Plan on the kinds
@@ -350,9 +368,7 @@ say so in your hypothesis rather than overstating them.
    no number is copied. Never assert both yes and no of one filter: they cannot both hold.
    On any other step, "produced" holds when the step gave output, which is all a goal that
    only measures or converts needs.
-4. If no existing node can do a step, put its contract in `requests`, keyed by name, and use
-   that name in a step. Name the existing nodes you considered in why_not_composable. A
-   filter on a requested scorer's column gets that column name from the error you are shown.
+4. {{requests_step}}
 5. After a rejected round, say in addresses_critique what changed, and do not resubmit a
    wiring that already ran.
 6. Add an observation for each record that bears on the plan, whether you searched for it
@@ -557,14 +573,22 @@ and edits the list first, so make it a draft worth correcting.
 
 
 def build_agent(
-    model: Model | str, registry: Registry, seen: Seen | None = None
+    model: Model | str,
+    registry: Registry,
+    seen: Seen | None = None,
+    *,
+    allow_requests: bool = False,
 ) -> Agent[Hypothesis, Plan]:
     """Return an agent that writes a Plan for a goal, with each guard a retry.
 
     The agent makes the nodes it needs in ``registry`` with create_node, and can reuse
     the ones already there. Run it with ``deps=`` the Hypothesis, whose ``criteria`` and
-    ``attempts`` the guards read. A plan may name a node that does not exist, if it
-    carries a ToolRequest for it; the plan is typechecked as if the node were written.
+    ``attempts`` the guards read.
+
+    With ``allow_requests``, a plan may name a node that does not exist, if it carries a
+    ToolRequest for it; the plan is typechecked as if the node were written, and the loop
+    blocks until a person writes it. It is off by default, so a plan carrying a request is
+    sent back and the agent has to compose the step from the nodes that exist.
 
     The agent can search the literature, and a plan may only cite records it was shown.
     Pass an empty ``seen`` to read them afterwards, for :func:`cite`.
@@ -608,6 +632,13 @@ def build_agent(
                 f"Observations cite records you were not shown: {unseen}. Cite only "
                 "amassIds from search_literature, get_record or the prompt's "
                 f"observations: {sorted(seen.keys() | given)}"
+            )
+        if reqs and not allow_requests:
+            raise ModelRetry(
+                f"Requesting a node is disabled, but this plan requests {sorted(reqs)}. "
+                "Compose the step from the nodes that exist, which search_nodes and "
+                f"describe_node list: {sorted(NODES)}. A node's config is often wider "
+                "than its summary, so read the fields before ruling it out."
             )
         used = {s.node for s in plan.steps.values()}
         if len(reqs) > MAX_REQUESTS or (reqs and used <= reqs.keys()):
@@ -736,7 +767,7 @@ def build_agent(
     agent = Agent(
         model,
         deps_type=Hypothesis,
-        instructions=BUILD_INSTRUCTIONS,
+        instructions=build_instructions(allow_requests),
         tools=[
             Tool(list_nodes),
             Tool(search_nodes),

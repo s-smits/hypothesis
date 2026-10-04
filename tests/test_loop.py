@@ -219,7 +219,7 @@ async def test_a_missing_tool_blocks_until_it_is_added_then_resolves_the_same_pl
     fakes = _fakes(
         calls, [PLAN], [ResolveOut(missing=[REQUEST]), ResolveOut(dag=DAG)], [True]
     )
-    done = await _drive(fakes, steer=added)
+    done = await _drive(fakes, steer=added, allow_requests=True)
     assert (
         seen[0].state == "blocked"
         and seen[0].pending == [REQUEST]
@@ -232,10 +232,20 @@ async def test_a_missing_tool_blocks_until_it_is_added_then_resolves_the_same_pl
     )
 
 
+async def test_a_missing_tool_ends_the_run_when_requesting_a_node_is_off(results_dir):
+    """The default: nothing waits, so the run ends rather than blocking on a person."""
+    done = await _drive(_fakes({}, [PLAN], [ResolveOut(missing=[REQUEST])], []))
+    assert done.state == "not achieved"
+    assert "gc_count" in (done.stopped_because or "")
+    assert "allow_requests" in (done.stopped_because or "")
+
+
 async def test_abandoning_a_blocked_run_ends_it():
     abandon = lambda h: h.signal(HypothesisLoop.abandon)
     done = await _drive(
-        _fakes({}, [PLAN], [ResolveOut(missing=[REQUEST])], []), steer=abandon
+        _fakes({}, [PLAN], [ResolveOut(missing=[REQUEST])], []),
+        steer=abandon,
+        allow_requests=True,
     )
     assert done.state == "abandoned" and done.pending == []
 
@@ -431,7 +441,7 @@ async def test_a_resume_sent_while_the_plan_resolves_again_is_not_lost():
 
     resume = lambda h: h.signal(HypothesisLoop.tool_added)
     done = await asyncio.wait_for(
-        _drive([fakes[0], resolve, *fakes[2:]], steer=resume), 30
+        _drive([fakes[0], resolve, *fakes[2:]], steer=resume, allow_requests=True), 30
     )
     assert done.state == "achieved" and not resolves
 
@@ -441,7 +451,9 @@ async def test_every_finished_run_leaves_a_line_in_the_ledger_whatever_its_end()
     abandon = lambda h: h.signal(HypothesisLoop.abandon)
     asking = Plan.model_validate(_plan(requests={"gc_count": REQUEST.model_dump()}))
     await _drive(
-        _fakes({}, [asking], [ResolveOut(missing=[REQUEST])], []), steer=abandon
+        _fakes({}, [asking], [ResolveOut(missing=[REQUEST])], []),
+        steer=abandon,
+        allow_requests=True,
     )
     first, second = read(ledger_path())[0]
     assert (first.state, first.rounds, first.held) == ("achieved", 1, ["1/1"])
