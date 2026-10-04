@@ -37,7 +37,7 @@ Each run, with the status of every step:
 
 ```
 src/node_dag/
-  types.py                     entities (Dna, Rna, AminoAcidSequence, ProteinStructure, FastaFile, ProteinContacts) with an id, Score, Table, TYPES
+  types.py                     entities (Dna, Rna, AminoAcidSequence, ProteinStructure, FastaFile, ProteinContacts, StructureAlignment) with an id, Score, Table, TYPES
   dna.py                       genetic code, synonymous codons, atoms per base
   nodes/base.py                Category, BaseToolConfig, BaseScoreConfig, BaseFilterConfig, BaseNode
   nodes/tools/<name>/          config.py + function.py; tools make entities, scorers score them
@@ -65,7 +65,7 @@ temporal/
 
 A DAG works like Pipeline Pilot or KNIME. You pass in a list of entities for each
 input, and each node runs once on the whole list that reaches it. An entity (`Dna`, `Rna`,
-`AminoAcidSequence`, `ProteinStructure`, `FastaFile`, `ProteinContacts`) has an `id`: a hash of its kind and sequence, so the same
+`AminoAcidSequence`, `ProteinStructure`, `FastaFile`, `ProteinContacts`, `StructureAlignment`) has an `id`: a hash of its kind and sequence, so the same
 sequence always has the same id and identical entities merge into one.
 
 What flows along an edge is a `Table`: the entities, and their scores so far as
@@ -302,7 +302,8 @@ workflow. Only the model calls are non-deterministic, and each is an activity:
 
 Each model call writes its full message history, failed calls included, to
 `results/trajectories/<hypothesis id>-r<round>-<stage>.json` (`criteria` and `inputs` are round 0). That is
-where to look for which nodes the builder read and which guard it bounced off.
+where to look for which nodes the builder read and which guard it bounced off. An attempt that raised, so
+Temporal retried it, is also kept as `...-<stage>-a<attempt>.json`; the plain name, the one pulse reads, normally holds the latest.
 
 Rounds stop at `max_rounds` (default 20; `--max-rounds` on `run_hypothesis`) or 500,000 tokens, whichever comes first.
 A round has cost a median of 115,000 tokens, and the ceiling is checked before each round, so a run usually stops after

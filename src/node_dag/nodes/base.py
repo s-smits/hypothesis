@@ -31,6 +31,9 @@ def _check_one_port(cls: type["BaseNodeConfig"]) -> None:
     # A score or filter passes its entities on, so they must all come from one source.
     if len(cls.inputs) != 1:
         raise TypeError(f"{cls.__name__} must have one input port, not {cls.inputs}")
+    # That port is where its entities come from, so there is nothing to leave out.
+    if cls.optional_inputs:
+        raise TypeError(f"{cls.__name__}'s one port cannot be optional")
 
 
 class BaseNodeConfig(BaseModel):
@@ -39,7 +42,9 @@ class BaseNodeConfig(BaseModel):
     A node runs once on the whole list of entities that flows into each input port. A
     subclass sets a unique ``name`` literal, ``categories``, and ``inputs``: each port
     name and entity type that the node's ``run`` takes, as a list, by keyword. Only a
-    tool may have more than one port.
+    tool may have more than one port, and only a tool may name some of them in
+    ``optional_inputs``: ports a DAG may leave unwired. ``run`` is given every
+    declared port either way, so an unwired one arrives as an empty list.
 
     ``config_hash`` is a hash of the name, version and every other field. It is set when
     the config is made, so it says what the node does. A config that arrives with a
@@ -55,6 +60,10 @@ class BaseNodeConfig(BaseModel):
     )
     categories: ClassVar[tuple[Category, ...]] = ()
     inputs: ClassVar[dict[str, type[Entity]]] = {}
+    # Ports a DAG may leave out. A step is skipped when a port it must wire has
+    # nothing to run on, so a port that is only sometimes wanted belongs here rather
+    # than in a second node. It is a ClassVar, so naming one changes no config_hash.
+    optional_inputs: ClassVar[tuple[str, ...]] = ()
     intents: ClassVar[tuple[str, ...]] = ()
     when_to_use: ClassVar[str] = ""
     when_not_to_use: ClassVar[str] = ""
@@ -86,11 +95,17 @@ class BaseNodeConfig(BaseModel):
         raise NotImplementedError
 
     @classmethod
+    def required(cls) -> set[str]:
+        """The ports a DAG has to wire: every port not named optional."""
+        return set(cls.inputs) - set(cls.optional_inputs)
+
+    @classmethod
     def contract(cls) -> dict[str, Any]:
         """Categories, input ports, outputs, intents and usage guidelines."""
         return {
             "categories": [c.value for c in cls.categories],
             "inputs": {port: _kind(t) for port, t in cls.inputs.items()},
+            "optional_inputs": list(cls.optional_inputs),
             "outputs": {src: _kind(t) for src, t in cls.outputs().items()},
             "intents": list(cls.intents),
             "when_to_use": cls.when_to_use,
@@ -115,9 +130,25 @@ class BaseToolConfig(BaseNodeConfig):
     A tool may have several input ports, each getting the whole list from its source;
     ``run`` decides how to pair them up. It returns any number of output entities. The
     step's table has only these entities and no scores, since they are new entities.
+
+    A port named in ``optional_inputs`` may be left unwired, and reaches ``run`` as an
+    empty list. At least one port must stay required, or a step could be asked to run
+    on nothing at all.
     """
 
     output: ClassVar[type[Entity]]
+
+    @classmethod
+    def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:  # noqa: ANN401
+        """Reject optional ports that are not declared, or that are all of them."""
+        super().__pydantic_init_subclass__(**kwargs)
+        if unknown := set(cls.optional_inputs) - set(cls.inputs):
+            raise TypeError(
+                f"{cls.__name__} names optional ports it has no input for: "
+                f"{sorted(unknown)}"
+            )
+        if cls.inputs and not cls.required():
+            raise TypeError(f"{cls.__name__} must keep one port required")
 
     @classmethod
     def outputs(cls) -> dict[str, type[Entity]]:

@@ -86,13 +86,17 @@ class DagWorkflow:
             # Only a tool has more than one port, and it reads no scores, so a score
             # or filter can take the one table it has.
             table = next(iter(tables.values()))
+            # An optional port the plan left unwired still reaches run(), empty, so
+            # that a node always gets every port its config declares.
+            tables.update({p: Table() for p in config.inputs if p not in tables})
             outs = (
                 [f"{key}.yes", f"{key}.no"]
                 if isinstance(config, BaseFilterConfig)
                 else [key]
             )
-            # A port with nothing to run on means nothing comes out.
-            if not all(t.items for t in tables.values()):
+            # A required port with nothing to run on means nothing comes out. An
+            # optional one that is empty is simply not used.
+            if not all(tables[p].items for p in config.required()):
                 values.update({out: Table() for out in outs})
                 steps[key] = "skipped"
                 return

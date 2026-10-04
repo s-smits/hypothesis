@@ -101,10 +101,18 @@ class Dag(BaseModel):
             if key not in self.steps:
                 raise ValueError(self._unknown_source(key))
             step, config = self.steps[key], self.steps[key].config
-            if step.inputs.keys() != config.inputs.keys():
+            # Every required port has to be wired, and nothing the node has no port
+            # for, but an optional port may simply be left out.
+            wired = step.inputs.keys()
+            if not config.required() <= wired <= config.inputs.keys():
+                optional = (
+                    f" ({sorted(config.optional_inputs)} may be left out)"
+                    if config.optional_inputs
+                    else ""
+                )
                 raise ValueError(
                     f"Step {key!r} ports {sorted(step.inputs)} != {config.name} ports "
-                    f"{sorted(config.inputs)}"
+                    f"{sorted(config.inputs)}{optional}"
                 )
             for port, src in step.inputs.items():
                 if src not in types:

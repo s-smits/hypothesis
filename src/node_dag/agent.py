@@ -178,7 +178,8 @@ def search_nodes(
 
     Args:
         query: Words or phrase describing what you want to do (e.g. "score expression", "mutate", "lower atoms", "translate").
-        input_type: Input entity kind to filter by ('dna', 'rna', 'amino_acid_sequence', 'protein_structure', 'protein_contacts', 'entity').
+        input_type: Input entity kind to filter by ('dna', 'rna', 'amino_acid_sequence', 'protein_structure', 'fasta_file',
+            'protein_contacts', 'structure_alignment', 'entity').
         category: Node category to filter by ('scoring', 'filter', 'generation', 'conversion').
 
     Returns a list of matching nodes with their intents, when to use them, and input/output contracts.
@@ -382,7 +383,10 @@ say so in your hypothesis rather than overstating them.
    biology you are unsure of, such as a threshold or which measure fits the goal, call
    search_literature, and get_record for more of a hit.
 2. Each step names a registered node id (from create_node), or a node name with its fields
-   in `config`. Connect its input port to a source whose kind is the kind of that port.
+   in `config`. Connect each of its input ports to a source whose kind is the kind of
+   that port. A port listed in the node's `optional_inputs` may be left out; wire it
+   only when the goal wants what it adds, since a step is skipped when a port it must
+   wire has nothing to run on.
    Register a scorer with create_node before the filter on its column, and copy the column
    name from the reply.
 3. Every criterion needs an assertion on a step, and one check may be asserted for each
