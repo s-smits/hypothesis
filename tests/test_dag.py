@@ -8,9 +8,9 @@ import pytest
 from Bio.Seq import Seq
 from pydantic import ValidationError
 from temporalio import activity
-from temporalio.client import WorkflowFailureError
+from temporalio.client import WorkflowExecutionStatus, WorkflowFailureError
 from temporalio.contrib.pydantic import pydantic_data_converter
-from temporalio.exceptions import ApplicationError
+from temporalio.exceptions import ApplicationError, CancelledError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
@@ -408,6 +408,54 @@ async def test_a_save_that_keeps_failing_does_not_hide_why_a_run_failed():
         cause = cause.__cause__
     assert str(cause) == "out of GPUs"
     assert len(tries) == 3
+
+
+async def test_a_cancel_during_the_final_save_still_cancels_the_run():
+    @activity.defn(name="run_tool")
+    async def tool(inp: RunNodeInput) -> list[Value]:
+        return run_tool(inp)
+
+    saving, release = asyncio.Event(), asyncio.Event()
+
+    @activity.defn(name="save_workflow")
+    async def slow_save(inp: SaveWorkflowInput) -> None:
+        saving.set()
+        await release.wait()
+
+    dag = {
+        "inputs": {"seq": "dna"},
+        "steps": {"protein": _step({"name": "dna_to_protein"}, "seq")},
+    }
+    async with (
+        await WorkflowEnvironment.start_time_skipping(
+            data_converter=pydantic_data_converter
+        ) as env,
+        Worker(
+            env.client,
+            task_queue="t",
+            workflows=[DagWorkflow],
+            activities=[tool, slow_save],
+        ),
+    ):
+        handle = await env.client.start_workflow(
+            DagWorkflow.run,
+            DagInput(
+                dag=Dag.model_validate(dag), inputs={"seq": [Dna(sequence="ATG")]}
+            ),
+            id="cancel-in-save",
+            task_queue="t",
+        )
+        try:
+            await asyncio.wait_for(saving.wait(), timeout=10)
+            await handle.cancel()
+            # Bounded, so a lost cancel fails the test, not hangs it.
+            with pytest.raises(WorkflowFailureError) as raised:
+                await asyncio.wait_for(handle.result(), timeout=10)
+            assert isinstance(raised.value.cause, CancelledError)
+            status = (await handle.describe()).status
+            assert status == WorkflowExecutionStatus.CANCELED
+        finally:
+            release.set()
 
 
 async def test_progress_reports_each_step_while_running():

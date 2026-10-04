@@ -1,10 +1,12 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
+import pytest
 from pydantic_core import to_json
 from temporalio import activity
+from temporalio.client import WorkflowFailureError
 from temporalio.contrib.pydantic import pydantic_data_converter
-from temporalio.exceptions import ApplicationError
+from temporalio.exceptions import ApplicationError, CancelledError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 from test_guards import ASK, COLUMN, _plan
@@ -116,7 +118,12 @@ def _fakes(
 
 
 async def _drive(
-    fakes: list, hyp: Hypothesis = HYP, steer=None, ledger=record_ledger, **cfg
+    fakes: list,
+    hyp: Hypothesis = HYP,
+    steer=None,
+    ledger=record_ledger,
+    cancel_on: asyncio.Event | None = None,
+    **cfg,
 ) -> Hypothesis:
     async with await WorkflowEnvironment.start_time_skipping(
         data_converter=pydantic_data_converter
@@ -149,6 +156,9 @@ async def _drive(
                     while (await handle.query(HypothesisLoop.state)).state != "blocked":
                         await asyncio.sleep(0.05)
                     await steer(handle)
+                if cancel_on:  # Cancel the workflow once this is set.
+                    await asyncio.wait_for(cancel_on.wait(), 10)
+                    await handle.cancel()
                 return await handle.result()
 
 
@@ -432,3 +442,23 @@ async def test_a_ledger_that_cannot_be_written_does_not_change_how_the_run_ended
         _fakes({}, [PLAN], [ResolveOut(dag=DAG)], [True]), ledger=broken
     )
     assert done.state == "achieved" and not ledger_path().exists()
+
+
+async def test_a_cancel_during_the_ledger_write_still_cancels_the_run():
+    writing = asyncio.Event()
+
+    @activity.defn(name="record_ledger")
+    async def stuck(hyp_id: str) -> None:
+        writing.set()
+        await asyncio.Event().wait()
+
+    with pytest.raises(WorkflowFailureError) as raised:
+        await asyncio.wait_for(
+            _drive(
+                _fakes({}, [PLAN], [ResolveOut(dag=DAG)], [True]),
+                ledger=stuck,
+                cancel_on=writing,
+            ),
+            30,
+        )
+    assert isinstance(raised.value.cause, CancelledError)

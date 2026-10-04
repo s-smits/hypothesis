@@ -253,7 +253,7 @@ class NewCriteria(BaseModel):
             sharpen what success means.
     """
 
-    goal: str = Field(min_length=1)
+    goal: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
     hypothesis: str | None = None
 
 

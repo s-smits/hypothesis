@@ -342,6 +342,7 @@ COMPARATIVE_WORDS = (
     "maximize",
 )
 MAX_REQUESTS = 3
+MAX_IDS_LISTED = 20  # Of the registered ids an unknown node's message names.
 ADAPTER: TypeAdapter[NodeConfig] = TypeAdapter(NodeConfig)
 
 
@@ -352,10 +353,16 @@ def step_config(plan: Plan, key: str, registry: Registry) -> BaseNodeConfig:
         return node.config
     requested = s.node in plan.requests and s.node not in NODES
     if not requested and s.node not in NODES:
+        ids = sorted(n.id for n in registry.all())
+        more = (
+            f" and {len(ids) - MAX_IDS_LISTED} more"
+            if len(ids) > MAX_IDS_LISTED
+            else ""
+        )
         raise ValueError(
             f"Step {key!r}: node {s.node!r} is not a registered node id, a built-in "
             f"node name or a request. Registered ids: "
-            f"{sorted(n.id for n in registry.all())} (list_registry shows them). "
+            f"{ids[:MAX_IDS_LISTED]}{more} (list_registry shows them). "
             f"Built-in names: {sorted(NODES)}. A node that does not exist yet goes in "
             "`requests`, under the name the step uses."
         )
