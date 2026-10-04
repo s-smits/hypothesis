@@ -31,7 +31,16 @@ from node_dag.types import Dna, Rna
 from temporal.dag.activities import SavedRun, SaveWorkflowInput, results_subdir
 from temporal.hypothesis.activities import save_hypothesis
 from temporal.hypothesis.loop import HypothesisInput
-from temporal.ui.app import NewCriteria, NewHypothesis, _hypothesis_row, make_app
+from temporal.ui.app import (
+    NewCriterion,
+    NewDraft,
+    NewHypothesis,
+    _hypothesis_row,
+    make_app,
+)
+
+UI = Path(__file__).parent.parent / "temporal" / "ui"
+NEW, HYPOTHESES = UI / "new.html", UI / "hypotheses.html"
 
 
 class _Handle:
@@ -222,7 +231,10 @@ async def test_starting_without_max_rounds_is_accepted_and_blank_criteria_are_dr
     new = NewHypothesis(
         goal="g",
         inputs={"seq": [Dna(sequence="ATG")]},
-        criteria=["no TCG remains", "  "],
+        criteria=[
+            NewCriterion(kind="quantitative", text="no TCG remains"),
+            NewCriterion(kind="qualitative", text="  "),
+        ],
         max_rounds=None,
     )
     hyp = await _endpoint("/api/hypotheses", "POST", client, "model")(new)
@@ -231,6 +243,7 @@ async def test_starting_without_max_rounds_is_accepted_and_blank_criteria_are_dr
         inp.max_rounds == 3 and kw["id"] == hyp.id
     )  # Blank means the default, not a 422.
     assert [c.claim for c in inp.hypothesis.criteria] == ["no TCG remains"]
+    assert [c.kind for c in inp.hypothesis.criteria] == ["quantitative"]
     assert [c.source for c in inp.hypothesis.criteria] == [
         "human"
     ]  # Typed by a person.
@@ -390,6 +403,125 @@ async def test_the_runs_page_can_show_a_structure():
     assert not re.search(r"<(script|link)[^>]*molstar", index)
 
 
+async def test_the_runs_page_shows_what_a_reference_filter_compares_with():
+    """beats_reference has no threshold: it is scored in another step, which is an edge."""
+    page = await _endpoint("/")()
+    index = (Path(page.path).parent / "index.html").read_text()
+    assert (
+        "args.reference" in index
+    )  # The node panel names the reference, not "vs undefined".
+    assert "args.scored_in" in index
+    assert (
+        "step.config.scored_in" in index
+    )  # The graph draws an edge from the scoring step.
+    assert (
+        "Object.values(p.dag.steps[k].inputs)" not in index
+    )  # No second, input-only reading.
+
+
+async def test_a_new_hypothesis_keeps_the_kind_and_text_of_the_criteria_the_user_sent():
+    client = _Client()
+    sent = [
+        NewCriterion(kind="qualitative", text="the protein is unchanged"),
+        NewCriterion(kind="quantitative", text="expression above the input's"),
+    ]
+    await _endpoint("/api/hypotheses", "POST", client, "model")(
+        NewHypothesis(goal="g", criteria=sent)
+    )
+    ((inp, _),) = client.started
+    got = inp.hypothesis.criteria
+    assert [(c.id, c.kind, c.claim, c.source) for c in got] == [
+        ("c1", "qualitative", "the protein is unchanged", "human"),
+        ("c2", "quantitative", "expression above the input's", "human"),
+    ]
+
+
+async def test_the_observations_endpoint_searches_the_literature_for_a_goal():
+    """The page asks for this before a run, so the user can edit what it found."""
+    seen: list[ModelMessage] = []
+
+    def script(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        seen.extend(messages)
+        # Nothing cited, so nothing to check against a record: the empty answer is
+        # the one an agent with no search behind it can give.
+        return ModelResponse(
+            parts=[ToolCallPart(info.output_tools[0].name, {"observations": []})]
+        )
+
+    search = _endpoint("/api/observations", "POST", None, FunctionModel(script))
+    got = await search(NewDraft(goal="faster lacZ", hypothesis="mutate codons"))
+
+    assert got == []
+    prompt = next(p.content for p in seen[0].parts if isinstance(p, UserPromptPart))
+    assert "Goal: faster lacZ" in str(prompt)
+    assert "Proposed hypothesis: mutate codons" in str(prompt)
+
+    with pytest.raises(HTTPException) as e:  # No model, no agent.
+        await _endpoint("/api/observations", "POST")(NewDraft(goal="faster lacZ"))
+    assert e.value.status_code == 503
+
+    def down(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        raise RuntimeError("no API key")
+
+    broken = _endpoint("/api/observations", "POST", None, FunctionModel(down))
+    with pytest.raises(HTTPException) as e:  # The page shows why, not a bare 500.
+        await broken(NewDraft(goal="faster lacZ"))
+    assert e.value.status_code == 502 and "no API key" in e.value.detail
+
+
+async def test_a_new_hypothesis_keeps_the_literature_the_user_sent():
+    client = _Client()
+    kept = [
+        Observation(
+            amass_id="AMBC_1",
+            summary="Codon usage sets expression.",
+            core="biomedcore",
+            title="Codon usage and expression",
+        )
+    ]
+    await _endpoint("/api/hypotheses", "POST", client, "model")(
+        NewHypothesis(goal="g", observations=kept)
+    )
+    ((inp, _),) = client.started
+    assert inp.hypothesis.observations == kept
+
+
+def test_the_new_page_edits_criteria_and_can_draft_them_with_the_agent():
+    page = NEW.read_text()
+    for s in ("Success criteria", "quantitative", "qualitative", "Add criterion"):
+        assert s in page
+    assert 'id="add-criterion"' in page
+    assert "/api/criteria" in page  # The "draft with the agent" button's call.
+    assert "criteria: criteria()" in page  # They are sent when the run starts.
+    assert "max_rounds" in page  # The loop's own limit stays on the form.
+
+
+def test_the_new_page_edits_the_observations_it_gathers_before_a_run():
+    page = NEW.read_text()
+    assert "Observations" in page
+    assert "/api/observations" in page  # The "search the literature" button's call.
+    assert "observations: observations()" in page  # Sent when the run starts.
+    # A summary is editable, and the record it cites is not re-typed by hand.
+    assert "observationRow" in page
+    assert "...r.obs" in page
+
+
+def test_the_hypotheses_page_marks_each_criterion_met_not_met_or_unclear():
+    page = HYPOTHESES.read_text()
+    assert "criterionLine" in page  # Pairs a criterion with its call.
+    for s in ("met", "not met", "unclear"):
+        assert s in page
+    # The loop makes the call from the assertions that covered the criterion, as they held.
+    assert "att.held" in page and "a.criterion === c.id" in page
+
+
+def test_the_new_page_takes_words_and_the_builder_chooses_what_to_run_on():
+    """The loop fetches the inputs the goal names, so the form does not ask for them."""
+    page = NEW.read_text()
+    assert 'id="inputs"' not in page and "readInputs" not in page
+    assert "inputs:" not in page  # The request body carries no inputs.
+
+
 async def test_the_runs_page_draws_a_beats_reference_filter_as_it_reads():
     page = await _endpoint("/")()
     index = (Path(page.path).parent / "index.html").read_text()
@@ -414,7 +546,7 @@ async def test_the_criteria_endpoint_drafts_a_list_to_edit():
         )
 
     draft = _endpoint("/api/criteria", "POST", None, FunctionModel(script))
-    got = await draft(NewCriteria(goal="faster lacZ", hypothesis="mutate codons"))
+    got = await draft(NewDraft(goal="faster lacZ", hypothesis="mutate codons"))
 
     assert got == [
         Criterion(id="faster", claim="twice the expression"),
@@ -425,7 +557,7 @@ async def test_the_criteria_endpoint_drafts_a_list_to_edit():
     assert "Proposed hypothesis: mutate codons" in str(prompt)
 
     with pytest.raises(HTTPException) as e:  # No model, no agent.
-        await _endpoint("/api/criteria", "POST")(NewCriteria(goal="faster lacZ"))
+        await _endpoint("/api/criteria", "POST")(NewDraft(goal="faster lacZ"))
     assert e.value.status_code == 503
 
     def down(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
@@ -433,11 +565,11 @@ async def test_the_criteria_endpoint_drafts_a_list_to_edit():
 
     broken = _endpoint("/api/criteria", "POST", None, FunctionModel(down))
     with pytest.raises(HTTPException) as e:  # The page shows why, not a bare 500.
-        await broken(NewCriteria(goal="faster lacZ"))
+        await broken(NewDraft(goal="faster lacZ"))
     assert e.value.status_code == 502 and "no API key" in e.value.detail
 
 
 def test_a_blank_goal_is_refused_before_it_can_reach_the_criteria_agent():
     with pytest.raises(ValidationError):  # Blank after trimming: no goal at all.
-        NewCriteria(goal="  \n")
-    assert NewCriteria(goal="  faster lacZ \n").goal == "faster lacZ"
+        NewDraft(goal="  \n")
+    assert NewDraft(goal="  faster lacZ \n").goal == "faster lacZ"

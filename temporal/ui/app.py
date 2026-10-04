@@ -16,10 +16,10 @@ from temporalio.client import (
 from temporalio.service import RPCError, RPCStatusCode
 
 from node_dag import amass
-from node_dag.agent import Hypothesis, criteria_agent
+from node_dag.agent import Hypothesis, criteria_agent, observations_agent
 from node_dag.dag import DagProgress
 from node_dag.links import Link
-from node_dag.plan import Criterion, HypothesisState, ToolRequest
+from node_dag.plan import Criterion, HypothesisState, Observation, ToolRequest
 from node_dag.registry import Registry
 from node_dag.types import Value
 from temporal.dag.activities import (
@@ -128,6 +128,9 @@ class Goal(BaseModel):
         hypotheses: How many hypotheses it has.
         inputs: The inputs of its most recently saved hypothesis.
         criteria: The success criteria of its most recently saved hypothesis.
+        observations: The observations of its most recently saved hypothesis, so a
+            new run on the same goal starts from the literature already gathered
+            rather than paying for the same search again.
         updated: When its most recent hypothesis was saved.
     """
 
@@ -135,6 +138,7 @@ class Goal(BaseModel):
     hypotheses: int
     inputs: dict[str, list[Value]]
     criteria: list[Criterion]
+    observations: list[Observation] = []
     updated: datetime
 
 
@@ -165,6 +169,7 @@ def _goals(rows: list[HypothesisRow]) -> list[Goal]:
                 hypotheses=1,
                 inputs=h.inputs,
                 criteria=h.criteria,
+                observations=h.observations,
                 updated=r.updated,
             )
     return list(goals.values())
@@ -212,6 +217,18 @@ def _saved_runs() -> dict[str, Run]:
     return runs
 
 
+class NewCriterion(BaseModel):
+    """One success criterion as the new-hypothesis form sends it.
+
+    Args:
+        kind: ``quantitative`` for a measure or comparison, ``qualitative`` for a property.
+        text: What must be true for the goal to count as met, in a sentence.
+    """
+
+    kind: Literal["qualitative", "quantitative"] = "quantitative"
+    text: str
+
+
 class NewHypothesis(BaseModel):
     """What the user gives to start a hypothesis.
 
@@ -219,16 +236,22 @@ class NewHypothesis(BaseModel):
         goal: What the DAG must do, in plain English.
         hypothesis: The user's idea of how to meet the goal. The builder agent takes
             it as a starting point.
-        inputs: The values to run on, keyed by DAG input name. Omit them and the agent
-            fetches the sequences the goal names from NCBI before round 1.
-        criteria: What must be true for the goal to be met. Derived from the goal if empty.
+        criteria: The success criteria of the goal, written by the user or drafted by the
+            criteria agent and then edited. Derived from the goal if empty.
+        observations: What the literature says about the goal: gathered by the
+            observations agent and then edited, so the builder is shown them as it
+            plans. Empty means it searches for itself, or not at all.
+        inputs: The values to run on, keyed by DAG input name. Optional, and the page
+            does not ask for them: left out, the agent fetches the sequences the goal
+            names from NCBI before round 1.
         max_rounds: Most plans to try. Omit for the default.
     """
 
     goal: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
     hypothesis: str | None = None
+    observations: list[Observation] = []
     inputs: dict[str, list[Value]] = {}
-    criteria: list[str] = []
+    criteria: list[NewCriterion] = []
     max_rounds: int | None = Field(default=None, ge=1, le=10)
 
 
@@ -244,13 +267,16 @@ class RequestRow(BaseModel):
     blocked: list[str]
 
 
-class NewCriteria(BaseModel):
-    """A goal to draft success criteria for.
+class NewDraft(BaseModel):
+    """A goal for an agent to draft something about, before a run starts.
+
+    What ``/api/criteria`` and ``/api/observations`` both take: the goal, and the
+    user's own idea of how to meet it where they wrote one.
 
     Args:
-        goal: The goal to describe success for, in plain English.
+        goal: The goal, in plain English.
         hypothesis: The user's idea of how to meet it, if they wrote one. It can
-            sharpen what success means.
+            sharpen what success means, and what to search the literature for.
     """
 
     goal: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
@@ -307,15 +333,16 @@ def make_app(
         if build_model is None:
             raise HTTPException(503, "The server was started without --model.")
         criteria = [
-            Criterion(id=f"c{n}", claim=c.strip())
+            Criterion(id=f"c{n}", claim=c.text.strip(), kind=c.kind)
             for n, c in enumerate(new.criteria, 1)
-            if c.strip()
+            if c.text.strip()
         ]
         try:  # Before anything is saved: an empty or mixed input list is not a 500.
             hyp = Hypothesis(
                 goal=new.goal.strip(),
                 inputs=new.inputs,
                 criteria=criteria,
+                observations=new.observations,
                 hypothesis=(new.hypothesis or "").strip() or None,
             )
         except ValidationError as e:
@@ -371,18 +398,37 @@ def make_app(
             rows.append(RequestRow(request=request, blocked=waiting.get(p.stem, [])))
         return sorted(rows, key=lambda r: len(r.blocked), reverse=True)
 
-    @app.post("/api/criteria")
-    async def draft_criteria(new: NewCriteria) -> list[Criterion]:
-        """Draft a goal's success criteria with the criteria agent, to edit next."""
-        if build_model is None:
-            raise HTTPException(503, "The server was started without --model.")
+    def _draft_prompt(new: NewDraft) -> str:
         prompt = f"Goal: {new.goal.strip()}"
         if new.hypothesis and new.hypothesis.strip():
             prompt += f"\nProposed hypothesis: {new.hypothesis.strip()}"
+        return prompt
+
+    @app.post("/api/criteria")
+    async def draft_criteria(new: NewDraft) -> list[Criterion]:
+        """Draft a goal's success criteria with the criteria agent, to edit next."""
+        if build_model is None:
+            raise HTTPException(503, "The server was started without --model.")
         try:
-            result = await criteria_agent(build_model).run(prompt)
+            result = await criteria_agent(build_model).run(_draft_prompt(new))
         except Exception as e:
             raise HTTPException(502, f"The criteria agent failed: {e}") from e
+        return result.output
+
+    @app.post("/api/observations")
+    async def draft_observations(new: NewDraft) -> list[Observation]:
+        """Search the literature for what bears on a goal, for the user to edit.
+
+        The list the user keeps goes back as a new hypothesis's ``observations``,
+        and the builder agent is shown it. Searching costs Amass calls, so the page
+        asks for this rather than doing it on every run.
+        """
+        if build_model is None:
+            raise HTTPException(503, "The server was started without --model.")
+        try:
+            result = await observations_agent(build_model).run(_draft_prompt(new))
+        except Exception as e:
+            raise HTTPException(502, f"The observations agent failed: {e}") from e
         return result.output
 
     @app.get("/", include_in_schema=False)
@@ -428,7 +474,11 @@ def make_app(
             raise HTTPException(502, str(e)) from e
         cited = [
             Citation(
-                hypothesis_id=r.hypothesis.id, goal=r.hypothesis.goal, summary=o.summary
+                hypothesis_id=r.hypothesis.id,
+                goal=r.hypothesis.goal,
+                # What that hypothesis took from the record: the builder's reading
+                # where it cited one the user supplied, else the summary itself.
+                summary=o.used or o.summary,
             )
             for r in _saved_rows()
             for o in r.hypothesis.observations
