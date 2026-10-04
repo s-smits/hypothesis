@@ -40,6 +40,18 @@ NODES = {c.model_fields["name"].default: c for c in MAPPING}
 # What a file from before the loop kept on the Hypothesis, and each Attempt keeps now.
 TOP_LEVEL_RUN = ("dag", "workflow_id", "outcome", "verdict")
 
+# Longest entity text a prompt shows whole; longer shows its two ends and length.
+SHOWN = 4000
+
+
+def _shown(sequence: str) -> str:
+    """A sequence short enough for a prompt: whole, or its two ends and its length."""
+    if len(sequence) <= SHOWN:
+        return sequence
+    return (
+        f"{sequence[: SHOWN // 2]}...{sequence[-SHOWN // 2 :]} ({len(sequence)} long)"
+    )
+
 
 class Hypothesis(BaseModel):
     """A goal, and the plans tried against it, round by round.
@@ -135,13 +147,14 @@ class Hypothesis(BaseModel):
         """What the builder is shown of each input: its kind, size and first entities.
 
         The builder needs the values themselves to fill in config fields such as a
-        reference sequence or a threshold.
+        reference sequence or a threshold. An entity far longer than a gene, such as
+        a FASTA file, shows its two ends and its length instead of its whole text.
         """
         return {
             k: {
                 "kind": v[0].kind,
                 "count": len(v),
-                "sequences": [i.sequence for i in v[:limit]],
+                "sequences": [_shown(i.sequence) for i in v[:limit]],
             }
             for k, v in self.inputs.items()
         }
@@ -881,7 +894,9 @@ INPUTS_INSTRUCTIONS = (
     + """
 You have no database or network tools: every entity must come from the goal or the
 proposed hypothesis. If the goal names something whose value it does not give, say so
-plainly and add nothing for it, rather than writing out a sequence from memory."""
+plainly and add nothing for it, rather than writing out a sequence from memory.
+A `FASTAFile <hash>` mention names a file the user attached: it becomes an input by
+itself, so leave it out of add_input rather than copying any part of it."""
 )
 
 

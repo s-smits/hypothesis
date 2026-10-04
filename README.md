@@ -37,7 +37,7 @@ Each run, with the status of every step:
 
 ```
 src/node_dag/
-  types.py                     entities (Dna, Rna, AminoAcidSequence, ProteinStructure, ProteinContacts) with an id, Score, Table, TYPES
+  types.py                     entities (Dna, Rna, AminoAcidSequence, ProteinStructure, FastaFile, ProteinContacts) with an id, Score, Table, TYPES
   dna.py                       genetic code, synonymous codons, atoms per base
   nodes/base.py                Category, BaseToolConfig, BaseScoreConfig, BaseFilterConfig, BaseNode
   nodes/tools/<name>/          config.py + function.py; tools make entities, scorers score them
@@ -65,7 +65,7 @@ temporal/
 
 A DAG works like Pipeline Pilot or KNIME. You pass in a list of entities for each
 input, and each node runs once on the whole list that reaches it. An entity (`Dna`, `Rna`,
-`AminoAcidSequence`, `ProteinStructure`, `ProteinContacts`) has an `id`: a hash of its kind and sequence, so the same
+`AminoAcidSequence`, `ProteinStructure`, `FastaFile`, `ProteinContacts`) has an `id`: a hash of its kind and sequence, so the same
 sequence always has the same id and identical entities merge into one.
 
 What flows along an edge is a `Table`: the entities, and their scores so far as
@@ -145,6 +145,8 @@ Results go under `$NODE_DAG_RESULTS` (default `results/`):
 - `hypotheses/<hypothesis id>.json`: each Hypothesis, saved after each stage of the loop.
   The loop's workflow ID is the hypothesis ID; each round's DAG runs as `<hypothesis id>-r<round>`.
 - `requests/<node name>.json`: each node a plan asked for that does not exist yet.
+- `files/<entity id>`: each file dropped on the `/new` goal, named by the hash of its
+  contents — exactly the id a `FASTAFile` entity carries.
 
 ```bash
 uv sync
@@ -195,9 +197,12 @@ http://127.0.0.1:8000/new starts a hypothesis: enter a goal, and open a section 
 anything else you want to set — your own hypothesis for how to meet it, criteria (rows of
 a kind, quantitative or qualitative, and a claim, or drafted by the criteria agent through
 `POST /api/criteria` for you to edit), the observations to build on, and a cap on the
-rounds. The form takes words only: an agent reads the entities the goal gives out of its
-text before round 1, and `POST /api/hypotheses` still takes `inputs` for a caller who has
-them. The server then starts the loop in the background, and the page jumps to the
+rounds. A FASTA file dropped on the goal is saved under `results/files/`, named by the
+hash of its contents, and a `FASTAFile <id>` mention is put in the goal text: the run
+resolves it to the saved file as an input, so the file's contents are never copied
+into a prompt. Otherwise the form takes words only: an agent reads the entities the
+goal gives out of its text before round 1, and `POST /api/hypotheses` still takes
+`inputs` for a caller who has them. The server then starts the loop in the background, and the page jumps to the
 hypothesis so you can watch its rounds. This needs a worker running. Inputs that cannot
 run, an empty list or a list of mixed kinds, get a 422 and nothing is saved. If the
 workflow cannot be started (Temporal is down, say), the saved hypothesis ends as `failed`
@@ -267,7 +272,10 @@ workflow. Only the model calls are non-deterministic, and each is an activity:
 1. **Inputs.** If you gave none, an agent reads the entities the goal names out of its
    text — any kind in `TYPES`, not only DNA — and freezes them on the Hypothesis, with
    where each came from. It has no database: a goal that names something without giving
-   its value gets no input for it. Inputs you give are used as they are, and are never
+   its value gets no input for it. A `FASTAFile <id>` mention is not the agent's to
+   read: it resolves to the file saved under `results/files/` with that id and becomes
+   an input named after the file, and one that is not there fails the run with the id
+   it could not find. Inputs you give are used as they are, and are never
    changed mid-run.
 2. **Criteria.** If you gave none, an agent derives them from the goal. They are frozen.
    Each is an `id`, a `claim` and a `source`: `human` if it came from you (the new-hypothesis page sends every criterion as `human`), else `derived`.
