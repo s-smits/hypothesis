@@ -211,6 +211,17 @@ def test_gc_target_recode_moves_windows_toward_the_target():
     assert _deviation(out, window=9, target=0.6) < before
 
 
+@pytest.mark.parametrize(("stop", "target"), [("TAA", 1.0), ("TAG", 0.0), ("TGA", 0.0)])
+def test_gc_target_recode_leaves_the_stop_codon(stop, target):
+    # Each stop has a swap that moves GC toward the target, so a node that took it
+    # would end the gene differently while the protein stayed the same.
+    seq = Dna(sequence="ATGGCC" + stop)
+    (out,) = GcTargetRecode(GcTargetRecodeConfig(target=target, window=30)).run(
+        sequence=[seq]
+    )
+    assert out.sequence.endswith(stop) and _protein(out) == _protein(seq)
+
+
 def test_gc_target_recode_is_deterministic_and_bounded():
     seq = Dna(sequence="ATG" + "GCG" * 6 + "TAA")  # GC-heavy alanine run.
     node = GcTargetRecode(GcTargetRecodeConfig(target=0.4, window=9, max_passes=3))

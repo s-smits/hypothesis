@@ -29,7 +29,13 @@ class GcTargetRecode(BaseNode[GcTargetRecodeConfig]):
         improved = False
         state = self._stats("".join(cs), width)
         for i, old in enumerate(cs):
-            if len(old) != 3 or len(SYNONYMS[CODON_TABLE[old]]) < 2:
+            # A stop stays: its synonyms are the other stops, and swapping one changes
+            # where the gene ends.
+            if (
+                len(old) != 3
+                or CODON_TABLE[old] == "*"
+                or len(SYNONYMS[CODON_TABLE[old]]) < 2
+            ):
                 continue
             best, best_obj = old, self._objective(state, cs, i, old, width)
             for alt in SYNONYMS[CODON_TABLE[old]]:
