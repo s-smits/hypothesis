@@ -355,7 +355,10 @@ async def test_a_model_that_goes_silent_is_retried_and_the_run_says_for_how_long
     done = await _drive([plan_hypothesis, *_fakes({}, [], [], [])[1:]])
     assert len(asked) == 2  # AGENT allows two attempts, as before.
     assert done.state == "failed"
-    assert done.stopped_because == "plan_hypothesis failed: the model was silent for more than 90 s"
+    assert (
+        done.stopped_because
+        == "plan_hypothesis failed: the model was silent for more than 90 s"
+    )
 
 
 async def test_a_bug_in_the_loop_ends_the_run_as_failed_instead_of_wedging_it(
