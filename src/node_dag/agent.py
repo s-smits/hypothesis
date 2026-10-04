@@ -419,6 +419,23 @@ You get JSON: a goal, its criteria and inputs, the plan (hypothesis, expected, a
 take every entity and the other none, so false does not mean the branch took nothing;
 "produced" needs the step, or the filter's yes branch, to give at least one entity),
 `nodes` (what each node in the DAG says it does), the DAG and the outcome.
+
+Reading the outcome. `values` maps each source to the table it produced: a step's own
+name, or `<step>.yes` and `<step>.no` for a filter's two branches. A table holds `items`,
+the entities, each with its `kind`, `sequence` and `id`; and `scores`, one entry per score
+column, named `<node name>__<config hash>__<score name>`, mapping an entity's `id` to its
+value. An entity's score is the value under its `id` in that column: that is where every
+number is, and a table keeping its scores that way is complete, not missing them. A
+scorer adds its columns to the table passing through it and a filter carries them to both
+branches, but a tool makes new entities, so its table has no scores at all: an empty
+`scores` on a tool's step is the contract working, not a result that went missing. Look
+for a score in the step whose node computed it. An `id` is a hash of an entity's kind and
+sequence, so recoding a sequence necessarily gives it a new `id`; that is what success
+looks like, not evidence that the wrong thing was scored, and entities are matched across
+steps by sequence rather than by expecting an `id` to persist. A larger outcome arrives
+compacted instead, listing each entity once under `entities` with per-table `ids`,
+`scores`, `count` and `ranges`; it carries its own `about` saying so.
+
 Work out the expected result from the goal and inputs yourself, and do not trust the plan.
 Set agrees to true only if the outcome holds the expected result for every input. Set
 covers_goal to true only if the assertions genuinely test every criterion. Do not claim
