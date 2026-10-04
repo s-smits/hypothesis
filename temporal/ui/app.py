@@ -2,11 +2,11 @@ import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, StringConstraints, ValidationError
 from temporalio.client import (
     Client,
     WorkflowExecution,
@@ -225,7 +225,7 @@ class NewHypothesis(BaseModel):
         max_rounds: Most plans to try. Omit for the default.
     """
 
-    goal: str = Field(min_length=1)
+    goal: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
     hypothesis: str | None = None
     inputs: dict[str, list[Value]] = {}
     criteria: list[str] = []
@@ -311,12 +311,17 @@ def make_app(
             for n, c in enumerate(new.criteria, 1)
             if c.strip()
         ]
-        hyp = Hypothesis(
-            goal=new.goal.strip(),
-            inputs=new.inputs,
-            criteria=criteria,
-            hypothesis=(new.hypothesis or "").strip() or None,
-        )
+        try:  # Before anything is saved: an empty or mixed input list is not a 500.
+            hyp = Hypothesis(
+                goal=new.goal.strip(),
+                inputs=new.inputs,
+                criteria=criteria,
+                hypothesis=(new.hypothesis or "").strip() or None,
+            )
+        except ValidationError as e:
+            raise HTTPException(
+                422, "; ".join(f"{err['loc'][0]}: {err['msg']}" for err in e.errors())
+            ) from e
         cfg = {"max_rounds": new.max_rounds} if new.max_rounds else {}
         inp = HypothesisInput(
             hypothesis=hyp,
@@ -326,9 +331,17 @@ def make_app(
         )
         # Saved first, so the page has something to show before any worker picks it up.
         save_hypothesis(hyp.model_copy(update={"state": "building"}))
-        await client.start_workflow(
-            HypothesisLoop.run, inp, id=hyp.id, task_queue=TASK_QUEUE
-        )
+        try:
+            await client.start_workflow(
+                HypothesisLoop.run, inp, id=hyp.id, task_queue=TASK_QUEUE
+            )
+        except Exception as e:
+            # No workflow will ever save this file again: end it, or it stays "building".
+            why = f"the workflow could not be started: {e}"
+            save_hypothesis(
+                hyp.model_copy(update={"state": "failed", "stopped_because": why})
+            )
+            raise HTTPException(503, f"Could not start the run: {e}") from e
         return hyp
 
     @app.post("/api/hypotheses/{hyp_id}/{signal}", status_code=202)
