@@ -6,12 +6,12 @@ import math
 import pytest
 from pydantic import ValidationError
 from temporalio.client import WorkflowFailureError
+from test_dag import ACTIVITIES, SCORE, SEQS, _run, _step  # noqa: F401
 
 from node_dag.dag import Dag
 from node_dag.nodes.filters.beats_reference.config import BeatsReferenceConfig
 from node_dag.nodes.filters.beats_reference.function import BeatsReference
 from node_dag.types import Dna, Entity
-from tests.test_dag import ACTIVITIES, SCORE, SEQS, _run, _step  # noqa: F401
 
 REF = Dna(sequence="ATGGCTCTGAAATAA")
 COL = "dummy__0000__score"
