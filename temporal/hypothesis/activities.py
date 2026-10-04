@@ -286,9 +286,13 @@ def _views(hyp: Hypothesis) -> list[dict[str, Any]]:
 
 @activity.defn
 async def draft_inputs(inp: Stage) -> Out:
-    """Find the sequences a goal with no inputs is about. Runs once, before round 1."""
-    agent, found = inputs_agent(inp.model)
+    """Take the entities a goal with no inputs is about. Runs once, before round 1.
+
+    The agent has no database: it reads the entities out of the goal and the proposed
+    hypothesis, whatever kind they are.
+    """
     hyp = inp.hyp
+    agent, found = inputs_agent(inp.model)
     prompt = f"Goal: {hyp.goal}" + (
         f"\nProposed hypothesis: {hyp.hypothesis}" if hyp.hypothesis else ""
     )

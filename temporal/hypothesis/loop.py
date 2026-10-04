@@ -185,11 +185,23 @@ class HypothesisLoop:
 
     async def _loop(self, inp: HypothesisInput) -> Hypothesis:
         await self._set()
-        if not self._hyp.inputs:  # The caller's inputs win: fetch only when none came.
+        if (
+            not self._hyp.inputs
+        ):  # The caller's inputs win: read the goal only if none came.
             out = await self._ask("inputs", draft_inputs, inp.build_model)
             if not out.inputs:
+                # Nothing is fetched for a goal, so a goal that names an entity without
+                # giving its value has none to take. Say so, rather than leaving the
+                # reason as the empty error of an agent that did as it was told.
+                why = (
+                    f": {out.error}"
+                    if out.error
+                    else ". The goal must give the entities to run on, since nothing is "
+                    "fetched for it: paste the sequence or structure into the goal, or "
+                    "start the run with `inputs`."
+                )
                 return await self._stop(
-                    "failed", f"no inputs could be found for the goal: {out.error}"
+                    "failed", f"no inputs could be taken from the goal{why}"
                 )
             await self._set(inputs=out.inputs, input_sources=out.sources)
         if not self._hyp.criteria:
