@@ -296,8 +296,10 @@ Each model call writes its full message history, failed calls included, to
 `results/trajectories/<hypothesis id>-r<round>-<stage>.json` (`criteria` and `inputs` are round 0). That is
 where to look for which nodes the builder read and which guard it bounced off.
 
-Rounds stop at `max_rounds` (default 3; `--max-rounds` on `run_hypothesis`) or 500,000 tokens. The stop reason is
-`stopped_because`, and every round is kept in `attempts`.
+Rounds stop at `max_rounds` (default 20; `--max-rounds` on `run_hypothesis`) or 500,000 tokens, whichever comes first.
+A round has cost a median of 115,000 tokens, so the token ceiling usually ends a run before the round limit does. Both
+limits are saved on the Hypothesis, and the hypotheses page shows "round N of M" and the tokens spent. The stop reason
+is `stopped_because`, and every round is kept in `attempts`.
 
 **Models.** `run_hypothesis` and `run_ui` take `--model` for the builder, which also makes the
 inputs, criteria and critique calls (and the UI's criteria drafting), and `--verify-model` for

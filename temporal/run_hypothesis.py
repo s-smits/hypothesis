@@ -33,7 +33,12 @@ from temporal.hypothesis.loop import (
     show_default=True,
     help="pydantic-ai model for the verifier. Keep it different from the builder's.",
 )
-@click.option("--max-rounds", default=3, help="Most plans to try.")
+@click.option(
+    "--max-rounds",
+    default=HypothesisInput.model_fields["max_rounds"].default,
+    show_default=True,
+    help="Most plans to try.",
+)
 @click.option("--address", default="localhost:7233", help="Temporal server address.")
 def main(
     path: Path, model: str, verify_model: str, max_rounds: int, address: str
