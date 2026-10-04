@@ -272,8 +272,9 @@ workflow. Only the model calls are non-deterministic, and each is an activity:
    inputs, or whose `scored_in` step never reads the input that holds it; an assertion
    on a criterion or step that is not there, or `yes` or `no` on a step that is not a
    filter; `yes` with `no`, or `no` with `produced`, on one filter; a criterion no
-   assertion covers; a wiring an earlier round already ran; and, after a critique, a
-   plan that does not say what it changes.
+   assertion covers; a `result_source` that is not the output of a step, or that a
+   criterion's assertions only reach past a tool; a wiring an earlier round already
+   ran; and, after a critique, a plan that does not say what it changes.
    The builder can also search the literature with Amass (`search_literature`,
    `get_record`; set `AMASS_API_KEY`), and cites each record it used as an observation
    on the plan. Those of the current round's plan are on the Hypothesis as
@@ -305,7 +306,10 @@ or a filter's `yes` branch, gave at least one entity. On a filter it never cover
 about what the kept entities hold, such as every kept sequence beating the first: the builder
 is told to hold that with `yes` on a second filter over the first's `yes` branch, and the
 verifier to set `covers_goal` false when only `produced` backs it. The verifier and the critic
-are shown what each node in the DAG says it does. A model cannot grant acceptance, only veto it.
+are shown what each node in the DAG says it does. A plan may also name a `result_source`, a
+step key or `<filter>.yes` / `.no`: then a criterion counts as covered only by an assertion on
+that step or on a step that reads it, and the result must hold entities, so the proofs are about
+one set of entities. Left out, it changes nothing. A model cannot grant acceptance, only veto it.
 A model that refuses a call stops the run with the refusal as the reason.
 
 **Blocked on a tool.** A plan may request at most three nodes that do not exist yet, with

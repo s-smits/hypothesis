@@ -197,8 +197,10 @@ To read it: `jq -r '[.ended[:16], .hypothesis, .state, .rounds, .tokens, .summar
   only veto, must set both `agrees` and `covers_goal`. `yes` or `no` on a filter holds when
   that branch took at least one entity and the other none. `produced` holds when the step,
   or a filter's `yes` branch, gave at least one entity, and on a filter it never covers
-  what the kept entities hold. Keep `holds`, the builder's guards (`check_plan`) and the
-  prompts agreeing on these meanings.
+  what the kept entities hold. An optional `Plan.result_source` makes an assertion count only
+  on that step or one reading it (`Plan.covered`), and `accepted()` also needs the result
+  nonempty; `check_plan` additionally refuses proofs past a tool. Keep `holds`, the builder's
+  guards (`check_plan`) and the prompts agreeing on these meanings.
 - `Entity.id` hashes kind and sequence. `Table.of` merges identical entities.
   IDs therefore identify sequences, not genes, loci or parent-child lineage. A
   benchmark needs an explicit instance-to-result mapping so recoding, deduplication
