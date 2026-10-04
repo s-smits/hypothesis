@@ -37,12 +37,15 @@ class Criterion(BaseModel):
     """One thing that must be true for the goal to be met. Frozen before any plan.
 
     ``source`` says who wrote it: a person (typed or edited by them), or the criteria
-    agent, which the loop sets itself.
+    agent, which the loop sets itself. ``kind`` is ``quantitative`` for a claim that names
+    a measure or a comparison and ``qualitative`` for a property to judge; it labels the
+    claim for a reader and does not change how it is checked.
     """
 
     id: str = Field(pattern=SLUG)
     claim: str
     source: Literal["human", "derived"] = "human"
+    kind: Literal["qualitative", "quantitative"] = "quantitative"
 
 
 def repeated(criteria: list[Criterion]) -> list[str]:
@@ -148,6 +151,11 @@ class Assertion(BaseModel):
     branch: Literal["yes", "no", "produced"]
     claim: str
 
+    @property
+    def key(self) -> str:
+        """Where ``Attempt.held`` records it. Assertions on one step and branch share a key."""
+        return f"{self.step}.{self.branch}"
+
 
 class DraftObservation(BaseModel):
     """A finding from an Amass record that bears on the hypothesis.
@@ -171,6 +179,11 @@ class Observation(DraftObservation):
         url: Where to read the record, if it has a link.
         source: The journal, or whatever else published it.
         date: When it was published.
+        used: How the builder used this record, when it cited one the prompt
+            listed. The ``summary`` beside it stays as the user wrote it, so a
+            citation adds the builder's reading rather than overwriting the
+            user's. None for a record the builder found itself, whose own
+            ``summary`` already says how it shaped the plan.
     """
 
     core: str
@@ -178,6 +191,7 @@ class Observation(DraftObservation):
     url: str | None = None
     source: str | None = None
     date: str | None = None
+    used: str | None = None
 
     @classmethod
     def from_record(
@@ -208,8 +222,10 @@ class Plan(BaseModel):
     requests: dict[str, ToolRequest] = {}
     observations: list[DraftObservation] = Field(
         default=[],
-        description="The findings from search_literature or get_record that bear on the "
-        "hypothesis, one per record. Leave out if you did not search.",
+        description="The findings that bear on the hypothesis, one per record: from "
+        "search_literature or get_record, or from the observations the prompt listed. "
+        "Cite one for each record that shaped the plan, with a summary of how it did. "
+        "Leave out if there are none.",
     )
     addresses_critique: str = ""
 
@@ -341,9 +357,9 @@ def holds(assertions: list[Assertion], outcome: DagOutput | None) -> dict[str, b
         if a.branch == "produced":
             return n(a.step) > 0 or n(f"{a.step}.yes") > 0
         other = "no" if a.branch == "yes" else "yes"
-        return n(f"{a.step}.{a.branch}") > 0 and n(f"{a.step}.{other}") == 0
+        return n(a.key) > 0 and n(f"{a.step}.{other}") == 0
 
-    return {f"{a.step}.{a.branch}": holds_one(a) for a in assertions}
+    return {a.key: holds_one(a) for a in assertions}
 
 
 def accepted(

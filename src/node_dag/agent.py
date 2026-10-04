@@ -1,5 +1,6 @@
 import json
 import uuid
+from collections.abc import Sequence
 from typing import Annotated, Any
 
 from pydantic import (
@@ -22,6 +23,7 @@ from node_dag.plan import (
     Attempt,
     Criterion,
     Critique,
+    DraftObservation,
     HypothesisState,
     Observation,
     Plan,
@@ -53,8 +55,9 @@ class Hypothesis(BaseModel):
         input_sources: Where each input the loop fetched came from, in a phrase, e.g.
             the NCBI record a CDS was taken from.
         hypothesis: Your own idea of how to meet ``goal``, for the builder to take or leave.
-        observations: What the builder found in the literature that bears on the
-            current round's plan.
+        observations: The literature the run is built on: the records the user kept
+            before the build, and each one the builder has cited since, with how it
+            used it. A plan may cite any of them.
         criteria: What must be true for the goal to be met. Frozen before any plan.
         state: Where the loop has got to. None for a file from before the loop.
         round: The current round.
@@ -247,6 +250,63 @@ def _brief(core: str, hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [{f: h[f] for f in _HIT_FIELDS if f in h} for h in hits]
 
 
+# The Amass records an agent was shown, by amassId, each with the core it is in.
+Seen = dict[str, tuple[str, dict[str, Any]]]
+
+
+def _literature_tools(seen: Seen | None = None) -> tuple[Seen, list[Tool]]:
+    """The Amass search tools, and every record they have shown, by amassId.
+
+    An observation must cite a record in the returned dict, so an agent cannot cite
+    one it made up. Pass ``seen`` to read what the tools showed afterwards; each agent
+    needs its own, since what one was shown does not license another's citation.
+    """
+    seen = {} if seen is None else seen
+
+    def search_literature(
+        query: str, core: amass.Core = "biomedcore", limit: int = 5
+    ) -> list[dict[str, Any]] | dict[str, str]:
+        """Search Amass for publications or other records about a topic.
+
+        Use it to ground a choice in what is known: e.g. a typical expression level, a
+        sensible threshold, or which measure suits the goal. A query asked before is
+        answered from the cache.
+
+        Args:
+            query: What to look for, in plain words, e.g. "Shine-Dalgarno spacing translation initiation".
+            core: biomedcore (publications), trialcore (clinical trials), drugcore
+                (drugs), regulatorycore (FDA and EMA approvals), genecore (genes) or
+                patentcore (patents).
+            limit: How many records to return, at most.
+        """
+        try:
+            hits = amass.search(core, query, limit)
+        except amass.AmassError as e:
+            return {"error": str(e)}
+        seen.update({h["amassId"]: (core, h) for h in hits if "amassId" in h})
+        return _brief(core, hits)
+
+    def get_record(
+        amass_id: str, core: amass.Core = "biomedcore", include: list[str] | None = None
+    ) -> dict[str, Any]:
+        """Fetch one Amass record in full, by the amassId that search_literature gave.
+
+        Args:
+            amass_id: The record's amassId, e.g. ``AMBC_...``.
+            core: The core the record came from.
+            include: Extra fields to add, e.g. ``["fulltext"]``. Full text is long: ask
+                for it only when the abstract is not enough.
+        """
+        try:
+            record = amass.get_record(core, amass_id, tuple(include or ()))
+        except amass.AmassError as e:
+            return {"error": str(e)}
+        seen[amass_id] = (core, record)
+        return record
+
+    return seen, [Tool(search_literature), Tool(get_record)]
+
+
 BUILD_INSTRUCTIONS = f"""\
 Plan a DAG of nodes that meets the user's goal. You are shown the input sequences and the
 criteria you will be marked against, which you cannot change. A config field such as a
@@ -260,6 +320,13 @@ Shapes that usually fit a goal:
   inputs do not already hold. Work out the inputs' baseline score and set the threshold
   relative to it: a threshold that lets through entities at or below the baseline decides
   nothing.
+
+The prompt may list observations: records found in the literature for this goal before
+the build, which the user kept. Treat them as what is already known about the goal. Use
+them where they bear on a choice such as a threshold, a measure or which sequences to run
+on; get_record reads one in full. They are yours to cite in the plan's observations.
+Where they are silent on a choice, search for yourself, and where they do not settle it,
+say so in your hypothesis rather than overstating them.
 
 1. Call search_nodes (by intent and input_type) or list_nodes, list_registry for nodes
    already made, and describe_node for each kind you use. When a choice depends on
@@ -286,8 +353,9 @@ Shapes that usually fit a goal:
    filter on a requested scorer's column gets that column name from the error you are shown.
 5. After a rejected round, say in addresses_critique what changed, and do not resubmit a
    wiring that already ran.
-6. If you searched the literature, add an observation for each record that bears on the
-   plan: its amassId and a summary of what it found and how that shaped the plan.
+6. Add an observation for each record that bears on the plan, whether you searched for it
+   or the prompt listed it: its amassId and a summary of what it found and how that
+   shaped the plan.
 Every source is a list of entities, and a node runs once on the whole list that reaches it.
 - A tool step makes new entities, under its key. They have no scores.
 - A scoring step passes its entities on under its key, and adds its score columns.
@@ -350,7 +418,9 @@ clear it."""
 
 CRITERIA_INSTRUCTIONS = """\
 Turn the goal into one to four criteria that decide whether it was met. Each is a claim a
-filter over the DAG's output could check. State what must be true, not how to do it."""
+filter over the DAG's output could check. State what must be true, not how to do it.
+Mark each quantitative when it names a measure or a comparison, qualitative when it
+states a property to judge."""
 
 COMPARATIVE_WORDS = (
     "higher",
@@ -436,6 +506,16 @@ def plan_prompt(hyp: Hypothesis) -> str:
     )
     if hyp.hypothesis:
         parts.append(f"The user's own idea, to take or leave: {hyp.hypothesis}")
+    if (
+        hyp.observations
+    ):  # Kept by the user before the build, or cited in an earlier round.
+        parts.append(
+            "Observations:\n"
+            + "\n".join(
+                f"- [{o.core} {o.amass_id}] {o.title}: {o.summary}"
+                for o in hyp.observations
+            )
+        )
     if hyp.attempts:
         parts.append(
             "Attempts so far:\n"
@@ -444,13 +524,48 @@ def plan_prompt(hyp: Hypothesis) -> str:
     return "\n\n".join(parts)
 
 
-# The Amass records an agent was shown, by amassId, each with the core it is in.
-Seen = dict[str, tuple[str, dict[str, Any]]]
+def cite(
+    plan: Plan, seen: Seen, given: Sequence[Observation] = ()
+) -> list[Observation]:
+    """The observations after this plan: those ``given`` it, and each record it cites.
+
+    A record the prompt listed keeps the summary the user kept and the title and link it
+    carried: the plan's text says how it used the record, and is kept in ``used``. A
+    record only the plan found is filled in from ``seen``. A record that went uncited
+    stays, so a record gathered before the build is not lost by going uncited.
+    """
+    listed = {g.amass_id: g for g in given}
+    cited = {
+        o.amass_id: (
+            listed[o.amass_id].model_copy(update={"used": o.summary})
+            if o.amass_id in listed
+            else Observation.from_record(o, *seen[o.amass_id])
+        )
+        for o in plan.observations
+    }
+    return [cited.pop(g.amass_id, g) for g in given] + list(cited.values())
 
 
-def cite(plan: Plan, seen: Seen) -> list[Observation]:
-    """The plan's observations, each filled in from the record it cites in ``seen``."""
-    return [Observation.from_record(o, *seen[o.amass_id]) for o in plan.observations]
+OBSERVE_INSTRUCTIONS = """\
+You get a goal for a sequence experiment, and sometimes a proposed hypothesis.
+Search the literature for what is already known that bears on it, and submit the
+records worth building on. The builder agent is shown your list and uses it to
+choose its nodes, its thresholds and the sequences to run on, and the user reviews
+and edits the list first, so make it a draft worth correcting.
+
+- Search with search_literature. Run a few queries, not one: the gene or organism
+  the goal names, the measure it asks for, and the method it implies. Call
+  get_record for a hit whose abstract is not enough to tell what it found.
+- Submit two to six records. Prefer one that pins down a number the builder will
+  have to pick, e.g. a typical expression level or a sensible threshold, over one
+  that is merely on topic.
+- Each summary says what that record found, and what it implies for building this
+  DAG. Keep it to what the record supports: say the record measured one organism,
+  or used a proxy, where it did. A record that would change the build only if it
+  generalises is worth submitting with that doubt stated.
+- Submit nothing rather than a record you cannot tell is relevant. An empty list
+  is a usable answer: it says the literature searched did not settle the choices.
+- Cite only records that search_literature or get_record showed you."""
 
 
 def build_agent(
@@ -492,46 +607,7 @@ def build_agent(
         """List every registered node: id, description, config, input, outputs, score columns."""
         return [n.summary() for n in registry.all()]
 
-    def search_literature(
-        query: str, core: amass.Core = "biomedcore", limit: int = 5
-    ) -> list[dict[str, Any]] | dict[str, str]:
-        """Search Amass for publications or other records about a topic.
-
-        Use it to ground a choice in what is known: e.g. a typical expression level, a
-        sensible threshold, or which measure suits the goal. A query asked before is
-        answered from the cache.
-
-        Args:
-            query: What to look for, in plain words, e.g. "Shine-Dalgarno spacing translation initiation".
-            core: biomedcore (publications), trialcore (clinical trials), drugcore
-                (drugs), regulatorycore (FDA and EMA approvals), genecore (genes) or
-                patentcore (patents).
-            limit: How many records to return, at most.
-        """
-        try:
-            hits = amass.search(core, query, limit)
-        except amass.AmassError as e:
-            return {"error": str(e)}
-        seen.update({h["amassId"]: (core, h) for h in hits if "amassId" in h})
-        return _brief(core, hits)
-
-    def get_record(
-        amass_id: str, core: amass.Core = "biomedcore", include: list[str] | None = None
-    ) -> dict[str, Any]:
-        """Fetch one Amass record in full, by the amassId that search_literature gave.
-
-        Args:
-            amass_id: The record's amassId, e.g. ``AMBC_...``.
-            core: The core the record came from.
-            include: Extra fields to add, e.g. ``["fulltext"]``. Full text is long: ask
-                for it only when the abstract is not enough.
-        """
-        try:
-            record = amass.get_record(core, amass_id, tuple(include or ()))
-        except amass.AmassError as e:
-            return {"error": str(e)}
-        seen[amass_id] = (core, record)
-        return record
+    _, literature = _literature_tools(seen)
 
     def check_plan(ctx: RunContext[Hypothesis], plan: Plan) -> Plan:
         hyp, reqs = ctx.deps, plan.requests
@@ -539,10 +615,14 @@ def build_agent(
             raise ModelRetry(
                 f"inputs must be exactly the goal's inputs: {hyp.input_kinds()}"
             )
-        if unseen := sorted({o.amass_id for o in plan.observations} - seen.keys()):
+        given = {o.amass_id for o in hyp.observations}
+        if unseen := sorted(
+            {o.amass_id for o in plan.observations} - seen.keys() - given
+        ):
             raise ModelRetry(
                 f"Observations cite records you were not shown: {unseen}. Cite only "
-                f"amassIds from search_literature or get_record: {sorted(seen)}"
+                "amassIds from search_literature, get_record or the prompt's "
+                f"observations: {sorted(seen.keys() | given)}"
             )
         used = {s.node for s in plan.steps.values()}
         if len(reqs) > MAX_REQUESTS or (reqs and used <= reqs.keys()):
@@ -678,8 +758,7 @@ def build_agent(
             Tool(describe_node),
             Tool(list_registry),
             Tool(create_node),
-            Tool(search_literature),
-            Tool(get_record),
+            *literature,
         ],
         # Not strict: strict output sets additionalProperties false on every object,
         # which leaves steps, inputs, config and requests only able to be {}.
@@ -871,3 +950,36 @@ def criteria_agent(model: Model | str) -> Agent[None, list[Criterion]]:
         return criteria
 
     return agent
+
+
+def observations_agent(model: Model | str) -> Agent[None, list[Observation]]:
+    """Return an agent that gathers the literature on a goal, for the user to edit.
+
+    Run it before the builder, on the goal in words: it searches Amass and returns
+    the records that bear on the goal. Put the list the user keeps on
+    ``Hypothesis.observations``, and ``run_hypothesis`` shows it to the builder.
+    """
+    seen, literature = _literature_tools()
+
+    def submit_observations(observations: list[DraftObservation]) -> list[Observation]:
+        """Submit the records that bear on the goal, one observation per record.
+
+        Args:
+            observations: The findings, each citing a record search_literature or
+                get_record showed you. Empty if the search found nothing that bears
+                on the goal.
+        """
+        if unseen := sorted({o.amass_id for o in observations} - seen.keys()):
+            raise ModelRetry(
+                f"Observations cite records you were not shown: {unseen}. Cite only "
+                f"amassIds from search_literature or get_record: {sorted(seen)}"
+            )
+        return [Observation.from_record(o, *seen[o.amass_id]) for o in observations]
+
+    return Agent(
+        model,
+        instructions=OBSERVE_INSTRUCTIONS,
+        tools=literature,
+        output_type=submit_observations,
+        retries={"output": 3},
+    )

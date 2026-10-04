@@ -3,12 +3,21 @@ import json
 import pytest
 from temporalio.exceptions import ApplicationError
 from test_guards import ASK
-from test_pulse import NOW, PLAN, at, reading, save, transcript, write_transcript
+from test_pulse import (
+    NOW,
+    PLAN,
+    at,
+    reading,
+    save,
+    shared_assertions,
+    transcript,
+    write_transcript,
+)
 
 from node_dag.plan import Attempt, ToolRequest, Verdict
 from temporal.dag.activities import results_subdir
 from temporal.ledger import Entry, append, entry_for, ledger_path, read, record_ledger
-from temporal.pulse import Call, Round
+from temporal.pulse import Call, Round, read_round
 
 
 def call(stage: str, *retries: str, model: str = "m") -> Call:
@@ -74,6 +83,12 @@ def test_a_repeated_wiring_a_failed_round_and_a_run_that_never_planned_are_count
     assert (e.repeats, e.errors, e.held) == (1, 1, ["error", "0/1", "-"])
     one = entry_for(reading(state="failed", stopped="no plan", rounds=rounds[:1]))
     assert one.summary == "failed in 1 round: no plan"  # Singular.
+
+
+def test_a_row_counts_assertions_not_the_step_and_branch_they_share():
+    rounds = [read_round(shared_assertions(True)), read_round(shared_assertions(False))]
+    e = entry_for(reading(state="not achieved", stopped="out of rounds", rounds=rounds))
+    assert e.held == ["4/4", "2/4"]
 
 
 def test_a_line_is_added_once_and_a_line_that_no_longer_reads_is_counted_not_fatal(

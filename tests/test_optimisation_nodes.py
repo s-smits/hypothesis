@@ -3,13 +3,23 @@ from Bio.Seq import Seq
 from pydantic import ValidationError
 
 from node_dag.dag import Dag
-from node_dag.dna import gc_window_fractions, motif_hits, reverse_complement
+from node_dag.dna import (
+    codons,
+    gc_window_fractions,
+    longest_inverted_repeat,
+    longest_repeat,
+    motif_hits,
+    repeat_fraction,
+    reverse_complement,
+)
 from node_dag.nodes.tools.codon_adaptation.config import CodonAdaptationConfig
 from node_dag.nodes.tools.codon_adaptation.function import CodonAdaptation
 from node_dag.nodes.tools.codon_optimise.config import CodonOptimiseConfig
 from node_dag.nodes.tools.codon_optimise.function import CodonOptimise
 from node_dag.nodes.tools.codon_pair_score.config import CodonPairScoreConfig
 from node_dag.nodes.tools.codon_pair_score.function import CodonPairScore
+from node_dag.nodes.tools.dinucleotide_bias.config import DinucleotideBiasConfig
+from node_dag.nodes.tools.dinucleotide_bias.function import DinucleotideBias
 from node_dag.nodes.tools.domesticate.config import DomesticateConfig
 from node_dag.nodes.tools.domesticate.function import Domesticate
 from node_dag.nodes.tools.gc_content.config import GcContentConfig
@@ -20,9 +30,15 @@ from node_dag.nodes.tools.motif_count.config import MotifCountConfig
 from node_dag.nodes.tools.motif_count.function import MotifCount
 from node_dag.nodes.tools.mrna_5prime_mfe.config import Mrna5primeMfeConfig
 from node_dag.nodes.tools.mrna_5prime_mfe.function import Mrna5primeMfe
+from node_dag.nodes.tools.mrna_fold_energy.config import MrnaFoldEnergyConfig
+from node_dag.nodes.tools.mrna_fold_energy.function import MrnaFoldEnergy
+from node_dag.nodes.tools.protein_to_dna.config import ProteinToDnaConfig
+from node_dag.nodes.tools.protein_to_dna.function import ProteinToDna
+from node_dag.nodes.tools.repeat_score.config import RepeatScoreConfig
+from node_dag.nodes.tools.repeat_score.function import RepeatScore
 from node_dag.nodes.tools.resample_synonymous.config import ResampleSynonymousConfig
 from node_dag.nodes.tools.resample_synonymous.function import ResampleSynonymous
-from node_dag.types import Dna, Rna
+from node_dag.types import AminoAcidSequence, Dna, Rna
 
 REF = Dna(sequence="ATGGCTCTGAAATAA")  # M A L K *
 # GCT is twice GCC's weight; the other alanine codons sit between.
@@ -51,6 +67,28 @@ def test_gc_window_fractions_slide_and_clip():
 def test_motif_hits_count_overlaps_in_order():
     assert motif_hits("AAAA", {"AA"}) == [(0, 2), (1, 3), (2, 4)]
     assert motif_hits("AAAA", {"TT"}) == []
+
+
+def test_longest_repeat_finds_the_longest_substring_seen_twice():
+    assert longest_repeat("ATGCATGC") == 4  # ATGC, at 0 and 4.
+    assert longest_repeat("AAAA") == 3  # Occurrences may overlap.
+    assert longest_repeat("ACGT") == 0  # Every base distinct.
+    assert longest_repeat("") == 0
+
+
+def test_longest_inverted_repeat_finds_the_longest_hairpin():
+    assert longest_inverted_repeat("ACGT") == 4  # Its own reverse complement.
+    assert longest_inverted_repeat("GGGGCCCC") == 8
+    assert longest_inverted_repeat("AAAA") == 0  # TTTT is nowhere in it.
+    assert longest_inverted_repeat("") == 0
+
+
+def test_repeat_fraction_covers_the_repeated_positions_only():
+    assert repeat_fraction("ATGCATGC", 4) == 1.0  # Both halves repeat.
+    assert repeat_fraction("ATGCATGC", 5) == 0.0  # No 5-mer occurs twice.
+    assert repeat_fraction("ATGCATGCTT", 4) == pytest.approx(0.8)
+    assert repeat_fraction("ACG", 4) == 0.0  # Shorter than the window.
+    assert repeat_fraction("", 4) == 0.0
 
 
 # --- codon_optimise ----------------------------------------------------
@@ -349,6 +387,190 @@ def test_codon_pair_score_rejects_a_bad_key():
         CodonPairScoreConfig(pair_weights={"ATGG": 1.0})
 
 
+# --- protein_to_dna ------------------------------------------------------
+
+
+def _back(protein: str, **kwargs) -> Dna:
+    node = ProteinToDna(ProteinToDnaConfig(codon_weights=WEIGHTS, **kwargs))
+    (dna,) = node.run(sequence=[AminoAcidSequence(sequence=protein)])
+    return dna
+
+
+def test_protein_to_dna_most_frequent_picks_the_best_codon():
+    assert _back("MA").sequence == "ATGGCT"
+
+
+def test_protein_to_dna_least_frequent_picks_the_worst_codon():
+    assert _back("MA", strategy="least_frequent").sequence == "ATGGCG"
+
+
+def test_protein_to_dna_round_trips_through_dna_to_protein():
+    for strategy in ("most_frequent", "least_frequent", "weighted_sample"):
+        dna = _back("MALK*", strategy=strategy)
+        assert _protein(dna) == "MALK*"
+        assert len(dna.sequence) == 3 * len("MALK*")
+
+
+def test_protein_to_dna_falls_back_to_the_first_codon_without_weights():
+    # Leucine and lysine are absent from the table, so the table says nothing.
+    assert _back("LK").sequence == "TTAAAA"
+    # A stop is a codon like any other; none is appended on its own.
+    assert _back("M*").sequence == "ATGTAA"
+    assert _back("M").sequence == "ATG"
+
+
+def test_protein_to_dna_weighted_sample_is_seeded_per_sequence():
+    protein = "A" * 30
+    assert _back(protein, strategy="weighted_sample", seed=1) == _back(
+        protein, strategy="weighted_sample", seed=1
+    )
+    assert _back(protein, strategy="weighted_sample", seed=1) != _back(
+        protein, strategy="weighted_sample", seed=2
+    )
+    # The draw uses the whole table, not just the favourite.
+    sampled = _back(protein, strategy="weighted_sample", seed=1).sequence
+    assert len(set(codons(sampled))) > 1
+    assert _protein(Dna(sequence=sampled)) == protein
+
+
+def test_protein_to_dna_rejects_a_bad_table():
+    with pytest.raises(ValidationError, match="Not an upper-case DNA codon"):
+        ProteinToDnaConfig(codon_weights={"AT": 1.0})
+    with pytest.raises(ValidationError, match="Negative weight"):
+        ProteinToDnaConfig(codon_weights={"ATG": -1.0})
+
+
+# --- dinucleotide_bias ---------------------------------------------------
+
+
+def _dinucleotide(s, dinucleotides=("CG",)) -> dict[str, float]:
+    node = DinucleotideBias(DinucleotideBiasConfig(dinucleotides=dinucleotides))
+    (scores,) = node.run(sequence=[s])
+    return {k: v.value for k, v in scores.items()}
+
+
+def test_dinucleotide_bias_measures_observed_over_expected():
+    # Four CG in seven adjacent pairs, where base composition predicts 1.75.
+    scores = _dinucleotide(Dna(sequence="CGCGCGCG"))
+    assert scores["odds_ratio"] == pytest.approx(4 / 1.75)
+    assert scores["frequency"] == pytest.approx(4 / 7)
+
+
+def test_dinucleotide_bias_separates_depletion_from_base_composition():
+    # The same four C and four G, so only their arrangement differs.
+    enriched = _dinucleotide(Dna(sequence="CGCGCGCG"))
+    depleted = _dinucleotide(Dna(sequence="CCCCGGGG"))
+    assert depleted["odds_ratio"] == pytest.approx(1 / 1.75)
+    assert depleted["odds_ratio"] < 1.0 < enriched["odds_ratio"]
+
+
+def test_dinucleotide_bias_scores_zero_without_the_bases_or_the_pairs():
+    assert _dinucleotide(Dna(sequence="AAAAAA")) == {
+        "odds_ratio": 0.0,  # No C and no G, so nothing is expected either.
+        "frequency": 0.0,
+    }
+    assert _dinucleotide(Dna(sequence="A"))["odds_ratio"] == 0.0
+    assert _dinucleotide(Dna(sequence=""))["frequency"] == 0.0
+
+
+def test_dinucleotide_bias_pools_several_pairs_and_reads_rna_as_dna():
+    both = _dinucleotide(Dna(sequence="CGTACGTA"), dinucleotides=("CG", "TA"))
+    assert both["frequency"] == pytest.approx(4 / 7)  # Two CG and two TA.
+    assert _dinucleotide(Rna(sequence="CGCGCGCG")) == _dinucleotide(
+        Dna(sequence="CGCGCGCG")
+    )
+
+
+def test_dinucleotide_bias_rejects_a_bad_list():
+    with pytest.raises(ValidationError, match="Not two upper-case DNA bases"):
+        DinucleotideBiasConfig(dinucleotides=("CGA",))
+    with pytest.raises(ValidationError, match="No dinucleotides given"):
+        DinucleotideBiasConfig(dinucleotides=())
+    with pytest.raises(ValidationError, match="Repeated dinucleotide"):
+        DinucleotideBiasConfig(dinucleotides=("CG", "CG"))
+
+
+# --- repeat_score --------------------------------------------------------
+
+
+def _repeats(s, **kwargs) -> dict[str, float]:
+    (scores,) = RepeatScore(RepeatScoreConfig(**kwargs)).run(sequence=[s])
+    return {k: v.value for k, v in scores.items()}
+
+
+def test_repeat_score_reports_the_longest_repeat_and_its_extent():
+    scores = _repeats(Dna(sequence="ATGCATGCTT"), min_length=4)
+    assert scores["max_repeat"] == 4.0
+    assert scores["repeat_fraction"] == pytest.approx(0.8)
+
+
+def test_repeat_score_separates_a_repetitive_sequence_from_a_clean_one():
+    repetitive = _repeats(Dna(sequence="ATGCATGCATGCATGC"))
+    clean = _repeats(Dna(sequence="ATGCAAGGTTCCAGTC"))
+    assert repetitive["max_repeat"] > clean["max_repeat"]
+    assert repetitive["repeat_fraction"] > clean["repeat_fraction"]
+
+
+def test_repeat_score_finds_a_hairpin_as_an_inverted_repeat():
+    assert _repeats(Dna(sequence="GGGGCCCC"))["max_inverted_repeat"] == 8.0
+    assert _repeats(Dna(sequence="AAAAAAAA"))["max_inverted_repeat"] == 0.0
+
+
+def test_repeat_score_reads_rna_as_its_dna():
+    assert _repeats(Rna(sequence="GGGGCCCC")) == _repeats(Dna(sequence="GGGGCCCC"))
+    assert _repeats(Dna(sequence=""))["max_repeat"] == 0.0
+
+
+def test_repeat_score_min_length_only_moves_the_fraction():
+    long_run = Dna(sequence="ATGCATGCTT")
+    assert _repeats(long_run, min_length=4)["repeat_fraction"] > 0.0
+    assert _repeats(long_run, min_length=5)["repeat_fraction"] == 0.0
+    assert (
+        _repeats(long_run, min_length=4)["max_repeat"]
+        == _repeats(long_run, min_length=5)["max_repeat"]
+    )
+
+
+# --- mrna_fold_energy ----------------------------------------------------
+
+
+def _fold(s) -> dict[str, float]:
+    (scores,) = MrnaFoldEnergy(MrnaFoldEnergyConfig()).run(sequence=[s])
+    return {k: v.value for k, v in scores.items()}
+
+
+def test_mrna_fold_energy_scores_a_hairpin_below_a_structureless_sequence():
+    hairpin = _fold(Dna(sequence="GGGGGAAAACCCCC"))
+    open_seq = _fold(Dna(sequence="AAAAAAAAAAAAAA"))
+    assert hairpin["mfe"] < open_seq["mfe"] <= 0.0
+    assert hairpin["mfe_per_base"] < open_seq["mfe_per_base"]
+
+
+def test_mrna_fold_energy_ensemble_is_never_above_the_mfe():
+    scores = _fold(Dna(sequence="GGGGGAAAACCCCCGGGGGAAAACCCCC"))
+    assert scores["ensemble_energy"] <= scores["mfe"]
+
+
+def test_mrna_fold_energy_normalises_by_length():
+    seq = Dna(sequence="GGGGGAAAACCCCC")
+    scores = _fold(seq)
+    assert scores["mfe_per_base"] == pytest.approx(scores["mfe"] / len(seq.sequence))
+
+
+def test_mrna_fold_energy_is_deterministic_and_reads_dna_as_mrna():
+    seq = Dna(sequence="GGGGGAAAACCCCC")
+    assert _fold(seq) == _fold(seq)
+    assert _fold(seq) == _fold(Rna(sequence="GGGGGAAAACCCCC"))
+
+
+def test_mrna_fold_energy_scores_an_empty_sequence_at_zero():
+    assert _fold(Dna(sequence="")) == {
+        "mfe": 0.0,
+        "ensemble_energy": 0.0,
+        "mfe_per_base": 0.0,
+    }
+
+
 # --- the nodes compose in a DAG -------------------------------------------
 
 
@@ -373,6 +595,38 @@ def test_a_dag_can_score_resampled_variants_and_filter_them():
                     "threshold": 0.2,
                 },
                 "inputs": {"items": "gc"},
+            },
+        },
+    }
+    assert Dag.model_validate(dag)
+
+
+def test_a_dag_can_take_a_protein_back_to_scored_dna():
+    """protein_to_dna closes the loop: an amino acid port feeds the DNA scores."""
+    back = ProteinToDnaConfig(codon_weights=WEIGHTS)
+    score = RepeatScoreConfig(min_length=6)
+    dag = {
+        "inputs": {"seqs": "dna"},
+        "steps": {
+            "protein": {
+                "config": {"name": "dna_to_protein"},
+                "inputs": {"sequence": "seqs"},
+            },
+            "coding": {
+                "config": back.model_dump(mode="json"),
+                "inputs": {"sequence": "protein"},
+            },
+            "repeats": {
+                "config": score.model_dump(mode="json"),
+                "inputs": {"sequence": "coding"},
+            },
+            "unrepetitive": {
+                "config": {
+                    "name": "at_most",
+                    "column": score.columns()["max_repeat"],
+                    "threshold": 12,
+                },
+                "inputs": {"items": "repeats"},
             },
         },
     }

@@ -75,6 +75,17 @@ def test_accepted_when_every_criterion_is_covered_and_held():
     assert accepted(CRIT, _plan(), OK, _out(2, 0))[0]
 
 
+def test_two_criteria_on_one_step_and_branch_must_each_hold_to_accept():
+    both = [*CRIT, Criterion(id="all_kept", claim="every sequence is kept")]
+    ask = {"step": "none", "branch": "yes", "claim": "c"}
+    plan = _plan(assertions=[{"criterion": c.id, **ask} for c in both])
+    assert len(plan.assertions) == 2 and len(holds(plan.assertions, _out(2, 0))) == 1
+    assert accepted(both, plan, OK, _out(2, 0))[0]
+    assert "did not hold" in accepted(both, plan, OK, _out(1, 1))[1]
+    one = _plan(assertions=[{"criterion": "no_tcg", **ask}])
+    assert "all_kept" in accepted(both, one, OK, _out(2, 0))[1]
+
+
 def test_holds_needs_the_branch_full_and_the_other_empty():
     a = [Assertion(criterion="c", step="none", branch="yes", claim="c")]
     assert holds(a, None) == {"none.yes": False}

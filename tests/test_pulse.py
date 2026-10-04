@@ -18,7 +18,7 @@ from pydantic_ai.usage import RequestUsage
 from test_guards import ASK, HYP, _plan
 
 import node_dag.nodes
-from node_dag.plan import Attempt, Plan, ToolRequest
+from node_dag.plan import Assertion, Attempt, Plan, ToolRequest
 from temporal import pulse
 from temporal.dag.activities import results_subdir
 from temporal.hypothesis.activities import save_hypothesis
@@ -33,11 +33,13 @@ from temporal.pulse import (
     Reading,
     Round,
     events,
+    held_text,
     load_memory,
     main,
     node_state,
     read_call,
     read_calls,
+    read_round,
     read_run,
     render,
     save_memory,
@@ -246,6 +248,37 @@ def test_criteria_rounds_plans_assertions_verdicts_and_critiques_are_said_once_e
         "◆ r2 opened; r1 missed (wrong_config)",
     ]
     assert events(after, after) == []
+
+
+def shared_assertions(improved: bool) -> Attempt:
+    """Arm E's round 2: two criteria both asserted ``produced`` on one filter."""
+    ask = lambda c, step, branch: Assertion(
+        criterion=c, step=step, branch=branch, claim="c"
+    )
+    plan = PLAN.model_copy(
+        update={
+            "assertions": [
+                ask("protein_preserved", "protein_ok", "yes"),
+                ask("length_preserved", "length_ok", "yes"),
+                ask("higher_cai", "improved", "produced"),
+                ask("only_improved_kept", "improved", "produced"),
+            ]
+        }
+    )
+    held = {
+        "protein_ok.yes": True,
+        "length_ok.yes": True,
+        "improved.produced": improved,
+    }
+    return Attempt(round=1, plan=plan, held=held)
+
+
+def test_two_assertions_on_one_step_and_branch_are_counted_twice():
+    ok, bad = read_round(shared_assertions(True)), read_round(shared_assertions(False))
+    assert (held_text(ok), held_text(bad)) == ("4/4", "2/4")
+    assert "r1 4/4" in status(reading(rounds=[ok]), 0)
+    said = texts(reading(rounds=[Round(number=1)]), reading(rounds=[bad]))
+    assert "◆ r1 assertions 2/4; did not hold: improved.produced" in said
 
 
 def test_a_round_that_errored_is_a_warning():
