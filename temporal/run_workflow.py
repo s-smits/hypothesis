@@ -4,15 +4,15 @@ from pathlib import Path
 
 import click
 from temporalio.client import Client
-from temporalio.contrib.pydantic import pydantic_data_converter
 
 from node_dag.dag import DagInput
 from temporal.dag.workflow import TASK_QUEUE, DagWorkflow
+from temporal.payloads import data_converter
 
 
 async def _main(path: Path, address: str) -> None:
     inp = DagInput.model_validate_json(path.read_text())
-    client = await Client.connect(address, data_converter=pydantic_data_converter)
+    client = await Client.connect(address, data_converter=data_converter)
     out = await client.execute_workflow(
         DagWorkflow.run, inp, id=f"dag-{uuid.uuid4()}", task_queue=TASK_QUEUE
     )

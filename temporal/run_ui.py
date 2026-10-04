@@ -6,9 +6,9 @@ import click
 import uvicorn
 from dotenv import load_dotenv
 from temporalio.client import Client
-from temporalio.contrib.pydantic import pydantic_data_converter
 
 from temporal.hypothesis.loop import BUILD_MODEL, VERIFY_MODEL
+from temporal.payloads import data_converter
 from temporal.ui.app import make_app
 
 # Load .env from the project root
@@ -23,7 +23,7 @@ logging.basicConfig(
 async def _main(
     address: str, host: str, port: int, model: str | None, verify_model: str | None
 ) -> None:
-    client = await Client.connect(address, data_converter=pydantic_data_converter)
+    client = await Client.connect(address, data_converter=data_converter)
     app = make_app(client, model, verify_model)
     logger = logging.getLogger(__name__)
     logger.info("Starting UI server on %s:%d with model=%s", host, port, model)

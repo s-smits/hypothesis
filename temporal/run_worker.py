@@ -11,7 +11,6 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / ".env")
 from temporalio import activity
 from temporalio.client import Client
-from temporalio.contrib.pydantic import pydantic_data_converter
 from temporalio.worker import Worker
 
 from temporal.dag.activities import (
@@ -25,6 +24,7 @@ from temporal.dag.workflow import TASK_QUEUE, DagWorkflow
 from temporal.hypothesis import activities as hyp
 from temporal.hypothesis.loop import HypothesisLoop
 from temporal.ledger import record_ledger
+from temporal.payloads import data_converter
 
 
 def _delayed(fn: FunctionType, seconds: float) -> FunctionType:
@@ -39,7 +39,7 @@ def _delayed(fn: FunctionType, seconds: float) -> FunctionType:
 
 
 async def _main(address: str, step_delay: float) -> None:
-    client = await Client.connect(address, data_converter=pydantic_data_converter)
+    client = await Client.connect(address, data_converter=data_converter)
     activities: list[FunctionType] = [run_tool, run_score, run_filter]
     if step_delay:
         activities = [_delayed(fn, step_delay) for fn in activities]

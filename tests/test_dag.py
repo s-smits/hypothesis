@@ -9,7 +9,6 @@ from Bio.Seq import Seq
 from pydantic import ValidationError
 from temporalio import activity
 from temporalio.client import WorkflowExecutionStatus, WorkflowFailureError
-from temporalio.contrib.pydantic import pydantic_data_converter
 from temporalio.exceptions import ApplicationError, CancelledError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
@@ -40,6 +39,7 @@ from temporal.dag.activities import (
     save_workflow,
 )
 from temporal.dag.workflow import DagWorkflow
+from temporal.payloads import data_converter
 
 REF = Dna(sequence="ATGGCTCTGAAATAA")  # M A L K *
 SEQS = [REF, Dna(sequence="ATGGCCCTGAAATAA"), Dna(sequence="ATGGCGTTAAAGTAG")]
@@ -85,7 +85,7 @@ DAG: dict = {
 
 async def _run(dag: dict, seqs: list[Dna], workflow_id: str = "run-1"):
     async with await WorkflowEnvironment.start_time_skipping(
-        data_converter=pydantic_data_converter
+        data_converter=data_converter
     ) as env:
         with ThreadPoolExecutor() as pool:
             async with Worker(
@@ -289,7 +289,7 @@ async def test_a_step_does_not_wait_for_an_unrelated_slow_step():
     }
     async with (
         await WorkflowEnvironment.start_time_skipping(
-            data_converter=pydantic_data_converter
+            data_converter=data_converter
         ) as env,
         Worker(
             env.client,
@@ -324,7 +324,7 @@ async def test_a_failed_run_is_saved_with_its_error(results_dir):
     }
     async with (
         await WorkflowEnvironment.start_time_skipping(
-            data_converter=pydantic_data_converter
+            data_converter=data_converter
         ) as env,
         Worker(
             env.client,
@@ -364,7 +364,7 @@ async def _run_when_saving_always_fails(tool, tries: list[int]) -> DagOutput:
     }
     async with (
         await WorkflowEnvironment.start_time_skipping(
-            data_converter=pydantic_data_converter
+            data_converter=data_converter
         ) as env,
         Worker(
             env.client,
@@ -431,7 +431,7 @@ async def test_a_cancel_during_the_final_save_still_cancels_the_run():
     }
     async with (
         await WorkflowEnvironment.start_time_skipping(
-            data_converter=pydantic_data_converter
+            data_converter=data_converter
         ) as env,
         Worker(
             env.client,
@@ -480,7 +480,7 @@ async def test_progress_reports_each_step_while_running():
     }
     async with (
         await WorkflowEnvironment.start_time_skipping(
-            data_converter=pydantic_data_converter
+            data_converter=data_converter
         ) as env,
         Worker(
             env.client,
@@ -576,7 +576,7 @@ async def _run_two_ports(
     }
     async with (
         await WorkflowEnvironment.start_time_skipping(
-            data_converter=pydantic_data_converter
+            data_converter=data_converter
         ) as env,
         Worker(
             env.client,
@@ -691,7 +691,7 @@ async def test_an_unwired_optional_port_reaches_the_node_empty(optional_port):
     }
     async with (
         await WorkflowEnvironment.start_time_skipping(
-            data_converter=pydantic_data_converter
+            data_converter=data_converter
         ) as env,
         Worker(
             env.client,

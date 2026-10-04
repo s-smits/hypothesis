@@ -5,7 +5,6 @@ import pytest
 from pydantic_core import to_json
 from temporalio import activity
 from temporalio.client import WorkflowFailureError
-from temporalio.contrib.pydantic import pydantic_data_converter
 from temporalio.exceptions import ApplicationError, CancelledError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
@@ -41,6 +40,7 @@ from temporal.hypothesis.activities import (
 )
 from temporal.hypothesis.loop import HypothesisInput, HypothesisLoop
 from temporal.ledger import ledger_path, read, record_ledger
+from temporal.payloads import data_converter
 
 HYP = GUARD_HYP.model_copy(
     update={"inputs": {"seq": [Dna(sequence="ATGTCTTAA")]}}
@@ -131,7 +131,7 @@ async def _drive(
     **cfg,
 ) -> Hypothesis:
     async with await WorkflowEnvironment.start_time_skipping(
-        data_converter=pydantic_data_converter
+        data_converter=data_converter
     ) as env:
         with ThreadPoolExecutor() as pool:
             acts = [

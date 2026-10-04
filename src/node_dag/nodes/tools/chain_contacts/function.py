@@ -141,3 +141,4 @@ class ChainContacts(BaseNode[ChainContactsConfig]):
             for b in near
             if res[b] in protein and res[a] != res[b]
         }
+

@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 # Load .env from the project root
 load_dotenv(Path(__file__).parent.parent / ".env")
 from temporalio.client import Client
-from temporalio.contrib.pydantic import pydantic_data_converter
 
 from node_dag.agent import Hypothesis
 from temporal.dag.workflow import TASK_QUEUE
@@ -17,6 +16,7 @@ from temporal.hypothesis.loop import (
     HypothesisInput,
     HypothesisLoop,
 )
+from temporal.payloads import data_converter
 
 
 @click.command()
@@ -57,7 +57,7 @@ def main(
     """Run the Hypothesis JSON file at PATH to a verdict. Print the result."""
 
     async def run() -> None:
-        client = await Client.connect(address, data_converter=pydantic_data_converter)
+        client = await Client.connect(address, data_converter=data_converter)
         hyp = Hypothesis.model_validate_json(path.read_text())
         inp = HypothesisInput(
             hypothesis=hyp,

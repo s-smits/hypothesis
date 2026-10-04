@@ -1,7 +1,17 @@
+import threading
+
 from node_dag.links import report
 from node_dag.nodes.base import BaseNode
 from node_dag.nodes.tools.esmfold2_fold.config import Esmfold2FoldConfig
 from node_dag.types import AminoAcidSequence, ProteinStructure
+
+#: Held for the whole of an ephemeral ``app.run()``, because ``modal_app.app`` is one
+#: object made at import and the worker runs every step in one process's thread pool.
+#: Modal refuses a second entry outright ("App is already running and can't be started
+#: again"), and the first run to leave the block clears ``_running_app`` and unhydrates
+#: ``fold`` for everyone, so two folds at once break each other coming and going.
+#: Serialising them costs little: one call already folds a whole list on one GPU.
+_APP = threading.Lock()
 
 
 def _chain(sequence: str) -> str:
@@ -49,6 +59,9 @@ def fold_remote(
     other, or the cheaper single-sequence ESMFold2-Fast. It is passed rather than
     inferred from the group sizes, so that a complex of one chain is still folded by
     the model the caller asked for.
+
+    Only one call folds at a time, per ``_APP``. A second step that reaches this waits
+    for the first to finish rather than failing.
     """
     # Importing modal_app starts no container, but it does need modal credentials, so
     # only reach for it when a step actually runs.
@@ -64,7 +77,7 @@ def fold_remote(
     model = COMPLEX_MODEL if co_fold else MONOMER_MODEL
     # An ephemeral run, so nothing has to be deployed first. The GPU is held only for
     # this call, and the weights come off a volume rather than Hugging Face.
-    with modal.enable_output(), app.run():
+    with _APP, modal.enable_output(), app.run():
         # The app exists now, so its page on Modal has the logs, the GPU and the cost
         # of this fold. Offer it while the step runs, since that is when you want it.
         if url := app_page_url(app):
