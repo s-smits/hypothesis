@@ -435,11 +435,65 @@ Known kinds: {sorted(TYPES)}."""
 
 VERIFY_INSTRUCTIONS = """\
 You get a hypothesis as JSON: a goal, its inputs, the builder's plan to meet the goal
-(hypothesis), the DAG that ran, and the outcome. The outcome holds every value the DAG
-produced, keyed by step. Answer: did this workflow
+(hypothesis), the DAG that ran, and the outcome. Answer: did this workflow
 complete its goal? Work out the expected result from the goal and the inputs yourself.
 Do not trust the hypothesis or the DAG to be correct. Then compare it with the outcome. Set achieved to
 true only if the outcome holds the expected result for every input.
+
+How to read the outcome. It maps each step to the table that step produced. A table has
+`items`, the entities, each with its `kind`, `sequence` and `id`; and `scores`, one
+entry per score column, named `<node name>__<config hash>__<score name>`, mapping an
+entity's `id` to its value. An entity's score is the value under its `id` in the
+column: that is where every number lives, and a table holding its scores that way is
+complete, not deficient.
+
+Which step holds a score. A scorer adds its column to the table passing through it, and
+a filter carries the columns it was given to `<step>.yes` and `<step>.no`. A tool makes
+new entities, so its table has no scores at all: an empty `scores` on a tool step, or on
+a step downstream of one, does not mean the DAG computed nothing. Look for a score in
+the step whose node computed it. That it is absent from a later table is how the
+contract works, not a defect.
+
+An `id` is a hash of an entity's kind and sequence, so changing a sequence necessarily
+changes its id. New ids after a recoding step are what success looks like, not evidence
+that the wrong thing was scored. Match an entity across steps by its sequence, not by
+expecting its id to persist.
+
+Judge what the run computed, not how the JSON is arranged. The outcome is a data
+structure, not a report. Do not set achieved to false because a score sits in a column
+rather than beside its sequence, because the goal said "report" or "show" something the
+outcome holds in this form, or because you would have laid it out differently. If the
+values the goal asks for are present and correct, that much of the goal is met.
+
+Do not reject a number for looking too good. Several of these scores are normalised so
+that a perfect value is attainable and is exactly what an optimiser should reach: a
+codon adaptation index, for one, is the geometric mean of each codon's weight over the
+best weight for its own amino acid, so a sequence using the best synonym at every codon
+scores exactly 1.0, on every sequence, however different those sequences are. If a
+value still looks wrong, recompute it from the definition and from the codons actually
+written in the outcome. Do not reason about codons you have not read there, and do not
+call a node misconfigured on a suspicion you have not checked.
+
+Do not do sequence arithmetic yourself. Never translate DNA, read off a protein, count
+codons or compare two sequences position by position in your head: that work is what
+the nodes are for, and getting it wrong invents a failure that did not happen. Whether
+the protein is unchanged, the length is unchanged or a targeted codon is gone is
+decided by a constraint-checking node's scores, not by your own reading of the letters.
+
+So when the goal carries a constraint of that kind, look for a node that checked it. If
+one ran and passed, the constraint held. If one ran and failed, see the next paragraph
+before believing it. If none ran, the run gives you no way to tell: say exactly that,
+leave the criterion null, and do not set achieved to false on a translation you worked
+out yourself.
+
+A node's own output is only as good as its configuration. Before believing a score that
+contradicts the sequences themselves, check the config that produced it: a comparison
+against a reference means nothing if the reference is not the sequence it should be
+compared against, as when one short reference is set for a list of different genes.
+Where a node's verdict and its configuration disagree, say that the node looks
+misconfigured and that the constraint is therefore unchecked, rather than reporting its
+score as the truth about the sequences.
+
 Set achieved to false, whatever else the DAG did, when:
 - The goal names a measure, a method or a node that the DAG did not use. A different
   node is not a substitute, and the hypothesis calling it one does not make it one.
