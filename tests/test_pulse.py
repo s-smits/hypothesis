@@ -199,8 +199,12 @@ def test_transcripts_are_read_per_run_and_a_run_whose_id_starts_another_is_not_m
 
 def test_a_transcript_kept_for_an_attempt_that_died_is_not_read_as_another_call():
     write_transcript("run", 1, "plan", transcript([]))
-    write_transcript("run", 1, "plan-a1", transcript([], finished=False))  # as _ask keeps it
-    assert [(c.round, c.stage, c.done) for c in read_calls("run")] == [(1, "plan", True)]
+    write_transcript(
+        "run", 1, "plan-a1", transcript([], finished=False)
+    )  # as _ask keeps it
+    assert [(c.round, c.stage, c.done) for c in read_calls("run")] == [
+        (1, "plan", True)
+    ]
 
 
 def test_a_call_with_many_retries_is_a_warning_that_says_what_it_was_sent_back_for():
