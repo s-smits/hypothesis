@@ -347,3 +347,30 @@ async def test_a_reference_that_the_scored_in_step_may_hold_is_accepted(results_
     ):
         _, errors = await _run(results_dir, plan, hyp=TWO)
         assert errors == [], errors
+
+
+async def test_a_declared_result_must_be_a_step_output(results_dir):
+    for result in ("seq", "small", "nowhere"):
+        _, errors = await _run(results_dir, _plan(result_source=result), _plan())
+        assert "is not the output of a step" in errors[0] and "'small.yes'" in errors[0]
+    for result in ("counted", "small.yes", "small.no"):
+        out, errors = await _run(results_dir, _plan(result_source=result))
+        assert errors == [] and out.result_source == result, result
+
+
+async def test_a_proof_past_a_tool_does_not_speak_for_the_result_before_it(results_dir):
+    """A tool makes new entities: a filter after one tests those, not the result."""
+    steps = {
+        **_plan()["steps"],
+        "fix": _step("recode_targeted", "small.yes", targeted_codons=["TCG"]),
+        "after": _step("codon_count", "fix", codons=["TCG"]),
+        "clean": _step("at_most", "after", "items", column=COLUMN, threshold=0),
+    }
+    on_clean = [_says("clean", "yes")]
+    wiring = {"steps": steps, "assertions": on_clean}
+    _, errors = await _run(
+        results_dir, _plan(result_source="counted", **wiring), _plan()
+    )
+    assert "without a tool between" in errors[0] and "['no_tcg']" in errors[0]
+    out, errors = await _run(results_dir, _plan(result_source="fix", **wiring))
+    assert errors == [] and out.result_source == "fix"

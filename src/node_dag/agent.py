@@ -15,7 +15,7 @@ from pydantic_ai.models import Model
 
 from node_dag import amass, entrez
 from node_dag.factory import MAPPING, NodeConfig
-from node_dag.nodes.base import BaseFilterConfig, BaseNodeConfig
+from node_dag.nodes.base import BaseFilterConfig, BaseNodeConfig, BaseToolConfig
 from node_dag.nodes.filters.at_least.config import AtLeastConfig
 from node_dag.plan import (
     Attempt,
@@ -639,6 +639,24 @@ def build_agent(
                 "filter's yes branch to be empty, and produced needs it to keep at "
                 "least one. Keep one, or put the other on a second filter."
             )
+        if (res := plan.result_source) is not None:
+            made = {
+                o
+                for k, c in configs.items()
+                for o in (
+                    (f"{k}.yes", f"{k}.no") if isinstance(c, BaseFilterConfig) else (k,)
+                )
+            }
+            if res not in made:
+                raise ModelRetry(
+                    f"result_source {res!r} is not the output of a step: {sorted(made)}."
+                )
+            tools = {k for k, c in configs.items() if isinstance(c, BaseToolConfig)}
+            if loose := sorted(ids - plan.covered(tools)):
+                raise ModelRetry(
+                    f"No assertion on {res!r}'s step, or on a step that reads {res!r} "
+                    f"without a tool between, covers {loose}."
+                )
         if uncovered := sorted(ids - {a.criterion for a in plan.assertions}):
             raise ModelRetry(f"No assertion covers {uncovered}.")
         last = hyp.attempts[-1] if hyp.attempts else None
