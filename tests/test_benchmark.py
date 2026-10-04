@@ -9,12 +9,14 @@ import json
 import math
 import random
 from itertools import product
+from typing import Literal
 
 import pytest
 
 from node_dag.benchmark import (
     Instance,
     Ledger,
+    Result,
     cai_objective,
     cai_weights_from,
     codon_pair_objective,
@@ -26,6 +28,7 @@ from node_dag.benchmark import (
     gate,
     greedy_chain,
     manifest,
+    mean_gap_closed,
     mean_pair_weight,
     pair_count,
     pair_weights_from,
@@ -653,7 +656,9 @@ def test_record_attempt_keeps_failures_visible(tmp_path):
     rows = body["strategies"]["barren"]
     assert rows["passed"] == 0
     assert rows["n_instances"] == len(insts)
-    assert rows["mean_gap_closed"] is None
+    # 0.0, not None: a strategy that failed everything closed none of the gap, and
+    # reporting None would let it disappear from a comparison instead of scoring last.
+    assert rows["mean_gap_closed"] == 0.0
     assert all(r["score"] is None for r in rows["per_instance"])
 
 
@@ -792,3 +797,115 @@ def test_derived_weights_drive_the_objectives():
     i = three_instances()[0]
     assert math.isfinite(cai.score(exact_cai(i, cai_weights_from(reference))))
     assert math.isfinite(pair.score(i.parent.sequence))
+
+
+# --- a failure cannot raise a mean -------------------------------------------
+
+
+def _row(passed: bool, score: float = 1.5) -> Result:
+    """A Result that passed or failed its gates, with optimum 2.0 over parent 0.0."""
+    return Result(
+        instance="g",
+        strategy="s",
+        candidate="ATGAAATAA" if passed else None,
+        score=score if passed else None,
+        optimum=2.0,
+        parent_score=0.0,
+        gates={
+            "protein_unchanged": 1.0,
+            "length_unchanged": 1.0,
+            "immutable_unchanged": 1.0 if passed else 0.0,
+            "targets_remaining": 0.0,
+        }
+        if passed
+        else {},
+        evaluations=1,
+    )
+
+
+def test_a_failed_row_counts_as_zero_not_as_absent():
+    """Averaging gap_closed alone drops failures, which lets a gate's work vanish."""
+    rows = [_row(True)] * 8 + [_row(False)] * 6
+    assert mean_gap_closed(rows) == pytest.approx((8 * 0.75) / 14)
+    # What the old behaviour reported: the mean of the eight that passed.
+    passed_only = [r.gap_closed for r in rows if r.gap_closed is not None]
+    assert sum(passed_only) / len(passed_only) == pytest.approx(0.75)
+
+
+def test_failing_every_instance_gives_zero_not_none():
+    assert mean_gap_closed([_row(False)] * 5) == 0.0
+
+
+def test_all_passing_is_unchanged():
+    assert mean_gap_closed([_row(True)] * 4) == pytest.approx(0.75)
+
+
+def test_a_strategy_cannot_improve_its_mean_by_failing():
+    good = mean_gap_closed([_row(True, 1.5)] * 10)
+    with_failures = mean_gap_closed([_row(True, 1.5)] * 6 + [_row(False)] * 4)
+    assert good is not None and with_failures is not None
+    assert with_failures < good
+
+
+def test_no_rows_gives_none():
+    assert mean_gap_closed([]) is None
+
+
+def test_the_ledger_records_the_mean_that_counts_failures(tmp_path):
+    insts = three_instances()
+    obj = codon_pair_objective(PAIRS)
+    rows = run_strategy(insts, obj, "barren", lambda i: [])
+    led = Ledger(tmp_path / "ledger")
+    path = record_attempt(
+        led,
+        manifest_=manifest(insts, obj, PAIRS, seed=1),
+        split=None,
+        results={"barren": rows},
+    )
+    body = json.loads(path.read_text())
+    assert body["strategies"]["barren"]["mean_gap_closed"] == 0.0
+
+
+# --- codon_optimise leaves the stop alone ------------------------------------
+
+
+def test_codon_optimise_holds_the_stop_codon():
+    """A usage table does not spell a stop, and moving one moves the gene's end."""
+    from node_dag.nodes.tools.codon_optimise.config import CodonOptimiseConfig
+    from node_dag.nodes.tools.codon_optimise.function import CodonOptimise
+
+    weights = {c: 1.0 if c == "TGA" else 0.2 for c in CODON_TABLE}
+    seq = "ATGGCTCTGAAATAA"
+    out = CodonOptimise(
+        CodonOptimiseConfig(codon_weights=weights, strategy="most_frequent")
+    ).run(sequence=[Dna(sequence=seq)])[0]
+    assert codons(out.sequence)[-1] == "TAA"
+
+
+def test_codon_optimise_still_recodes_sense_codons():
+    from node_dag.nodes.tools.codon_optimise.config import CodonOptimiseConfig
+    from node_dag.nodes.tools.codon_optimise.function import CodonOptimise
+
+    weights = {c: 1.0 if c in ("GCG", "CTG", "AAG") else 0.1 for c in CODON_TABLE}
+    seq = "ATGGCTTTAAAATAA"
+    out = CodonOptimise(
+        CodonOptimiseConfig(codon_weights=weights, strategy="most_frequent")
+    ).run(sequence=[Dna(sequence=seq)])[0]
+    assert codons(out.sequence)[1:4] == ["GCG", "CTG", "AAG"]
+    assert codons(out.sequence)[-1] == "TAA"
+
+
+@pytest.mark.parametrize(
+    "strategy", ["most_frequent", "least_frequent", "weighted_sample"]
+)
+def test_no_strategy_moves_the_stop(
+    strategy: Literal["most_frequent", "least_frequent", "weighted_sample"],
+):
+    from node_dag.nodes.tools.codon_optimise.config import CodonOptimiseConfig
+    from node_dag.nodes.tools.codon_optimise.function import CodonOptimise
+
+    weights = {c: 1.0 if c == "TGA" else 0.2 for c in CODON_TABLE}
+    out = CodonOptimise(
+        CodonOptimiseConfig(codon_weights=weights, strategy=strategy, seed=3)
+    ).run(sequence=[Dna(sequence="ATGGCTCTGAAATAA")])[0]
+    assert codons(out.sequence)[-1] == "TAA"
