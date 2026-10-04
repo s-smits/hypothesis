@@ -293,8 +293,8 @@ Every source is a list of entities, and a node runs once on the whole list that 
 - A filter step splits its entities into <step>.yes and <step>.no by its `column`.
 A kind refuses anything outside its alphabet (dna holds only A, C, G, T), so an alphabet
 criterion on DNA holds by type: "produced" on the step that makes the DNA is enough for it,
-and no node is needed to check it. Assert what a node does measure, such as length, for
-the rest of the criterion.
+and no node is needed to check it. Any other part of the criterion (length, start or stop
+codon) needs an assertion on a node that measures it; if none does, request one.
 Known kinds: {sorted(TYPES)}."""
 
 VERIFY_INSTRUCTIONS = """\
@@ -306,13 +306,17 @@ take every entity and the other none, so false does not mean the branch took not
 Work out the expected result from the goal and inputs yourself, and do not trust the plan.
 Set agrees to true only if the outcome holds the expected result for every input. Set
 covers_goal to true only if the assertions genuinely test every criterion. Do not claim
-to have checked by eye what no assertion covers: say in reason what went unchecked. A
+to have checked by eye what no assertion covers: say in reason what went unchecked, and set
+covers_goal to false if any part of a criterion went unchecked. A
 "produced" assertion only shows its step gave output, or a filter kept something: set
 covers_goal to false if the criterion is about what that output holds, such as the
 filter's threshold being right. A "yes" assertion that held, on a filter that measures it
-(such as beats_reference against the baseline), does cover a criterion about what is
-kept: every entity the filter saw passed. A type guarantees its own alphabet, so "produced"
-on the step that makes DNA covers an alphabet criterion on DNA. Take what a node does
+(such as beats_reference against the baseline) covers a criterion about what is kept
+only if the filter's bar is the bar the criterion names, in its direction and strictness
+(read it in the DAG): a repeat of a filter on its own yes branch holds by construction and
+adds nothing to the first filter's bar. A type guarantees its own alphabet, so "produced"
+on the step that makes DNA covers an alphabet criterion on DNA, and only that: length,
+start codon and stop codon are not guaranteed by type. Take what a node does
 from `nodes`, not from a guess:
 do not say a node returns its inputs unchanged unless `nodes` says it can. You cannot declare success: false is a veto and
 true grants nothing.
@@ -325,8 +329,8 @@ Set agrees to false, whatever else the DAG did, when:
   only the original inputs, without improvement.
 - A threshold let through entities the goal says to leave out, such as ones at or below
   the baseline, so the filter decided nothing. Every entity passing is no fault when none
-  is one the goal says to leave out, as when each clears the baseline or the plan asserted
-  "yes" on a check that every entity meets."""
+  is one the goal says to leave out, as when each clears the baseline. Equal to the
+  baseline does not clear it."""
 
 CRITIQUE_INSTRUCTIONS = """\
 You get a round that missed its goal as JSON: the plan, the outcome, the verdict and earlier
@@ -340,8 +344,8 @@ it does in `nodes` and check the claim against the outcome's values. Entities wi
 sequence are one entity, so a variant can equal an input without being a copy of it. Blame a
 threshold only when the values show it let through entities the goal says to leave out,
 such as ones at or below the baseline: every entity passing is no fault when none is one the
-goal says to leave out, as when each clears the baseline or the plan asserted "yes" on a
-check that every entity meets."""
+goal says to leave out, as when each clears the baseline. Equal to the baseline does not
+clear it."""
 
 CRITERIA_INSTRUCTIONS = """\
 Turn the goal into one to four criteria that decide whether it was met. Each is a claim a
