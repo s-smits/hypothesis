@@ -342,6 +342,7 @@ COMPARATIVE_WORDS = (
     "maximize",
 )
 MAX_REQUESTS = 3
+MAX_IDS_LISTED = 20  # Of the registered ids an unknown node's message names.
 ADAPTER: TypeAdapter[NodeConfig] = TypeAdapter(NodeConfig)
 
 
@@ -350,9 +351,40 @@ def step_config(plan: Plan, key: str, registry: Registry) -> BaseNodeConfig:
     s = plan.steps[key]
     if node := registry.get(s.node):
         return node.config
-    if s.node in plan.requests and s.node not in NODES:
-        return plan.requests[s.node].stand_in()(**s.config)
-    return ADAPTER.validate_python({"name": s.node, **s.config})
+    requested = s.node in plan.requests and s.node not in NODES
+    if not requested and s.node not in NODES:
+        ids = sorted(n.id for n in registry.all())
+        more = (
+            f" and {len(ids) - MAX_IDS_LISTED} more"
+            if len(ids) > MAX_IDS_LISTED
+            else ""
+        )
+        raise ValueError(
+            f"Step {key!r}: node {s.node!r} is not a registered node id, a built-in "
+            f"node name or a request. Registered ids: "
+            f"{ids[:MAX_IDS_LISTED]}{more} (list_registry shows them). "
+            f"Built-in names: {sorted(NODES)}. A node that does not exist yet goes in "
+            "`requests`, under the name the step uses."
+        )
+    try:
+        if requested:
+            return plan.requests[s.node].stand_in()(**s.config)
+        return ADAPTER.validate_python({"name": s.node, **s.config})
+    except ValidationError as e:
+        # Not str(e): its first line is every node's type, and the step is never named.
+        found = "; ".join(
+            f"{'.'.join(str(p) for p in err['loc'] if p != s.node) or 'config'}: {err['msg']}"
+            for err in e.errors()
+        )
+        where = (
+            "a requested node's fields are its config_fields, plus `column` for a filter"
+            if requested
+            else f"describe_node {s.node} lists the fields"
+        )
+        raise ValueError(
+            f"Step {key!r} ({s.node}) has a config that does not fit it: {found}. "
+            f"Put the fields in the step's `config`; {where}."
+        ) from e
 
 
 def plan_prompt(hyp: Hypothesis) -> str:
@@ -538,6 +570,14 @@ def build_agent(
             raise ModelRetry(
                 f"Assertions on both branches of {both} cannot both hold: a filter that "
                 "takes every entity down one branch takes none down the other."
+            )
+        if clash := sorted(
+            s for s, b in sides if b == "no" and (s, "produced") in sides
+        ):
+            raise ModelRetry(
+                f"Assertions no and produced on {clash} cannot both hold: no needs the "
+                "filter's yes branch to be empty, and produced needs it to keep at "
+                "least one. Keep one, or put the other on a second filter."
             )
         if uncovered := sorted(ids - {a.criterion for a in plan.assertions}):
             raise ModelRetry(f"No assertion covers {uncovered}.")

@@ -12,7 +12,11 @@ from typing import TypedDict
 from pydantic import BaseModel
 from temporalio import workflow
 from temporalio.common import RetryPolicy
-from temporalio.exceptions import ActivityError, ChildWorkflowError
+from temporalio.exceptions import (
+    ActivityError,
+    ChildWorkflowError,
+    is_cancelled_exception,
+)
 
 with workflow.unsafe.imports_passed_through():
     from node_dag.agent import Hypothesis
@@ -174,6 +178,8 @@ class HypothesisLoop:
         try:
             await workflow.execute_activity("record_ledger", final.id, **QUICK)
         except ActivityError as e:
+            if is_cancelled_exception(e):  # A cancel is not a failed write.
+                raise
             workflow.logger.warning("The ledger line was not written: %s", e)
         return final
 

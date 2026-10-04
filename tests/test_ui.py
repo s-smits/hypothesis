@@ -9,6 +9,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRoute
+from pydantic import ValidationError
 from pydantic_ai.messages import (
     ModelMessage,
     ModelResponse,
@@ -26,7 +27,7 @@ from node_dag.nodes.filters.at_most.config import AtMostConfig
 from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
 from node_dag.plan import Attempt, Criterion, Observation, ToolRequest
 from node_dag.registry import Registry
-from node_dag.types import Dna
+from node_dag.types import Dna, Rna
 from temporal.dag.activities import SavedRun, SaveWorkflowInput, results_subdir
 from temporal.hypothesis.activities import save_hypothesis
 from temporal.hypothesis.loop import HypothesisInput
@@ -250,6 +251,40 @@ async def test_a_goal_alone_starts_and_the_loop_fetches_its_inputs():
     )  # Not its own judge.
 
 
+async def test_inputs_that_cannot_run_are_a_422_and_nothing_is_saved_or_started():
+    """An empty list, or a mix of kinds, is the caller's mistake, not a 500."""
+    client = _Client()
+    start = _endpoint("/api/hypotheses", "POST", client, "model")
+    for bad in (
+        {"seq": []},
+        {"seq": [Dna(sequence="ATG"), Rna(sequence="AUG")]},
+    ):
+        with pytest.raises(HTTPException) as e:
+            await start(NewHypothesis(goal="g", inputs=bad))
+        assert e.value.status_code == 422 and "seq" in e.value.detail
+    assert client.started == []
+    assert not list(results_subdir("hypotheses").glob("*.json"))
+    with pytest.raises(ValidationError):  # Blank after trimming: no goal at all.
+        NewHypothesis(goal="  \n")
+
+
+async def test_a_workflow_that_will_not_start_leaves_a_failed_file_and_a_503():
+    """The Hypothesis is saved before the start; a failed start must not leave it building."""
+
+    class Down(_Client):
+        async def start_workflow(self, run, inp: HypothesisInput, **kw) -> None:
+            raise RPCError("connection refused", RPCStatusCode.UNAVAILABLE, b"")
+
+    with pytest.raises(HTTPException) as e:
+        await _endpoint("/api/hypotheses", "POST", Down(), "model")(
+            NewHypothesis(goal="g", inputs={"seq": [Dna(sequence="ATG")]})
+        )
+    assert e.value.status_code == 503 and "connection refused" in e.value.detail
+    (saved,) = results_subdir("hypotheses").glob("*.json")
+    hyp = Hypothesis.model_validate_json(saved.read_bytes())
+    assert hyp.state == "failed" and "connection refused" in (hyp.stopped_because or "")
+
+
 async def test_requests_are_ranked_by_how_many_runs_they_block_and_resume_signals_a_run():
     ask: dict[str, Any] = {
         "purpose": "p",
@@ -391,3 +426,9 @@ async def test_the_criteria_endpoint_drafts_a_list_to_edit():
     with pytest.raises(HTTPException) as e:  # The page shows why, not a bare 500.
         await broken(NewCriteria(goal="faster lacZ"))
     assert e.value.status_code == 502 and "no API key" in e.value.detail
+
+
+def test_a_blank_goal_is_refused_before_it_can_reach_the_criteria_agent():
+    with pytest.raises(ValidationError):  # Blank after trimming: no goal at all.
+        NewCriteria(goal="  \n")
+    assert NewCriteria(goal="  faster lacZ \n").goal == "faster lacZ"

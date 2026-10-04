@@ -8,6 +8,7 @@ import inspect
 import json
 from typing import Any, cast
 
+import httpx2
 from pydantic import BaseModel, ValidationError
 from pydantic_ai import RunUsage, capture_run_messages
 from pydantic_ai.exceptions import ContentFilterError, UnexpectedModelBehavior
@@ -92,6 +93,15 @@ class ResolveOut(BaseModel):
     error: str | None = None
 
 
+# Seconds of silence from the API before a request is given up and retried by the client.
+# A response streams, so a live request is never quiet for long; a dead one is quiet for
+# ever. Unset, the client waits 600 s, the same as the activity's start_to_close, so the
+# client's retries never run and a whole attempt is lost (arm F2 lost 10 minutes twice).
+# A bare number would also replace the client's 5 s connect limit, so it is kept.
+REQUEST_TIMEOUT = 90.0
+CONNECT_TIMEOUT = 5.0
+
+
 async def _ask(
     agent: Any,  # noqa: ANN401
     prompt: str,
@@ -102,7 +112,10 @@ async def _ask(
     usage = RunUsage()  # Filled in as the run goes, so a call that fails still counts.
     with capture_run_messages() as messages:
         try:
-            run = await agent.run(prompt, usage=usage, **kw)
+            timeout = httpx2.Timeout(REQUEST_TIMEOUT, connect=CONNECT_TIMEOUT)
+            run = await agent.run(
+                prompt, usage=usage, model_settings={"timeout": timeout}, **kw
+            )
         except ContentFilterError as e:
             return {"error": e.message, "declined": True, "tokens": usage.total_tokens}
         except UnexpectedModelBehavior as e:
