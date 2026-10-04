@@ -16,7 +16,13 @@ from pydantic import ValidationError
 from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from node_dag.agent import CRITERIA_INSTRUCTIONS, NODES, Hypothesis, criteria_agent
+from node_dag.agent import (
+    CRITERIA_INSTRUCTIONS,
+    NODES,
+    VERIFY_INSTRUCTIONS,
+    Hypothesis,
+    criteria_agent,
+)
 from node_dag.nodes.base import BaseScoreConfig
 from node_dag.plan import Criterion
 from node_dag.types import Dna
@@ -82,3 +88,22 @@ async def test_the_criteria_agent_is_given_the_text_and_the_schema_says_the_same
     # The model also reads the Criterion model: it must not say what the text does not.
     assert "rather than a number" in seen["schema"] and "to judge" not in seen["schema"]
     assert "to judge" not in " ".join((Criterion.__doc__ or "").split())
+
+
+def test_the_verifier_lets_a_conversion_step_cover_a_criterion_that_it_converts():
+    """Else a goal that only converts can never be accepted, whatever the DAG does.
+
+    "Convert this RNA to protein" came back with the right protein in 3 of 3 rounds and
+    `agrees` true each time, and `covers_goal` false each time: the one assertion a
+    converter can carry is "produced", which says the step gave output, not what it holds.
+    The rewiring that followed (a no-op filter, a round trip through the same node)
+    added no check either. A type is already trusted for its alphabet, so is a converter.
+    """
+    text = " ".join(VERIFY_INSTRUCTIONS.split())
+    assert "converts one kind into another" in text
+    assert (
+        '"produced" on that step covers a criterion that its output is that conversion'
+        in text
+    )
+    assert "and nothing beyond it" in text
+    assert "length, start codon and stop codon are not guaranteed by type" in text

@@ -419,7 +419,10 @@ only if the filter's bar is the bar the criterion names, in its direction and st
 (read it in the DAG): a repeat of a filter on its own yes branch holds by construction and
 adds nothing to the first filter's bar. A type guarantees its own alphabet, so "produced"
 on the step that makes DNA covers an alphabet criterion on DNA, and only that: length,
-start codon and stop codon are not guaranteed by type. Take what a node does
+start codon and stop codon are not guaranteed by type. A node that converts one kind into
+another (translates, transcribes, complements) does so by construction, so "produced" on
+that step covers a criterion that its output is that conversion of its input, and nothing
+beyond it: you have already checked the output against the result you worked out. Take what a node does
 from `nodes`, not from a guess:
 do not say a node returns its inputs unchanged unless `nodes` says it can. You cannot declare success: false is a veto and
 true grants nothing.
