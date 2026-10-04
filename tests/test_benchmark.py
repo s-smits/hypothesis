@@ -26,6 +26,7 @@ from node_dag.benchmark import (
     gate,
     greedy_chain,
     manifest,
+    mean_gap_closed,
     mean_pair_weight,
     pair_count,
     pair_weights_from,
@@ -694,8 +695,54 @@ def test_record_attempt_keeps_failures_visible(tmp_path):
     rows = body["strategies"]["barren"]
     assert rows["passed"] == 0
     assert rows["n_instances"] == len(insts)
-    assert rows["mean_gap_closed"] is None
+    assert rows["mean_gap_closed"] == 0.0  # failures count as zero, not as absent
     assert all(r["score"] is None for r in rows["per_instance"])
+
+
+def one_of_three(i: Instance) -> list[str]:
+    return [exact_codon_pair(i, PAIRS)] if i.key == "a" else []
+
+
+def test_a_strategy_that_fails_instances_does_not_beat_one_that_passes_all(tmp_path):
+    insts = three_instances()
+    obj = codon_pair_objective(PAIRS)
+    out = compare(
+        insts, obj, {"one": one_of_three, "greedy": lambda i: [greedy_chain(i, PAIRS)]}
+    )
+    path = record_attempt(
+        Ledger(tmp_path / "ledger"),
+        manifest_=manifest(insts, obj, PAIRS, seed=1),
+        split=None,
+        results=out,
+    )
+    s = json.loads(path.read_text())["strategies"]
+    assert s["one"]["passed"] == 1
+    assert s["one"]["mean_gap_closed"] == pytest.approx(1 / 3)
+    assert s["one"]["mean_gap_closed"] < s["greedy"]["mean_gap_closed"]
+
+
+def test_mean_gap_closed_leaves_out_only_instances_with_no_gap():
+    obj = codon_pair_objective(PAIRS)
+    gap = three_instances()[0]
+    done = Instance(key="done", parent=Dna(sequence=exact_codon_pair(gap, PAIRS)))
+    insts = [gap, done]
+
+    def exact(i: Instance) -> list[str]:
+        return [exact_codon_pair(i, PAIRS)]
+
+    # Passed with nothing to close: left out, so the mean is the other instance's.
+    assert mean_gap_closed(run_strategy(insts, obj, "x", exact)) == pytest.approx(1.0)
+    # Nothing produced: counts as zero, even where the original was already optimal.
+    assert mean_gap_closed(run_strategy(insts, obj, "x", lambda i: [])) == 0.0
+    assert mean_gap_closed([]) is None
+
+
+def test_the_printed_mean_counts_failed_instances_as_zero(capsys):
+    from temporal.run_benchmark import _table
+
+    _table("t", three_instances(), codon_pair_objective(PAIRS), {"one": one_of_three})
+    line = next(x for x in capsys.readouterr().out.splitlines() if x.startswith("mean"))
+    assert "33.3%" in line
 
 
 def test_record_attempt_stores_dependency_versions(tmp_path):

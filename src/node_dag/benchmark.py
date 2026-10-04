@@ -56,6 +56,7 @@ __all__ = [
     "greedy_chain",
     "ledger_dir",
     "manifest",
+    "mean_gap_closed",
     "pair_weights_from",
     "random_synonymous",
     "record_attempt",
@@ -728,7 +729,7 @@ def record_attempt(
                     "evaluations": sum(r.evaluations for r in rows),
                     "passed": sum(r.passed for r in rows),
                     "n_instances": len(rows),
-                    "mean_gap_closed": _mean([r.gap_closed for r in rows]),
+                    "mean_gap_closed": mean_gap_closed(rows),
                     "per_instance": [
                         {
                             "instance": r.instance,
@@ -750,8 +751,15 @@ def record_attempt(
     )
 
 
-def _mean(values: Sequence[float | None]) -> float | None:
-    """The mean of the values that exist, or None when none do."""
+def mean_gap_closed(rows: Sequence[Result]) -> float | None:
+    """The mean ``gap_closed`` over one strategy's instances, failures counting as 0.0.
+
+    A row that did not pass is worth what leaving the sequence alone is worth, so a
+    strategy cannot raise its mean by failing instances. The one row left out is a
+    passed row with no gap to close, because the original already attains the optimum.
+    None when no row has a gap.
+    """
+    values = [r.gap_closed if r.passed else 0.0 for r in rows]
     present = [v for v in values if v is not None]
     return sum(present) / len(present) if present else None
 
