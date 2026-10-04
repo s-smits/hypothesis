@@ -78,11 +78,20 @@ class ToolRequest(BaseModel):
     def _check(self) -> Self:
         kinds = sorted(TYPES)
         if self.kind not in TYPES:
-            raise ValueError(f"Unknown kind {self.kind!r}; known: {kinds}")
+            raise ValueError(
+                f"Unknown kind {self.kind!r}; known: {kinds}. kind is the kind of the "
+                "entities on the node's input port. Whether the node is a tool, a "
+                "scorer or a filter goes in node: 'tool', 'score' or 'filter'."
+            )
         if self.node == "tool" and self.output not in TYPES:
-            raise ValueError(f"A tool needs an output kind from {kinds}")
+            raise ValueError(
+                f"A tool needs an output kind from {kinds}, not {self.output!r}"
+            )
         if self.node == "score" and not (isinstance(self.output, list) and self.output):
-            raise ValueError("A scorer needs a list of score names as its output")
+            raise ValueError(
+                "A scorer needs a list of score names as its output, such as "
+                f"['gc'], not {self.output!r}"
+            )
         if self.node == "filter" and self.output is not None:
             raise ValueError("A filter has no output")
         return self
