@@ -167,6 +167,10 @@ def test_passes_a_clean_recoding():
     assert row == {
         "protein_unchanged": 1.0,
         "length_unchanged": 1.0,
+        # No indices were pinned here, so immutable_unchanged holds vacuously and
+        # immutable_checked says so.
+        "immutable_unchanged": 1.0,
+        "immutable_checked": 0.0,
         "targets_remaining": 0.0,
         "targets_unreachable": 0.0,
     }
@@ -367,3 +371,88 @@ def test_a_variant_is_never_its_own_source_but_can_equal_another_input():
     from_three = {d.sequence for d in node.run([three])}
     assert one.sequence not in from_one and three.sequence not in from_three
     assert three.sequence in from_one and one.sequence in from_three
+
+
+# --- immutable codon positions -----------------------------------------------
+
+
+def check_immutable(
+    seqs: list[Dna], ref: Dna, immutable: tuple[int, ...]
+) -> list[dict]:
+    cfg = ConstraintCheckConfig(reference=ref, immutable=immutable)
+    rows = ConstraintCheck(cfg).run(sequence=seqs)
+    return [{k: v.value for k, v in r.items()} for r in rows]
+
+
+def test_a_synonymous_stop_swap_keeps_the_protein_but_fails_immutable():
+    """The hole this closes: all three stops translate to '*'."""
+    ref = Dna(sequence="ATGGCTCTGAAATAA")
+    swapped = Dna(sequence="ATGGCTCTGAAATGA")  # TAA -> TGA, both stop
+    (row,) = check_immutable([swapped], ref, immutable=(0, 4))
+    assert row["protein_unchanged"] == 1.0, "protein really is unchanged"
+    assert row["length_unchanged"] == 1.0
+    assert row["immutable_unchanged"] == 0.0, "but the pinned stop codon moved"
+
+
+def test_untouched_immutable_positions_pass():
+    ref = Dna(sequence="ATGGCTCTGAAATAA")
+    recoded = Dna(sequence="ATGGCCCTGAAATAA")  # GCT -> GCC at index 1 only
+    (row,) = check_immutable([recoded], ref, immutable=(0, 4))
+    assert row["immutable_unchanged"] == 1.0
+    assert row["immutable_checked"] == 2.0
+
+
+def test_a_change_at_an_interior_immutable_index_is_caught():
+    ref = Dna(sequence="ATGGCTCTGAAATAA")
+    recoded = Dna(sequence="ATGGCCCTGAAATAA")
+    assert (
+        check_immutable([recoded], ref, immutable=(1,))[0]["immutable_unchanged"] == 0.0
+    )
+    assert (
+        check_immutable([recoded], ref, immutable=(2,))[0]["immutable_unchanged"] == 1.0
+    )
+
+
+def test_empty_immutable_is_vacuous_and_says_so():
+    """1.0 with nothing checked, which immutable_checked exposes."""
+    ref = Dna(sequence="ATGGCTCTGAAATAA")
+    swapped = Dna(sequence="ATGGCTCTGAAATGA")
+    (row,) = check_immutable([swapped], ref, immutable=())
+    assert row["immutable_unchanged"] == 1.0
+    assert row["immutable_checked"] == 0.0
+
+
+def test_immutable_checked_counts_the_indices():
+    ref = Dna(sequence="ATGGCTCTGAAATAA")
+    for immutable in [(), (0,), (0, 4), (0, 1, 4)]:
+        (row,) = check_immutable([ref], ref, immutable=immutable)
+        assert row["immutable_checked"] == float(len(immutable))
+
+
+def test_declared_score_names_include_both_immutable_scores():
+    assert "immutable_unchanged" in ConstraintCheckConfig.output
+    assert "immutable_checked" in ConstraintCheckConfig.output
+    ref = Dna(sequence="ATGGCTCTGAAATAA")
+    (row,) = check_immutable([ref], ref, immutable=(0,))
+    assert set(row) == set(ConstraintCheckConfig.output)
+
+
+@pytest.mark.parametrize("immutable", [(0, 0), (5,), (99,), (-1,), (1.5,), ("0",)])
+def test_invalid_immutable_rejected(immutable: tuple):
+    with pytest.raises(ValidationError):
+        ConstraintCheckConfig(
+            reference=Dna(sequence="ATGGCTCTGAAATAA"), immutable=immutable
+        )
+
+
+def test_immutable_changes_the_config_hash_and_the_columns():
+    ref = Dna(sequence="ATGGCTCTGAAATAA")
+    a = ConstraintCheckConfig(reference=ref)
+    b = ConstraintCheckConfig(reference=ref, immutable=(0, 4))
+    assert a.config_hash != b.config_hash
+    assert a.columns()["immutable_unchanged"] != b.columns()["immutable_unchanged"]
+
+
+def test_version_is_two():
+    """The output contract changed, so a version 1 cache entry is not this result."""
+    assert ConstraintCheckConfig.version == 2

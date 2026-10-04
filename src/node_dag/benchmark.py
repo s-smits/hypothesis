@@ -82,6 +82,14 @@ class Instance:
     parent: Dna
     immutable: frozenset[int] = field(default_factory=frozenset)
 
+    def fixed(self) -> frozenset[int]:
+        """The codon indices this instance keeps, its own or the default.
+
+        One place decides it, so the search space, the gate and the manifest cannot
+        disagree about which positions were off limits.
+        """
+        return self.immutable or default_immutable(self.parent.sequence)
+
     def choices(self) -> list[tuple[str, ...]]:
         """The codons allowed at each position, in order.
 
@@ -89,7 +97,7 @@ class Instance:
         all give a single choice, so a caller does not special-case them.
         """
         cs = codons(self.parent.sequence)
-        fixed = self.immutable or default_immutable(self.parent.sequence)
+        fixed = self.fixed()
         return [
             (c,) if i in fixed or len(c) != 3 else tuple(SYNONYMS[CODON_TABLE[c]])
             for i, c in enumerate(cs)
@@ -251,7 +259,9 @@ def gate(instance: Instance, candidate: str) -> dict[str, float]:
     Reported separately from any score, so a candidate that changed the protein is a
     failure rather than a low number inside an average.
     """
-    cfg = ConstraintCheckConfig(reference=instance.parent)
+    cfg = ConstraintCheckConfig(
+        reference=instance.parent, immutable=tuple(sorted(instance.fixed()))
+    )
     (row,) = ConstraintCheck(cfg).run(sequence=[Dna(sequence=candidate)])
     return {k: v.value for k, v in row.items()}
 
@@ -287,12 +297,19 @@ class Result:
 
     @property
     def passed(self) -> bool:
-        """Whether a candidate exists and every hard constraint held."""
+        """Whether a candidate exists and every hard constraint held.
+
+        ``immutable_unchanged`` is required because the protein check cannot see a
+        swapped stop codon: all three stops translate to ``*``, so such a candidate
+        keeps the protein while leaving the space the exact optimum is taken over, and
+        would otherwise be scored against an optimum that could not have produced it.
+        """
         if self.candidate is None:
             return False
         return (
             self.gates.get("protein_unchanged") == 1.0
             and self.gates.get("length_unchanged") == 1.0
+            and self.gates.get("immutable_unchanged", 1.0) == 1.0
             and self.gates.get("targets_remaining", 0.0) == 0.0
         )
 
@@ -458,9 +475,7 @@ def manifest(
                 "key": i.key,
                 "sequence_sha256_16": _digest(i.parent.sequence),
                 "codons": len(codons(i.parent.sequence)),
-                "immutable": sorted(
-                    i.immutable or default_immutable(i.parent.sequence)
-                ),
+                "immutable": sorted(i.fixed()),
             }
             for i in instances
         ],

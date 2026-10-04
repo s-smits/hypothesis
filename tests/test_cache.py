@@ -6,6 +6,7 @@ import pytest
 from node_dag import factory
 from node_dag.nodes.filters.at_least.config import AtLeastConfig
 from node_dag.nodes.filters.beats_reference.config import BeatsReferenceConfig
+from node_dag.nodes.tools.constraint_check.config import ConstraintCheckConfig
 from node_dag.nodes.tools.dna_to_protein.config import DnaToProteinConfig
 from node_dag.nodes.tools.ostir_expression.config import OstirExpressionConfig
 from node_dag.types import AminoAcidSequence, Dna
@@ -128,3 +129,51 @@ def test_a_filter_without_a_reference_keeps_its_key_and_hash_from_before_referen
     assert inp.cache_path().name == (
         "7c9e2944895710a84844c5652155609bdd72b9a17244962ec1374358070d3ec9.json"
     )
+
+
+def _constraint(immutable: tuple[int, ...]) -> RunNodeInput:
+    ref = Dna(sequence="ATGGCTCTGAAATAA")
+    return RunNodeInput(
+        config=ConstraintCheckConfig(reference=ref, immutable=immutable),
+        inputs={"sequence": [Dna(sequence="ATGGCCCTGAAATGA")]},
+    )
+
+
+def test_immutable_is_part_of_the_cache_key(results_dir, monkeypatch):
+    """Two different pinned sets are two different results, not one cache hit."""
+    none, pinned = _constraint(()), _constraint((0, 4))
+    assert none.cache_path() != pinned.cache_path()
+    first = run_score(none)
+    monkeypatch.setitem(factory.MAPPING, ConstraintCheckConfig, Broken)
+    assert run_score(none) == first  # cached, so Broken never runs
+    with pytest.raises(RuntimeError):
+        run_score(pinned)  # a different key, so it would have to run
+
+
+def test_the_version_bump_separates_the_cache(results_dir):
+    """A version 1 entry cannot be read as a version 2 result.
+
+    The cache key covers the config's version, so raising it to 2 -- which the new
+    immutable scores required -- gives a different path rather than reusing a result
+    that lacks them.
+    """
+    inp = _constraint((0, 4))
+    path = inp.cache_path()
+    run_score(inp)
+    assert path.exists()
+    key = json.loads(
+        json.dumps({**inp.model_dump(mode="json", exclude={"step"}), "version": 1})
+    )
+    old = hashlib.sha256(json.dumps(key, sort_keys=True).encode()).hexdigest()
+    assert old not in path.name, "version 1 and 2 must not share a cache path"
+
+
+def test_the_new_scores_are_cached_and_read_back(results_dir, monkeypatch):
+    inp = _constraint((0, 4))
+    first = run_score(inp)
+    assert first[0]["immutable_unchanged"].value == 0.0  # the stop was swapped
+    assert first[0]["immutable_checked"].value == 2.0
+    monkeypatch.setitem(factory.MAPPING, ConstraintCheckConfig, Broken)
+    again = run_score(inp)
+    assert again[0]["immutable_unchanged"].value == 0.0
+    assert again[0]["immutable_checked"].value == 2.0
