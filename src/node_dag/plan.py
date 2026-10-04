@@ -37,12 +37,15 @@ class Criterion(BaseModel):
     """One thing that must be true for the goal to be met. Frozen before any plan.
 
     ``source`` says who wrote it: a person (typed or edited by them), or the criteria
-    agent, which the loop sets itself.
+    agent, which the loop sets itself. ``kind`` is ``quantitative`` for a claim that names
+    a measure or a comparison and ``qualitative`` for a property to judge; it labels the
+    claim for a reader and does not change how it is checked.
     """
 
     id: str = Field(pattern=SLUG)
     claim: str
     source: Literal["human", "derived"] = "human"
+    kind: Literal["qualitative", "quantitative"] = "quantitative"
 
 
 def repeated(criteria: list[Criterion]) -> list[str]:

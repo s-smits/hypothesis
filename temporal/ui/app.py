@@ -212,6 +212,18 @@ def _saved_runs() -> dict[str, Run]:
     return runs
 
 
+class NewCriterion(BaseModel):
+    """One success criterion as the new-hypothesis form sends it.
+
+    Args:
+        kind: ``quantitative`` for a measure or comparison, ``qualitative`` for a property.
+        text: What must be true for the goal to count as met, in a sentence.
+    """
+
+    kind: Literal["qualitative", "quantitative"] = "quantitative"
+    text: str
+
+
 class NewHypothesis(BaseModel):
     """What the user gives to start a hypothesis.
 
@@ -228,7 +240,7 @@ class NewHypothesis(BaseModel):
     goal: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
     hypothesis: str | None = None
     inputs: dict[str, list[Value]] = {}
-    criteria: list[str] = []
+    criteria: list[NewCriterion] = []
     max_rounds: int | None = Field(default=None, ge=1, le=10)
 
 
@@ -307,9 +319,9 @@ def make_app(
         if build_model is None:
             raise HTTPException(503, "The server was started without --model.")
         criteria = [
-            Criterion(id=f"c{n}", claim=c.strip())
+            Criterion(id=f"c{n}", claim=c.text.strip(), kind=c.kind)
             for n, c in enumerate(new.criteria, 1)
-            if c.strip()
+            if c.text.strip()
         ]
         try:  # Before anything is saved: an empty or mixed input list is not a 500.
             hyp = Hypothesis(

@@ -349,7 +349,9 @@ clear it."""
 
 CRITERIA_INSTRUCTIONS = """\
 Turn the goal into one to four criteria that decide whether it was met. Each is a claim a
-filter over the DAG's output could check. State what must be true, not how to do it."""
+filter over the DAG's output could check. State what must be true, not how to do it.
+Mark each quantitative when it names a measure or a comparison, qualitative when it
+states a property to judge."""
 
 COMPARATIVE_WORDS = (
     "higher",

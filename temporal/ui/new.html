@@ -29,13 +29,14 @@
   .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
   input, select, textarea { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; }
   textarea { width: 100%; resize: vertical; }
-  .input { display: grid; grid-template-columns: 1fr 120px 2fr auto; gap: 8px; margin-bottom: 8px; }
-  .input input[name=name] { font-family: ui-monospace, monospace; }
   button { font: inherit; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: inherit; padding: 6px 12px; cursor: pointer; }
   button.primary { background: var(--running); border-color: var(--running); color: #fff; font-weight: 600; align-self: flex-start; }
   button:disabled { opacity: .6; cursor: default; }
+  .crit-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+  .criterion { display: flex; gap: 6px; margin-bottom: 6px; }
+  .criterion input { flex: 1; min-width: 0; }
+  .criterion button { padding: 2px 8px; }
   #error { color: var(--failed); white-space: pre-wrap; }
-  @media (max-width: 600px) { .input { grid-template-columns: 1fr 1fr; } }
 </style>
 </head>
 <body>
@@ -57,85 +58,52 @@
       <textarea id="hypothesis" rows="3" placeholder="How you think the goal can be met. The builder agent starts from this."></textarea>
     </div>
     <div>
-      <label for="criteria">Criteria (optional, one per line) <button type="button" id="suggest">Draft with the agent</button></label>
-      <textarea id="criteria" rows="3" placeholder="What must be true for the goal to be met. Left empty, the agent derives them from the goal."></textarea>
+      <div class="crit-head">
+        <span class="label">Success criteria</span>
+        <button type="button" id="suggest">Draft with the agent</button>
+      </div>
+      <div id="criteria"></div>
+      <button type="button" id="add-criterion">+ Add criterion</button>
+      <div class="hint">What must hold of the outcome for the goal to count as met, qualitative or quantitative. Write your own, or draft them with the agent and edit. Left empty, the agent derives them from the goal.</div>
     </div>
     <div>
       <label for="rounds">Max rounds (optional)</label>
       <input id="rounds" type="number" min="1" max="10" placeholder="3">
     </div>
-    <div>
-      <div class="label">Inputs (optional)</div>
-      <div id="inputs"></div>
-      <button type="button" id="add">+ Add input</button>
-      <div class="hint">Left empty, the agent fetches the sequences the goal names from NCBI before it plans, so name the gene, organism or accession in the goal. Inputs you give are used as they are.</div>
-    </div>
     <div id="error"></div>
     <button class="primary" id="go">Start</button>
-    <div class="hint">The agent plans a DAG, it runs on Temporal, and the goal is met only when each criterion's assertion holds. A missing node blocks the run until someone adds it. You can close this page; follow progress under Hypotheses.</div>
+    <div class="hint">The builder agent works out which sequences the goal is about and fetches them from NCBI, writes the DAG, it runs on Temporal, and the goal is met only when each criterion's assertion holds. A missing node blocks the run until someone adds it. Name the gene, organism or accession in the goal so it can find the right record. You can close this page; follow progress under Hypotheses.</div>
   </form>
 </main>
 <script>
-// How to read each kind's value from one text box. Mirrors node_dag/types.py.
-const KINDS = {
-  dna: { field: "sequence", placeholder: "ATGGCC…", parse: (s) => s.trim().toUpperCase() },
-  rna: { field: "sequence", placeholder: "AUGGCC…", parse: (s) => s.trim().toUpperCase() },
-  amino_acid_sequence: { field: "sequence", placeholder: "MA…", parse: (s) => s.trim().toUpperCase() },
-};
 const $ = (sel) => document.querySelector(sel);
-
-function addInput(name = "", kind = "dna", value = "") {
-  const row = document.createElement("div");
-  row.className = "input";
-  row.innerHTML = `
-    <input name="name" placeholder="name" required>
-    <select name="kind">${Object.keys(KINDS).map((k) => `<option>${k}</option>`).join("")}</select>
-    <textarea name="value" rows="2" required></textarea>
-    <button type="button" title="Remove">✕</button>`;
-  const $k = row.querySelector("[name=kind]"), $v = row.querySelector("[name=value]");
-  row.querySelector("[name=name]").value = name;
-  $k.value = kind;
-  $v.value = value;
-  const sync = () => { $v.placeholder = KINDS[$k.value].placeholder; };
-  $k.addEventListener("change", sync);
-  sync();
-  row.querySelector("button").addEventListener("click", () => row.remove());
-  $("#inputs").append(row);
-}
-
-function readInputs() {
-  const inputs = {};
-  for (const row of document.querySelectorAll(".input")) {
-    const name = row.querySelector("[name=name]").value.trim();
-    const kind = row.querySelector("[name=kind]").value;
-    const text = row.querySelector("[name=value]").value;
-    if (name in inputs) throw new Error(`Input name "${name}" is used twice.`);
-    try {
-      // One entity per line.
-      const lines = text.split("\n").filter((l) => l.trim() !== "");
-      if (!lines.length) throw new Error("needs at least one");
-      inputs[name] = lines.map((l) => ({ kind, [KINDS[kind].field]: KINDS[kind].parse(l) }));
-    } catch (e) {
-      throw new Error(`Input "${name}" (${kind}): ${e.message}`);
-    }
-  }
-  return inputs;
-}
 
 // The error body is FastAPI's: {detail: "…"} or {detail: [{loc, msg}, …]}.
 const explain = (d) => typeof d === "string" ? d : Array.isArray(d) ? d.map((e) => `${e.loc.slice(1).join(".")}: ${e.msg}`).join("\n") : JSON.stringify(d);
 
 let GOALS = [];
 
-// Picking a previous goal hides the text box and copies in that goal's latest inputs.
+// One editable criterion row: its kind, its text, and a way to remove it.
+function criterionRow(c = { kind: "quantitative", claim: "" }) {
+  const row = document.createElement("div");
+  row.className = "criterion";
+  row.innerHTML = `<select><option value="quantitative">quantitative</option><option value="qualitative">qualitative</option></select><input placeholder="e.g. expression above the input sequences&#39;"><button type="button" title="Remove">×</button>`;
+  row.querySelector("select").value = c.kind;
+  row.querySelector("input").value = c.claim;
+  row.querySelector("button").addEventListener("click", () => row.remove());
+  return row;
+}
+
+const setCriteria = (list) => $("#criteria").replaceChildren(...list.map(criterionRow));
+
+// Picking a previous goal hides the text box: that goal, and the success
+// criteria its latest hypothesis carried, are used as they stand.
 function pickGoal() {
   const g = GOALS[$("#goal-pick").value];
   $("#goal").hidden = !!g;
   $("#goal").required = !g;
-  $("#goal-hint").textContent = g ? `${g.hypotheses} hypothesis${g.hypotheses === 1 ? "" : "es"} so far. Inputs copied from the latest; edit them freely.` : "";
-  if (!g) return;
-  $("#inputs").replaceChildren();
-  for (const [name, items] of Object.entries(g.inputs)) addInput(name, items[0].kind, items.map((v) => String(v[KINDS[v.kind]?.field] ?? "")).join("\n"));
+  $("#goal-hint").textContent = g ? `${g.hypotheses} hypothesis${g.hypotheses === 1 ? "" : "es"} so far.` : "";
+  setCriteria(g?.criteria ?? []);
 }
 
 async function loadGoals() {
@@ -155,8 +123,12 @@ async function loadGoals() {
 
 const goalText = () => GOALS[$("#goal-pick").value]?.goal ?? $("#goal").value;
 
+const criteria = () => [...document.querySelectorAll("#criteria .criterion")]
+  .map((r) => ({ kind: r.querySelector("select").value, text: r.querySelector("input").value.trim() }))
+  .filter((c) => c.text);
+
 $("#goal-pick").addEventListener("change", pickGoal);
-$("#add").addEventListener("click", () => addInput());
+$("#add-criterion").addEventListener("click", () => $("#criteria").append(criterionRow()));
 
 // The criteria agent drafts a list for the user to edit before starting.
 $("#suggest").addEventListener("click", async () => {
@@ -170,7 +142,7 @@ $("#suggest").addEventListener("click", async () => {
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(explain(data.detail ?? `${r.status}`));
-    $("#criteria").value = data.map((c) => c.claim).join("\n");
+    setCriteria(data);
   } catch (err) {
     $("#error").textContent = err.message;
   } finally {
@@ -182,8 +154,7 @@ $("#form").addEventListener("submit", async (e) => {
   $("#error").textContent = "";
   $("#go").disabled = true;
   try {
-    const criteria = $("#criteria").value.split("\n").map((l) => l.trim()).filter(Boolean);
-    const body = { goal: goalText(), hypothesis: $("#hypothesis").value, inputs: readInputs(), criteria };
+    const body = { goal: goalText(), hypothesis: $("#hypothesis").value, criteria: criteria() };
     if ($("#rounds").value) body.max_rounds = Number($("#rounds").value);  // Blank means absent, not null.
     const r = await fetch("/api/hypotheses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const data = await r.json().catch(() => ({}));

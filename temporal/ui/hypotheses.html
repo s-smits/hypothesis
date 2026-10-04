@@ -35,6 +35,8 @@
   .id { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); word-break: break-all; }
   .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
   .plan { white-space: pre-wrap; }
+  .crits { margin: 2px 0 0; padding-left: 18px; }
+  .crits .kind { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
   pre { margin: 0; white-space: pre-wrap; font: 12px ui-monospace, monospace; }
   .chips { display: flex; gap: 6px; flex-wrap: wrap; }
   .chip { font: 12px ui-monospace, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 1px 8px; }
@@ -214,18 +216,18 @@ function steps(row) {
   });
 }
 
-// What the latest round's assertions say about each criterion.
-function criteriaView(h) {
-  if (!h.criteria.length) return "";
-  const att = cur(h), ran = att && Object.keys(att.held).length > 0;
-  const state = (c) => {
-    const a = att?.plan?.assertions.find((x) => x.criterion === c.id);
-    if (!a) return att?.plan ? "no assertion covers it" : "no plan yet";
-    return !ran ? "not run yet" : att.held[`${a.step}.${a.branch}`] ? "holds" : "did not hold";
-  };
-  return `<div><div class="label">Criteria</div><table><tbody>${h.criteria.map((c) => `
-    <tr><td><code>${esc(c.id)}</code></td><td>${esc(c.claim)}</td><td>${esc(state(c))}</td></tr>`).join("")}</tbody></table></div>`;
-}
+// One criterion with its call. The loop makes the call from the assertions the plan set against
+// it, not from a model: met when every one held, not met when one did not, unclear when none ran.
+const criterionLine = (h, c) => {
+  const att = cur(h), mine = (att?.plan?.assertions ?? []).filter((a) => a.criterion === c.id);
+  const ran = att && Object.keys(att.held).length > 0;
+  const key = (a) => `${a.step}.${a.branch}`;
+  const met = !mine.length || !ran ? null : mine.every((a) => att.held[key(a)]);
+  const why = !att?.plan ? "no plan yet" : !mine.length ? "no assertion covers it" : !ran ? "not run yet"
+    : mine.map((a) => `${att.held[key(a)] ? "held" : "did not hold"}: ${a.claim} (${key(a)})`).join("; ");
+  const mark = `<span class="badge ${met === true ? "s-achieved" : met === false ? "s-not-achieved" : "s-skipped"}">${met === true ? "met" : met === false ? "not met" : "unclear"}</span>`;
+  return `<li>${mark} <span class="kind">${esc(c.kind ?? "quantitative")}</span> ${esc(c.claim)}<div class="meta">${esc(why)}</div></li>`;
+};
 
 function roundsView(h) {
   if (!h.attempts.length) return "";
@@ -272,11 +274,11 @@ function detailView(id) {
         <span class="meta">updated ${when(row.updated)}</span>
       </div>
       <div class="id">${esc(h.id)}</div>
+      ${h.criteria.length ? `<div><div class="label">Success criteria</div><ul class="crits">${h.criteria.map((c) => criterionLine(h, c)).join("")}</ul></div>` : ""}
       <div><div class="label">Inputs</div><div class="chips">${inputChips(h)}</div></div>
       <div><div class="label">Hypothesis</div><div class="plan">${idea(h) ? esc(idea(h)) : `<span class="meta">${noIdea(row.status)}</span>`}</div></div>
       ${h.observations?.length ? `<div><div class="label">Observations from the literature</div>${observations(h.observations, false)}</div>` : ""}
       ${blockedView(h)}
-      ${criteriaView(h)}
       ${roundsView(h)}
       ${h.stopped_because ? `<div class="meta">Stopped: ${esc(h.stopped_because)}${h.usage.total ? ` · ${h.usage.total} tokens` : ""}</div>` : ""}
       ${produced ? `<div><div class="label">Outcome</div><div class="chips">${Object.keys(produced).length ? chips(produced) : `<span class="meta">No step produced a value.</span>`}</div></div>` : ""}
