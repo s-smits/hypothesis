@@ -1,6 +1,6 @@
 ---
 name: merge-and-verify
-description: Merge remote main into the current branch, resolving each conflict by asking the user a yes/no per hunk, then restart the stack and drive a Playwright end-to-end check that a new goal builds a DAG, runs it, and updates the hypothesis status, then push the branch and open a PR. Use when asked to sync with main, bring a branch up to date, or smoke-test the UI after merging.
+description: Merge remote main into the current branch, resolving each conflict by asking the user a yes/no per hunk, then restart the stack and drive a Playwright end-to-end check that a new goal builds a DAG, runs it, and updates the hypothesis status, then push the branch and open a PR. Any functionality the branch adds must be visible in the frontend and checked there by Playwright. Use when asked to sync with main, bring a branch up to date, or smoke-test the UI after merging.
 ---
 
 # Merge main, verify end to end, open a PR
@@ -89,6 +89,10 @@ This drives the real app with the `playwright` MCP server from
 and takes minutes. Check `ANTHROPIC_API_KEY` is set before starting; if it is
 missing, report the gap and stop — do not invent a key or skip to a stub.
 
+Steps i to v are fixed. Step vi is not optional: if the branch adds
+functionality, that functionality must be visible in the frontend and checked
+there in the same browser run.
+
 ### i. Restart the stack
 
 ```sh
@@ -168,6 +172,50 @@ reporting.
 
 Take a `browser_take_screenshot` of the final page for the summary.
 
+### vi. Cover anything new the branch adds
+
+Steps ii to v are a fixed smoke path. They exercise the pipeline that already
+existed, so on their own they say nothing about functionality this branch adds.
+**New functionality must be visible in the frontend, and Playwright must check
+it there.** Treat this as part of the check, not an optional extra.
+
+1. Work out what is actually new, from the diff rather than from memory:
+
+   ```sh
+   git diff origin/main...HEAD --stat
+   git diff origin/main...HEAD -- src/node_dag/factory.py temporal/ui/
+   ```
+
+   Look for new node configs added to `NodeConfig` and `MAPPING`, new routes in
+   `temporal/ui/app.py`, new fields on `Hypothesis` or `Verdict`, and new agent
+   tools. A change that only alters an existing node's internals is not new
+   functionality for this purpose; a change that gives the user something they
+   could not do or see before is.
+
+2. For each one, find its frontend surface and name it:
+
+   - a new node config should appear on `/nodes`, which lists what
+     `/api/nodes` returns
+   - a new API route needs something on a page that calls it; an endpoint no
+     page reaches is not visible functionality
+   - a new `Hypothesis` or `Verdict` field should render on `/hypotheses`
+   - a new input the user supplies needs a control on `/new`
+
+   If a piece of new functionality has no surface, stop and tell the user which
+   one, with the two options: add the surface, or confirm it is deliberately
+   backend-only and record why. Do not quietly pass it over, and do not invent
+   a UI during this check — building the surface is separate work the user
+   decides on.
+
+3. Extend the browser run with a specific assertion per new capability, beyond
+   the five fixed steps. Exercise it the way a user would — click the control,
+   read the rendered value — rather than asserting against the API alone.
+   `browser_snapshot` the result and screenshot anything visual.
+
+4. Say in the report which new capabilities were exercised and which were not.
+   A pass on steps ii to v with an untouched new feature is a partial pass;
+   report it as one.
+
 ## Phase 3: push and open a PR
 
 Only after phase 2 reaches a terminal status. Pushing and opening a PR are
@@ -211,7 +259,8 @@ one.
    - how each conflict was resolved and that the user chose each resolution
    - the phase 1 check results, with pre-existing failures named as such
    - the phase 2 outcome: hypothesis id, workflow id, final status, and the
-     five steps marked pass or fail
+     fixed steps marked pass or fail, plus which new capabilities the branch
+     adds were exercised in the browser and which were not
    - limitations — the e2e run is plumbing evidence only
 
    Do not describe the e2e run as passing if it was skipped for a missing
@@ -232,8 +281,10 @@ Finish with:
 
 - which conflicts there were and how the user chose to resolve each
 - the check results from phase 1, with pre-existing failures separated out
-- each of the five e2e steps marked pass or fail, with the hypothesis id,
+- each of the fixed e2e steps marked pass or fail, with the hypothesis id,
   workflow id and final status
+- separately, each new capability the branch adds: its frontend surface named
+  and exercised, or flagged as having none
 - the PR URL, and that merging is left to the user
 - remaining limitations — in particular, this exercises plumbing only. A
   completed run and an `achieved` verdict say the pipeline works end to end;
