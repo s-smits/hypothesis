@@ -126,6 +126,8 @@ async def _drive(
     steer=None,
     ledger=record_ledger,
     cancel_on: asyncio.Event | None = None,
+    # What these tests were written against. None is the loop's own default.
+    rounds: int | None = 3,
     **cfg,
 ) -> Hypothesis:
     async with await WorkflowEnvironment.start_time_skipping(
@@ -149,6 +151,8 @@ async def _drive(
                 activities=acts,
                 activity_executor=pool,
             ):
+                if rounds:
+                    cfg = {"max_rounds": rounds, **cfg}
                 inp = HypothesisInput(
                     hypothesis=hyp, build_model="b", verify_model="v", **cfg
                 )
@@ -494,7 +498,7 @@ async def test_assertions_that_all_hold_do_not_achieve_a_goal_the_verifier_vetoe
     fakes = _fakes(
         {}, [PLAN] * 3, [ResolveOut(dag=DAG)] * 3, [agrees] * 3, covers=covers
     )
-    done = await _drive(fakes)
+    done = await _drive(fakes, max_rounds=3)  # The fakes hold three plans.
     assert done.state == "not achieved" and len(done.attempts) == 3
     assert all(a.held == {"small.yes": True} for a in done.attempts)
     assert _none_achieved(done)  # The code was content; the verifier stopped it.
@@ -637,3 +641,15 @@ async def test_a_criterion_nothing_can_meet_is_not_achieved_when_the_verifier_ag
     for a in done.attempts:
         assert a.held == {"better.produced": False} and a.produced["better.yes"] == []
         assert a.verdict and a.verdict.agrees and "did not hold" in a.verdict.reason
+
+
+async def test_a_run_gets_twenty_rounds_unless_told_otherwise_and_saves_its_limits():
+    stops = HYP.model_copy(update={"inputs": {"seq": [Dna(sequence="ATGTAAGCT")]}})
+    fakes = _fakes({}, [PLAN] * 20, [ResolveOut(dag=RAISES)] * 20, [])
+    done = await _drive(fakes, hyp=stops, rounds=None)  # The loop's own default.
+    assert [a.round for a in done.attempts] == list(range(1, 21))
+    assert (
+        done.state == "not achieved"
+        and done.stopped_because == "out of rounds after 20"
+    )
+    assert (done.max_rounds, done.max_tokens) == (20, 500_000)  # What a page shows.

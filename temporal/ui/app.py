@@ -252,7 +252,7 @@ class NewHypothesis(BaseModel):
     observations: list[Observation] = []
     inputs: dict[str, list[Value]] = {}
     criteria: list[NewCriterion] = []
-    max_rounds: int | None = Field(default=None, ge=1, le=10)
+    max_rounds: int | None = Field(default=None, ge=1, le=50)
 
 
 class RequestRow(BaseModel):
