@@ -1,0 +1,482 @@
+{
+  "dag": {
+    "inputs": {
+      "seqs": "dna"
+    },
+    "steps": {
+      "opt": {
+        "config": {
+          "name": "codon_optimise",
+          "config_hash": "61011bd8",
+          "codon_weights": {
+            "AAA": 1.0,
+            "AAC": 1.0,
+            "AAG": 0.30262576687116566,
+            "AAT": 0.8030372405372406,
+            "ACA": 0.2917923535601543,
+            "ACC": 1.0,
+            "ACG": 0.6035075412136093,
+            "ACT": 0.37558751315327954,
+            "AGA": 0.08830666565556988,
+            "AGC": 1.0,
+            "AGG": 0.0488738909532115,
+            "AGT": 0.5363579863269111,
+            "ATA": 0.13648021828103685,
+            "ATC": 0.8346521145975443,
+            "ATG": 1.0,
+            "ATT": 1.0,
+            "CAA": 0.5293065135205334,
+            "CAC": 0.7613518422418267,
+            "CAG": 1.0,
+            "CAT": 1.0,
+            "CCA": 0.35864107403582496,
+            "CCC": 0.23111712545849505,
+            "CCG": 1.0,
+            "CCT": 0.29617891100744276,
+            "CGA": 0.15424281489345568,
+            "CGC": 1.0,
+            "CGG": 0.23561082884659135,
+            "CGT": 0.9510502767877455,
+            "CTA": 0.0724614974853902,
+            "CTC": 0.20914346593134567,
+            "CTG": 1.0,
+            "CTT": 0.2040829116204741,
+            "GAA": 1.0,
+            "GAC": 0.5993578955544624,
+            "GAG": 0.44600713644805207,
+            "GAT": 1.0,
+            "GCA": 0.5953503215986645,
+            "GCC": 0.7597584327588747,
+            "GCG": 1.0,
+            "GCT": 0.44874060980998676,
+            "GGA": 0.258786384911513,
+            "GGC": 1.0,
+            "GGG": 0.3651646495139447,
+            "GGT": 0.8287589664054061,
+            "GTA": 0.42034071332865436,
+            "GTC": 0.5845402922222931,
+            "GTG": 1.0,
+            "GTT": 0.703917565239584,
+            "TAA": 1.0,
+            "TAC": 0.7618875895111019,
+            "TAG": 0.1065017949740726,
+            "TAT": 1.0,
+            "TCA": 0.43655479593950697,
+            "TCC": 0.5370830743733167,
+            "TCG": 0.5518437953180029,
+            "TCT": 0.5262067536772322,
+            "TGA": 0.4407658556043079,
+            "TGC": 1.0,
+            "TGG": 1.0,
+            "TGT": 0.7880350696235173,
+            "TTA": 0.25874629858837167,
+            "TTC": 0.7467192088925239,
+            "TTG": 0.25288670938630986,
+            "TTT": 1.0
+          },
+          "strategy": "most_frequent",
+          "seed": 0
+        },
+        "inputs": {
+          "sequence": "seqs"
+        }
+      },
+      "chk": {
+        "config": {
+          "name": "constraint_check",
+          "config_hash": "99fea1c2",
+          "reference": {
+            "kind": "dna",
+            "sequence": "ATGAGTCGATATCAGCATACTAAAGGGCAGATAAAGGATAATGCGATAGAAGCATTACTACATGATCCCTTATTCCGACAGCGCGTAGAGAAAAATAAGAAGGGGAAAGGCAGTTACATGCGAAAAGGAAAACATGGCAATCGGGGGAACTGGGAGGCCAGTGGCAAGAAAGTAAATCACTTTTTTACCACTGGTCTTCTGCTTTCAGGCGCTTGTTAA",
+            "id": "0244400b522c",
+            "display": "ATGAGTCGATATCAGCATACTAAAGGGCAGATAAAGGATAATGCGATAGAAGCATTACTACATGATCCCTTATTCCGACAGCGCGTAGAGAAAAATAAGAAGGGGAAAGGCAGTTACATGCGAAAAGGAAAACATGGCAATCGGGGGAACTGGGAGGCCAGTGGCAAGAAAGTAAATCACTTTTTTACCACTGGTCTTCTGCTTTCAGGCGCTTGTTAA"
+          },
+          "targeted_codons": []
+        },
+        "inputs": {
+          "sequence": "opt"
+        }
+      },
+      "prot_ok": {
+        "config": {
+          "name": "at_least",
+          "config_hash": "4ab02be2",
+          "column": "constraint_check__99fea1c2__protein_unchanged",
+          "threshold": 1.0
+        },
+        "inputs": {
+          "items": "chk"
+        }
+      },
+      "len_ok": {
+        "config": {
+          "name": "at_least",
+          "config_hash": "484d3ad5",
+          "column": "constraint_check__99fea1c2__length_unchanged",
+          "threshold": 1.0
+        },
+        "inputs": {
+          "items": "prot_ok.yes"
+        }
+      },
+      "cai": {
+        "config": {
+          "name": "codon_adaptation",
+          "config_hash": "07e346d6",
+          "codon_weights": {
+            "AAA": 1.0,
+            "AAC": 1.0,
+            "AAG": 0.30262576687116566,
+            "AAT": 0.8030372405372406,
+            "ACA": 0.2917923535601543,
+            "ACC": 1.0,
+            "ACG": 0.6035075412136093,
+            "ACT": 0.37558751315327954,
+            "AGA": 0.08830666565556988,
+            "AGC": 1.0,
+            "AGG": 0.0488738909532115,
+            "AGT": 0.5363579863269111,
+            "ATA": 0.13648021828103685,
+            "ATC": 0.8346521145975443,
+            "ATG": 1.0,
+            "ATT": 1.0,
+            "CAA": 0.5293065135205334,
+            "CAC": 0.7613518422418267,
+            "CAG": 1.0,
+            "CAT": 1.0,
+            "CCA": 0.35864107403582496,
+            "CCC": 0.23111712545849505,
+            "CCG": 1.0,
+            "CCT": 0.29617891100744276,
+            "CGA": 0.15424281489345568,
+            "CGC": 1.0,
+            "CGG": 0.23561082884659135,
+            "CGT": 0.9510502767877455,
+            "CTA": 0.0724614974853902,
+            "CTC": 0.20914346593134567,
+            "CTG": 1.0,
+            "CTT": 0.2040829116204741,
+            "GAA": 1.0,
+            "GAC": 0.5993578955544624,
+            "GAG": 0.44600713644805207,
+            "GAT": 1.0,
+            "GCA": 0.5953503215986645,
+            "GCC": 0.7597584327588747,
+            "GCG": 1.0,
+            "GCT": 0.44874060980998676,
+            "GGA": 0.258786384911513,
+            "GGC": 1.0,
+            "GGG": 0.3651646495139447,
+            "GGT": 0.8287589664054061,
+            "GTA": 0.42034071332865436,
+            "GTC": 0.5845402922222931,
+            "GTG": 1.0,
+            "GTT": 0.703917565239584,
+            "TAA": 1.0,
+            "TAC": 0.7618875895111019,
+            "TAG": 0.1065017949740726,
+            "TAT": 1.0,
+            "TCA": 0.43655479593950697,
+            "TCC": 0.5370830743733167,
+            "TCG": 0.5518437953180029,
+            "TCT": 0.5262067536772322,
+            "TGA": 0.4407658556043079,
+            "TGC": 1.0,
+            "TGG": 1.0,
+            "TGT": 0.7880350696235173,
+            "TTA": 0.25874629858837167,
+            "TTC": 0.7467192088925239,
+            "TTG": 0.25288670938630986,
+            "TTT": 1.0
+          }
+        },
+        "inputs": {
+          "sequence": "len_ok.yes"
+        }
+      },
+      "cai_ref": {
+        "config": {
+          "name": "codon_adaptation",
+          "config_hash": "07e346d6",
+          "codon_weights": {
+            "AAA": 1.0,
+            "AAC": 1.0,
+            "AAG": 0.30262576687116566,
+            "AAT": 0.8030372405372406,
+            "ACA": 0.2917923535601543,
+            "ACC": 1.0,
+            "ACG": 0.6035075412136093,
+            "ACT": 0.37558751315327954,
+            "AGA": 0.08830666565556988,
+            "AGC": 1.0,
+            "AGG": 0.0488738909532115,
+            "AGT": 0.5363579863269111,
+            "ATA": 0.13648021828103685,
+            "ATC": 0.8346521145975443,
+            "ATG": 1.0,
+            "ATT": 1.0,
+            "CAA": 0.5293065135205334,
+            "CAC": 0.7613518422418267,
+            "CAG": 1.0,
+            "CAT": 1.0,
+            "CCA": 0.35864107403582496,
+            "CCC": 0.23111712545849505,
+            "CCG": 1.0,
+            "CCT": 0.29617891100744276,
+            "CGA": 0.15424281489345568,
+            "CGC": 1.0,
+            "CGG": 0.23561082884659135,
+            "CGT": 0.9510502767877455,
+            "CTA": 0.0724614974853902,
+            "CTC": 0.20914346593134567,
+            "CTG": 1.0,
+            "CTT": 0.2040829116204741,
+            "GAA": 1.0,
+            "GAC": 0.5993578955544624,
+            "GAG": 0.44600713644805207,
+            "GAT": 1.0,
+            "GCA": 0.5953503215986645,
+            "GCC": 0.7597584327588747,
+            "GCG": 1.0,
+            "GCT": 0.44874060980998676,
+            "GGA": 0.258786384911513,
+            "GGC": 1.0,
+            "GGG": 0.3651646495139447,
+            "GGT": 0.8287589664054061,
+            "GTA": 0.42034071332865436,
+            "GTC": 0.5845402922222931,
+            "GTG": 1.0,
+            "GTT": 0.703917565239584,
+            "TAA": 1.0,
+            "TAC": 0.7618875895111019,
+            "TAG": 0.1065017949740726,
+            "TAT": 1.0,
+            "TCA": 0.43655479593950697,
+            "TCC": 0.5370830743733167,
+            "TCG": 0.5518437953180029,
+            "TCT": 0.5262067536772322,
+            "TGA": 0.4407658556043079,
+            "TGC": 1.0,
+            "TGG": 1.0,
+            "TGT": 0.7880350696235173,
+            "TTA": 0.25874629858837167,
+            "TTC": 0.7467192088925239,
+            "TTG": 0.25288670938630986,
+            "TTT": 1.0
+          }
+        },
+        "inputs": {
+          "sequence": "seqs"
+        }
+      },
+      "better": {
+        "config": {
+          "name": "beats_reference",
+          "config_hash": "9deec12f",
+          "column": "codon_adaptation__07e346d6__cai",
+          "reference": {
+            "kind": "dna",
+            "sequence": "ATGAGTCGATATCAGCATACTAAAGGGCAGATAAAGGATAATGCGATAGAAGCATTACTACATGATCCCTTATTCCGACAGCGCGTAGAGAAAAATAAGAAGGGGAAAGGCAGTTACATGCGAAAAGGAAAACATGGCAATCGGGGGAACTGGGAGGCCAGTGGCAAGAAAGTAAATCACTTTTTTACCACTGGTCTTCTGCTTTCAGGCGCTTGTTAA",
+            "id": "0244400b522c",
+            "display": "ATGAGTCGATATCAGCATACTAAAGGGCAGATAAAGGATAATGCGATAGAAGCATTACTACATGATCCCTTATTCCGACAGCGCGTAGAGAAAAATAAGAAGGGGAAAGGCAGTTACATGCGAAAAGGAAAACATGGCAATCGGGGGAACTGGGAGGCCAGTGGCAAGAAAGTAAATCACTTTTTTACCACTGGTCTTCTGCTTTCAGGCGCTTGTTAA"
+          },
+          "scored_in": "cai_ref",
+          "higher": true
+        },
+        "inputs": {
+          "items": "cai"
+        }
+      }
+    }
+  },
+  "steps": {
+    "opt": "done",
+    "chk": "done",
+    "prot_ok": "done",
+    "len_ok": "done",
+    "cai": "done",
+    "cai_ref": "done",
+    "better": "done"
+  },
+  "values": {
+    "seqs": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGAGTCGATATCAGCATACTAAAGGGCAGATAAAGGATAATGCGATAGAAGCATTACTACATGATCCCTTATTCCGACAGCGCGTAGAGAAAAATAAGAAGGGGAAAGGCAGTTACATGCGAAAAGGAAAACATGGCAATCGGGGGAACTGGGAGGCCAGTGGCAAGAAAGTAAATCACTTTTTTACCACTGGTCTTCTGCTTTCAGGCGCTTGTTAA",
+          "id": "0244400b522c",
+          "display": "ATGAGTCGATATCAGCATACTAAAGGGCAGATAAAGGATAATGCGATAGAAGCATTACTACATGATCCCTTATTCCGACAGCGCGTAGAGAAAAATAAGAAGGGGAAAGGCAGTTACATGCGAAAAGGAAAACATGGCAATCGGGGGAACTGGGAGGCCAGTGGCAAGAAAGTAAATCACTTTTTTACCACTGGTCTTCTGCTTTCAGGCGCTTGTTAA"
+        }
+      ],
+      "scores": {}
+    },
+    "opt": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGAGCCGCTATCAGCATACCAAAGGCCAGATTAAAGATAACGCGATTGAAGCGCTGCTGCATGATCCGCTGTTTCGCCAGCGCGTGGAAAAAAACAAAAAAGGCAAAGGCAGCTATATGCGCAAAGGCAAACATGGCAACCGCGGCAACTGGGAAGCGAGCGGCAAAAAAGTGAACCATTTTTTTACCACCGGCCTGCTGCTGAGCGGCGCGTGCTAA",
+          "id": "cc4b0bc14160",
+          "display": "ATGAGCCGCTATCAGCATACCAAAGGCCAGATTAAAGATAACGCGATTGAAGCGCTGCTGCATGATCCGCTGTTTCGCCAGCGCGTGGAAAAAAACAAAAAAGGCAAAGGCAGCTATATGCGCAAAGGCAAACATGGCAACCGCGGCAACTGGGAAGCGAGCGGCAAAAAAGTGAACCATTTTTTTACCACCGGCCTGCTGCTGAGCGGCGCGTGCTAA"
+        }
+      ],
+      "scores": {}
+    },
+    "cai_ref": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGAGTCGATATCAGCATACTAAAGGGCAGATAAAGGATAATGCGATAGAAGCATTACTACATGATCCCTTATTCCGACAGCGCGTAGAGAAAAATAAGAAGGGGAAAGGCAGTTACATGCGAAAAGGAAAACATGGCAATCGGGGGAACTGGGAGGCCAGTGGCAAGAAAGTAAATCACTTTTTTACCACTGGTCTTCTGCTTTCAGGCGCTTGTTAA",
+          "id": "0244400b522c",
+          "display": "ATGAGTCGATATCAGCATACTAAAGGGCAGATAAAGGATAATGCGATAGAAGCATTACTACATGATCCCTTATTCCGACAGCGCGTAGAGAAAAATAAGAAGGGGAAAGGCAGTTACATGCGAAAAGGAAAACATGGCAATCGGGGGAACTGGGAGGCCAGTGGCAAGAAAGTAAATCACTTTTTTACCACTGGTCTTCTGCTTTCAGGCGCTTGTTAA"
+        }
+      ],
+      "scores": {
+        "codon_adaptation__07e346d6__cai": {
+          "0244400b522c": 0.5587915399597726
+        }
+      }
+    },
+    "chk": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGAGCCGCTATCAGCATACCAAAGGCCAGATTAAAGATAACGCGATTGAAGCGCTGCTGCATGATCCGCTGTTTCGCCAGCGCGTGGAAAAAAACAAAAAAGGCAAAGGCAGCTATATGCGCAAAGGCAAACATGGCAACCGCGGCAACTGGGAAGCGAGCGGCAAAAAAGTGAACCATTTTTTTACCACCGGCCTGCTGCTGAGCGGCGCGTGCTAA",
+          "id": "cc4b0bc14160",
+          "display": "ATGAGCCGCTATCAGCATACCAAAGGCCAGATTAAAGATAACGCGATTGAAGCGCTGCTGCATGATCCGCTGTTTCGCCAGCGCGTGGAAAAAAACAAAAAAGGCAAAGGCAGCTATATGCGCAAAGGCAAACATGGCAACCGCGGCAACTGGGAAGCGAGCGGCAAAAAAGTGAACCATTTTTTTACCACCGGCCTGCTGCTGAGCGGCGCGTGCTAA"
+        }
+      ],
+      "scores": {
+        "constraint_check__99fea1c2__protein_unchanged": {
+          "cc4b0bc14160": 1.0
+        },
+        "constraint_check__99fea1c2__length_unchanged": {
+          "cc4b0bc14160": 1.0
+        },
+        "constraint_check__99fea1c2__targets_remaining": {
+          "cc4b0bc14160": 0.0
+        },
+        "constraint_check__99fea1c2__targets_unreachable": {
+          "cc4b0bc14160": 0.0
+        }
+      }
+    },
+    "prot_ok.yes": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGAGCCGCTATCAGCATACCAAAGGCCAGATTAAAGATAACGCGATTGAAGCGCTGCTGCATGATCCGCTGTTTCGCCAGCGCGTGGAAAAAAACAAAAAAGGCAAAGGCAGCTATATGCGCAAAGGCAAACATGGCAACCGCGGCAACTGGGAAGCGAGCGGCAAAAAAGTGAACCATTTTTTTACCACCGGCCTGCTGCTGAGCGGCGCGTGCTAA",
+          "id": "cc4b0bc14160",
+          "display": "ATGAGCCGCTATCAGCATACCAAAGGCCAGATTAAAGATAACGCGATTGAAGCGCTGCTGCATGATCCGCTGTTTCGCCAGCGCGTGGAAAAAAACAAAAAAGGCAAAGGCAGCTATATGCGCAAAGGCAAACATGGCAACCGCGGCAACTGGGAAGCGAGCGGCAAAAAAGTGAACCATTTTTTTACCACCGGCCTGCTGCTGAGCGGCGCGTGCTAA"
+        }
+      ],
+      "scores": {
+        "constraint_check__99fea1c2__protein_unchanged": {
+          "cc4b0bc14160": 1.0
+        },
+        "constraint_check__99fea1c2__length_unchanged": {
+          "cc4b0bc14160": 1.0
+        },
+        "constraint_check__99fea1c2__targets_remaining": {
+          "cc4b0bc14160": 0.0
+        },
+        "constraint_check__99fea1c2__targets_unreachable": {
+          "cc4b0bc14160": 0.0
+        }
+      }
+    },
+    "prot_ok.no": {
+      "items": [],
+      "scores": {}
+    },
+    "len_ok.yes": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGAGCCGCTATCAGCATACCAAAGGCCAGATTAAAGATAACGCGATTGAAGCGCTGCTGCATGATCCGCTGTTTCGCCAGCGCGTGGAAAAAAACAAAAAAGGCAAAGGCAGCTATATGCGCAAAGGCAAACATGGCAACCGCGGCAACTGGGAAGCGAGCGGCAAAAAAGTGAACCATTTTTTTACCACCGGCCTGCTGCTGAGCGGCGCGTGCTAA",
+          "id": "cc4b0bc14160",
+          "display": "ATGAGCCGCTATCAGCATACCAAAGGCCAGATTAAAGATAACGCGATTGAAGCGCTGCTGCATGATCCGCTGTTTCGCCAGCGCGTGGAAAAAAACAAAAAAGGCAAAGGCAGCTATATGCGCAAAGGCAAACATGGCAACCGCGGCAACTGGGAAGCGAGCGGCAAAAAAGTGAACCATTTTTTTACCACCGGCCTGCTGCTGAGCGGCGCGTGCTAA"
+        }
+      ],
+      "scores": {
+        "constraint_check__99fea1c2__protein_unchanged": {
+          "cc4b0bc14160": 1.0
+        },
+        "constraint_check__99fea1c2__length_unchanged": {
+          "cc4b0bc14160": 1.0
+        },
+        "constraint_check__99fea1c2__targets_remaining": {
+          "cc4b0bc14160": 0.0
+        },
+        "constraint_check__99fea1c2__targets_unreachable": {
+          "cc4b0bc14160": 0.0
+        }
+      }
+    },
+    "len_ok.no": {
+      "items": [],
+      "scores": {}
+    },
+    "cai": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGAGCCGCTATCAGCATACCAAAGGCCAGATTAAAGATAACGCGATTGAAGCGCTGCTGCATGATCCGCTGTTTCGCCAGCGCGTGGAAAAAAACAAAAAAGGCAAAGGCAGCTATATGCGCAAAGGCAAACATGGCAACCGCGGCAACTGGGAAGCGAGCGGCAAAAAAGTGAACCATTTTTTTACCACCGGCCTGCTGCTGAGCGGCGCGTGCTAA",
+          "id": "cc4b0bc14160",
+          "display": "ATGAGCCGCTATCAGCATACCAAAGGCCAGATTAAAGATAACGCGATTGAAGCGCTGCTGCATGATCCGCTGTTTCGCCAGCGCGTGGAAAAAAACAAAAAAGGCAAAGGCAGCTATATGCGCAAAGGCAAACATGGCAACCGCGGCAACTGGGAAGCGAGCGGCAAAAAAGTGAACCATTTTTTTACCACCGGCCTGCTGCTGAGCGGCGCGTGCTAA"
+        }
+      ],
+      "scores": {
+        "constraint_check__99fea1c2__protein_unchanged": {
+          "cc4b0bc14160": 1.0
+        },
+        "constraint_check__99fea1c2__length_unchanged": {
+          "cc4b0bc14160": 1.0
+        },
+        "constraint_check__99fea1c2__targets_remaining": {
+          "cc4b0bc14160": 0.0
+        },
+        "constraint_check__99fea1c2__targets_unreachable": {
+          "cc4b0bc14160": 0.0
+        },
+        "codon_adaptation__07e346d6__cai": {
+          "cc4b0bc14160": 1.0
+        }
+      }
+    },
+    "better.yes": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGAGCCGCTATCAGCATACCAAAGGCCAGATTAAAGATAACGCGATTGAAGCGCTGCTGCATGATCCGCTGTTTCGCCAGCGCGTGGAAAAAAACAAAAAAGGCAAAGGCAGCTATATGCGCAAAGGCAAACATGGCAACCGCGGCAACTGGGAAGCGAGCGGCAAAAAAGTGAACCATTTTTTTACCACCGGCCTGCTGCTGAGCGGCGCGTGCTAA",
+          "id": "cc4b0bc14160",
+          "display": "ATGAGCCGCTATCAGCATACCAAAGGCCAGATTAAAGATAACGCGATTGAAGCGCTGCTGCATGATCCGCTGTTTCGCCAGCGCGTGGAAAAAAACAAAAAAGGCAAAGGCAGCTATATGCGCAAAGGCAAACATGGCAACCGCGGCAACTGGGAAGCGAGCGGCAAAAAAGTGAACCATTTTTTTACCACCGGCCTGCTGCTGAGCGGCGCGTGCTAA"
+        }
+      ],
+      "scores": {
+        "constraint_check__99fea1c2__protein_unchanged": {
+          "cc4b0bc14160": 1.0
+        },
+        "constraint_check__99fea1c2__length_unchanged": {
+          "cc4b0bc14160": 1.0
+        },
+        "constraint_check__99fea1c2__targets_remaining": {
+          "cc4b0bc14160": 0.0
+        },
+        "constraint_check__99fea1c2__targets_unreachable": {
+          "cc4b0bc14160": 0.0
+        },
+        "codon_adaptation__07e346d6__cai": {
+          "cc4b0bc14160": 1.0
+        }
+      }
+    },
+    "better.no": {
+      "items": [],
+      "scores": {}
+    }
+  },
+  "status": "COMPLETED",
+  "start_time": "2026-10-04T00:29:41.616681Z",
+  "close_time": "2026-10-04T00:29:41.643726Z",
+  "error": null
+}

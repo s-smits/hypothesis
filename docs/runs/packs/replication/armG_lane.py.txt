@@ -1,0 +1,342 @@
+"""Arm G lane: a queue of genes, two runs at once, a cap per run, a ceiling for the arm.
+
+It replaces both the loop in run_armF.sh and guard_armF.py with one process, because the ceiling must be
+checked BEFORE EVERY OPEN, by the same code that watches the open runs.
+
+Spend is read from the saved Hypothesis files in the arm's results dir (usage.total, state), never from a
+model. Two numbers:
+  settled  = tokens of every run that ended (achieved, not achieved, abandoned, failed);
+  reserved = settled + for each open run max(cap, tokens so far) + cap for each run this lane has started
+             whose Hypothesis file has not appeared yet.
+A run that is still open is never counted as free, and a run still starting is counted at the cap.
+Before opening a gene: reserved + cap must be <= ceiling. Otherwise it waits (a run is open), or the lane
+stops and says which genes were not opened (nothing is open).
+
+A run that reaches the cap is told to `abandon`; so is one blocked for 15 minutes (nobody is here to write a
+node) and one that outlives the wall clock limit. Ctrl-C abandons every open run before the lane exits.
+The loop itself also stops opening new rounds above HypothesisInput.max_tokens (500,000 by default), so the
+cap is a backstop that can only bite inside a round.
+
+No model is called here. The runner command (default: python -m temporal.run_hypothesis) is the only thing
+that spends tokens, and only a person starts this lane.
+
+Usage: armG_lane.py --ceiling N --results DIR --address HOST:PORT --runner "CMD" gene [gene ...]
+"""
+
+import argparse
+import asyncio
+import json
+import os
+import shlex
+import signal
+import subprocess
+import sys
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+
+DONE = {"achieved", "not achieved", "abandoned", "failed"}
+BLOCKED_LIMIT = 900  # seconds blocked on a node nobody will write
+
+
+@dataclass
+class Run:
+    gene: str
+    goal: Path
+    seq: str
+    proc: subprocess.Popen | None = None
+    started: float = 0.0
+    hid: str | None = None
+    asked: bool = False
+    blocked_since: float | None = None
+    rc: int | None = None
+    why: str = ""
+    notes: list[str] = field(default_factory=list)
+
+
+def stamp() -> str:
+    return time.strftime("%F %T")
+
+
+class Lane:
+    def __init__(self, a: argparse.Namespace) -> None:
+        self.a = a
+        self.results = Path(a.results)
+        self.status = Path(a.status)
+        self.status.parent.mkdir(parents=True, exist_ok=True)
+        self.client = None
+        self.runs: list[Run] = []
+        self.claimed: set[str] = set()
+        self.early_exits = 0
+
+    # -- output -------------------------------------------------------------------------------
+    def say(self, text: str) -> None:
+        line = f"{stamp()} {text}"
+        with self.status.open("a") as out:
+            out.write(line + "\n")
+        print(line, flush=True)
+
+    # -- reading the saved runs ---------------------------------------------------------------
+    def read(self) -> list[dict]:
+        rows = []
+        for f in sorted((self.results / "hypotheses").glob("*.json")):
+            try:
+                h = json.loads(f.read_text())
+                seqs = (h.get("inputs") or {}).get("seqs") or []
+                rows.append(
+                    {
+                        "id": h["id"],
+                        "state": h.get("state") or "building",
+                        "tokens": int((h.get("usage") or {}).get("total") or 0),
+                        "seq": (seqs[0].get("sequence") if seqs else None),
+                        "mtime": f.stat().st_mtime,
+                    }
+                )
+            except (OSError, ValueError, KeyError, AttributeError):
+                continue  # half-written or not a Hypothesis: the next tick reads it again
+        return rows
+
+    def attach(self, rows: list[dict]) -> None:
+        """Tie each started run to its saved Hypothesis by its input sequence (not by a guessed id)."""
+        for r in self.runs:
+            if r.hid or r.proc is None:
+                continue
+            for row in rows:
+                if row["seq"] == r.seq and row["id"] not in self.claimed and row["mtime"] >= r.started - 2:
+                    r.hid = row["id"]
+                    self.claimed.add(row["id"])
+                    break
+
+    def money(self, rows: list[dict]) -> tuple[int, int, int]:
+        """(settled, reserved, open count) with every open run at its cap."""
+        cap = self.a.cap
+        settled = sum(x["tokens"] for x in rows if x["state"] in DONE)
+        reserved = settled + sum(max(cap, x["tokens"]) for x in rows if x["state"] not in DONE)
+        # A started run whose file has not appeared yet is still reserved at the cap.
+        for r in self.runs:
+            if r.proc is not None and r.hid is None and r.proc.poll() is None:
+                reserved += cap
+        n_open = sum(1 for x in rows if x["state"] not in DONE)
+        n_open += sum(1 for r in self.runs if r.proc is not None and r.hid is None and r.proc.poll() is None)
+        return settled, reserved, n_open
+
+    # -- stopping a run ------------------------------------------------------------------------
+    async def abandon(self, r: Run, why: str) -> None:
+        if r.asked or not r.hid:
+            return
+        r.asked = True
+        if self.a.no_temporal:  # self test: leave a marker the fake runner reads
+            marker = self.results / "abandon"
+            marker.mkdir(parents=True, exist_ok=True)
+            (marker / r.hid).write_text(why)
+        else:
+            try:
+                if self.client is None:
+                    from temporalio.client import Client
+
+                    self.client = await Client.connect(self.a.address)
+                await self.client.get_workflow_handle(r.hid).signal("abandon")
+            except Exception as e:  # noqa: BLE001 - say it and try again next tick
+                r.asked = False
+                self.say(f"{r.gene} {r.hid[11:19]} abandon NOT delivered ({type(e).__name__}); will retry")
+                return
+        self.say(f"{r.gene} {r.hid[11:19]} {why}: abandon signalled")
+
+    # -- the lane -------------------------------------------------------------------------------
+    def goal_for(self, gene: str) -> Path | None:
+        for d in self.a.goal_dirs:
+            p = Path(d) / f"goal_{gene}.json"
+            if p.exists():
+                return p
+        return None
+
+    def launch(self, r: Run) -> None:
+        env = dict(os.environ, NODE_DAG_RESULTS=str(self.results))
+        cmd = shlex.split(self.a.runner) + [
+            str(r.goal),
+            "--model", self.a.model,
+            "--verify-model", self.a.verify_model,
+            "--max-rounds", str(self.a.max_rounds),
+            "--address", self.a.address,
+        ]
+        log = (self.status.parent / f"run_G{r.gene}.log").open("w")
+        r.proc = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT, env=env, cwd=self.a.cwd)
+        r.started = time.time()
+
+    async def main(self) -> int:
+        a = self.a
+        if a.concurrency * a.cap > a.ceiling:
+            self.say(
+                f"arm G not opened: {a.concurrency} x cap {a.cap} = {a.concurrency * a.cap} is above ceiling {a.ceiling}"
+            )
+            return 1
+        rows = self.read()
+        before_open = [x for x in rows if x["state"] not in DONE]
+        if before_open:
+            self.say(f"warning: {len(before_open)} run(s) already open in this results dir; they are counted at the cap")
+        queue: list[Run] = []
+        skipped: list[str] = []
+        done_seq = {x["seq"] for x in rows}
+        for gene in dict.fromkeys(a.genes):  # in order, no repeats
+            goal = self.goal_for(gene)
+            if goal is None:
+                self.say(f"{gene} not opened: no goal_{gene}.json in {a.goal_dirs}")
+                skipped.append(f"{gene} (no goal file)")
+                continue
+            try:
+                seq = json.loads(goal.read_text())["inputs"]["seqs"][0]["sequence"]
+            except (OSError, ValueError, KeyError, IndexError):
+                self.say(f"{gene} not opened: {goal} has no inputs.seqs[0].sequence")
+                skipped.append(f"{gene} (bad goal file)")
+                continue
+            if seq in done_seq and not a.again:
+                self.say(f"{gene} skipped: this results dir already holds a run on it (use --again to repeat)")
+                skipped.append(f"{gene} (already run here)")
+                continue
+            queue.append(Run(gene, goal, seq))
+        self.say(
+            f"arm G: {len(queue)} genes queued {[r.gene for r in queue]}, concurrency {a.concurrency}, cap {a.cap} each, "
+            f"ceiling {a.ceiling}, max rounds {a.max_rounds}, wall limit {a.timeout}s per run"
+        )
+        refused: list[str] = []
+        try:
+            while queue or any(self.live(r) for r in self.runs):
+                rows = self.read()
+                self.attach(rows)
+                by_id = {x["id"]: x for x in rows}
+                settled, reserved, n_open = self.money(rows)
+                self.say(
+                    f"settled {settled} reserved {reserved} ceiling {a.ceiling} open {n_open} queued {len(queue)} | "
+                    + "; ".join(f"{r.gene} {by_id[r.hid]['state']} {by_id[r.hid]['tokens']}" if r.hid in by_id else f"{r.gene} starting" for r in self.runs if self.live(r))
+                )
+                # 1. watch the open runs
+                for r in self.runs:
+                    if not self.live(r):
+                        continue
+                    row = by_id.get(r.hid) if r.hid else None
+                    if row is not None:
+                        if row["state"] == "blocked":
+                            r.blocked_since = r.blocked_since or time.time()
+                        else:
+                            r.blocked_since = None
+                        if row["tokens"] >= a.cap:
+                            await self.abandon(r, f"reached cap {a.cap} at {row['tokens']}")
+                        elif r.blocked_since and time.time() - r.blocked_since > BLOCKED_LIMIT:
+                            await self.abandon(r, "blocked for 15 minutes")
+                    if r.proc is not None and r.proc.poll() is None and time.time() - r.started > a.timeout:
+                        await self.abandon(r, f"over the wall limit of {a.timeout}s")
+                        r.proc.terminate()
+                await self.reap()
+                # 2. open the next gene when there is a slot and money for the cap
+                while queue and self.early_exits < 2:
+                    await self.reap()
+                    if self.early_exits >= 2:
+                        break
+                    rows = self.read()
+                    self.attach(rows)
+                    settled, reserved, n_open = self.money(rows)
+                    mine_open = sum(1 for r in self.runs if self.live(r))
+                    if mine_open >= a.concurrency:
+                        break
+                    if reserved + a.cap > a.ceiling:
+                        if mine_open == 0 and n_open == 0:
+                            refused = [r.gene for r in queue]
+                            self.say(
+                                f"ceiling reached: settled {settled}, reserved {reserved} + cap {a.cap} is above {a.ceiling}; "
+                                f"not opened: {refused}"
+                            )
+                            queue.clear()
+                        break
+                    r = queue.pop(0)
+                    self.say(
+                        f"opening {r.gene}: settled {settled}, reserved {reserved} + cap {a.cap} = {reserved + a.cap} <= ceiling {a.ceiling}"
+                    )
+                    self.launch(r)
+                    self.runs.append(r)
+                    time.sleep(a.stagger)  # let its file appear so the next check sees it
+                if self.early_exits >= 2 and queue:
+                    refused = [r.gene for r in queue]
+                    self.say(f"lane stops: two runs exited at once with no saved run (is the server or worker up?); not opened: {refused}")
+                    queue.clear()
+                await asyncio.sleep(a.tick)
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            self.say("interrupted: abandoning every open run")
+            rows = self.read()
+            self.attach(rows)
+            for r in self.runs:
+                if self.live(r):
+                    await self.abandon(r, "lane interrupted")
+            # Give each client up to 30 s to see its run end; only then stop the ones still going.
+            deadline = time.time() + 30
+            while time.time() < deadline and any(r.proc is not None and r.proc.poll() is None for r in self.runs):
+                await asyncio.sleep(0.5)
+            for r in self.runs:
+                if r.proc is not None and r.proc.poll() is None:
+                    r.proc.terminate()
+            raise
+        rows = self.read()
+        settled, reserved, _ = self.money(rows)
+        opened = [r.gene for r in self.runs]
+        self.say(
+            f"arm G lane finished: opened {len(opened)} {opened}; not opened {len(skipped) + len(refused)} "
+            f"{skipped + refused}; settled {settled} of ceiling {a.ceiling}"
+        )
+        return 2 if refused else 0
+
+    async def reap(self) -> None:
+        """Notice clients that exited. Two that exit at once with no saved run mean the server or worker is down."""
+        for r in self.runs:
+            if r.proc is None or r.proc.poll() is None or r.rc is not None:
+                continue
+            r.rc = r.proc.returncode
+            self.attach(self.read())
+            row = next((x for x in self.read() if x["id"] == r.hid), None) if r.hid else None
+            self.say(f"{r.gene} client exited rc={r.rc}")
+            if row is None and r.rc != 0 and time.time() - r.started < 90:
+                self.early_exits += 1
+            # The client is gone but the workflow may still run: stop its spend.
+            if row is not None and row["state"] not in DONE:
+                await self.abandon(r, "client exited while the run was open")
+
+    def live(self, r: Run) -> bool:
+        """Open: its client is running, or its saved run has not reached an end state."""
+        if r.proc is None:
+            return False
+        if r.proc.poll() is None:
+            return True
+        if r.hid is None:
+            return False  # exited and never saved a run
+        row = next((x for x in self.read() if x["id"] == r.hid), None)
+        return row is not None and row["state"] not in DONE
+
+
+def parse() -> argparse.Namespace:
+    p = argparse.ArgumentParser()
+    p.add_argument("--ceiling", type=int, required=True, help="Tokens the whole arm may reserve.")
+    p.add_argument("--cap", type=int, default=1_000_000, help="Tokens per run before it is abandoned.")
+    p.add_argument("--concurrency", type=int, default=2)
+    p.add_argument("--results", required=True, help="The arm's own $NODE_DAG_RESULTS.")
+    p.add_argument("--status", required=True)
+    p.add_argument("--address", required=True)
+    p.add_argument("--runner", required=True, help='e.g. ".venv/bin/python -m temporal.run_hypothesis"')
+    p.add_argument("--cwd", default=None)
+    p.add_argument("--goal-dirs", nargs="+", required=True)
+    p.add_argument("--model", default="anthropic:claude-sonnet-5-5")
+    p.add_argument("--verify-model", default="anthropic:claude-sonnet-5-5")
+    p.add_argument("--max-rounds", type=int, default=20)
+    p.add_argument("--timeout", type=int, default=7200)
+    p.add_argument("--tick", type=float, default=20)
+    p.add_argument("--stagger", type=float, default=30, help="Seconds to wait after an open.")
+    p.add_argument("--again", action="store_true", help="Run a gene that already has a run in the results dir.")
+    p.add_argument("--no-temporal", action="store_true", help="Self test only: never connect to Temporal.")
+    p.add_argument("genes", nargs="+")
+    return p.parse_args()
+
+
+if __name__ == "__main__":
+    args = parse()
+    signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
+    try:
+        sys.exit(asyncio.run(Lane(args).main()))
+    except KeyboardInterrupt:
+        sys.exit(130)

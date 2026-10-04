@@ -1,0 +1,210 @@
+{
+  "id": "hypothesis-h7-lenient-0",
+  "goal": "Translate the DNA sequences into proteins. Keep only the proteins that are at least 8 amino acids long.",
+  "inputs": {
+    "seqs": [
+      {
+        "kind": "dna",
+        "sequence": "ATGAAACTGTAA",
+        "id": "ebc5eb46c9cb",
+        "display": "ATGAAACTGTAA"
+      },
+      {
+        "kind": "dna",
+        "sequence": "ATGGCTCTGAAATCCTAA",
+        "id": "6ce280f72d75",
+        "display": "ATGGCTCTGAAATCCTAA"
+      },
+      {
+        "kind": "dna",
+        "sequence": "ATGGCTCTGAAATCCACTGGCGAATAA",
+        "id": "5ff31578ee1e",
+        "display": "ATGGCTCTGAAATCCACTGGCGAATAA"
+      },
+      {
+        "kind": "dna",
+        "sequence": "ATGGCTCTGAAATCCACTGGCGAAGTTCCGCAGAACCTGGATCGTTACGTGAAATAA",
+        "id": "c803bc591289",
+        "display": "ATGGCTCTGAAATCCACTGGCGAAGTTCCGCAGAACCTGGATCGTTACGTGAAATAA"
+      }
+    ]
+  },
+  "input_sources": {},
+  "hypothesis": null,
+  "observations": [],
+  "criteria": [
+    {
+      "id": "kept_long_enough",
+      "claim": "Every kept protein has at least 8 amino acids, not counting the stop.",
+      "source": "human"
+    },
+    {
+      "id": "none_long_dropped",
+      "claim": "Every input sequence whose protein has at least 8 amino acids, not counting the stop, is kept.",
+      "source": "human"
+    },
+    {
+      "id": "are_proteins",
+      "claim": "Every kept output is a protein (an amino acid sequence) translated from one of the input DNA sequences.",
+      "source": "human"
+    }
+  ],
+  "state": "achieved",
+  "round": 1,
+  "attempts": [
+    {
+      "round": 1,
+      "plan": {
+        "hypothesis": "h",
+        "expected": "e",
+        "assertions": [
+          {
+            "criterion": "kept_long_enough",
+            "step": "prot",
+            "branch": "produced",
+            "claim": "c"
+          },
+          {
+            "criterion": "none_long_dropped",
+            "step": "prot",
+            "branch": "produced",
+            "claim": "c"
+          },
+          {
+            "criterion": "are_proteins",
+            "step": "prot",
+            "branch": "produced",
+            "claim": "c"
+          }
+        ],
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "prot": {
+            "node": "dna_to_protein",
+            "config": {},
+            "inputs": {
+              "sequence": "seqs"
+            },
+            "why": "w"
+          }
+        },
+        "requests": {},
+        "observations": [],
+        "addresses_critique": ""
+      },
+      "requests": [],
+      "dag": {
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "prot": {
+            "config": {
+              "name": "dna_to_protein",
+              "config_hash": "17f985df"
+            },
+            "inputs": {
+              "sequence": "seqs"
+            }
+          }
+        }
+      },
+      "workflow_id": "hypothesis-h7-lenient-0-r1",
+      "outcome": {
+        "values": {
+          "seqs": {
+            "items": [
+              {
+                "kind": "dna",
+                "sequence": "ATGAAACTGTAA",
+                "id": "ebc5eb46c9cb",
+                "display": "ATGAAACTGTAA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTCTGAAATCCTAA",
+                "id": "6ce280f72d75",
+                "display": "ATGGCTCTGAAATCCTAA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTCTGAAATCCACTGGCGAATAA",
+                "id": "5ff31578ee1e",
+                "display": "ATGGCTCTGAAATCCACTGGCGAATAA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTCTGAAATCCACTGGCGAAGTTCCGCAGAACCTGGATCGTTACGTGAAATAA",
+                "id": "c803bc591289",
+                "display": "ATGGCTCTGAAATCCACTGGCGAAGTTCCGCAGAACCTGGATCGTTACGTGAAATAA"
+              }
+            ],
+            "scores": {}
+          },
+          "prot": {
+            "items": [
+              {
+                "kind": "amino_acid_sequence",
+                "sequence": "MKL*",
+                "id": "896db5b9367d",
+                "display": "MKL*"
+              },
+              {
+                "kind": "amino_acid_sequence",
+                "sequence": "MALKS*",
+                "id": "e11296b6700a",
+                "display": "MALKS*"
+              },
+              {
+                "kind": "amino_acid_sequence",
+                "sequence": "MALKSTGE*",
+                "id": "f4d335db0722",
+                "display": "MALKSTGE*"
+              },
+              {
+                "kind": "amino_acid_sequence",
+                "sequence": "MALKSTGEVPQNLDRYVK*",
+                "id": "813a354ecdee",
+                "display": "MALKSTGEVPQNLDRYVK*"
+              }
+            ],
+            "scores": {}
+          }
+        },
+        "skipped": []
+      },
+      "held": {
+        "prot.produced": true
+      },
+      "produced": {
+        "seqs": [
+          "ATGAAACTGTAA..CTGTAA (12)",
+          "ATGGCTCTGAAA..TCCTAA (18)",
+          "ATGGCTCTGAAA..GAATAA (27)"
+        ],
+        "prot": [
+          "MKL*..MKL* (4)",
+          "MALKS*..MALKS* (6)",
+          "MALKSTGE*..KSTGE* (9)"
+        ]
+      },
+      "verdict": {
+        "achieved": true,
+        "reason": "the opinion\n\nAcceptance: every criterion was covered by an assertion that held",
+        "agrees": true,
+        "covers_goal": true
+      },
+      "critique": null,
+      "error": null,
+      "started": "2026-10-04T00:49:39.468000Z"
+    }
+  ],
+  "usage": {
+    "plan": 10,
+    "total": 15,
+    "verify": 5
+  },
+  "stopped_because": "every criterion was covered by an assertion that held"
+}

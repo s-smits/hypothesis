@@ -1,0 +1,10 @@
+import asyncio, sys
+from temporalio.client import Client
+
+async def main(address: str, wid: str) -> None:
+    c = await Client.connect(address)
+    h = c.get_workflow_handle(wid)
+    await h.signal("abandon")
+    print("signalled", wid)
+
+asyncio.run(main(sys.argv[1], sys.argv[2]))

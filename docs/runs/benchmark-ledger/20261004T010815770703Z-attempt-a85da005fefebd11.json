@@ -1,0 +1,84 @@
+{
+  "dependencies": {
+    "biopython": "1.88",
+    "pydantic": "2.13.5",
+    "temporalio": "1.33.0",
+    "viennarna": "2.7.2"
+  },
+  "errors": [],
+  "kind": "attempt",
+  "manifest": {
+    "commit": "74803ee",
+    "constraint_check_version": 1,
+    "instance_set_sha256_16": "11cf3bade92f427a",
+    "instances": [
+      {
+        "codons": 73,
+        "immutable": [
+          0,
+          72
+        ],
+        "key": "arfA",
+        "sequence_sha256_16": "926d16b089c85d4c"
+      }
+    ],
+    "notes": "loop run hypothesis-6148f02d-1907-487f-b1a0-d4d4c6d5bc12 state=achieved rounds=3 tokens=569667 accepted_round=3; kept 13, 0 not above the original; models build=claude-sonnet-5-5 verify=claude-sonnet-5-5; evaluations is the kept count, not the loop's scoring budget",
+    "objective": "cai",
+    "seed": 0,
+    "split_hash": "2d16522d73205e93",
+    "weights_sha256_16": "a7c233956820c2d1"
+  },
+  "recorded_at": "2026-10-04T01:08:15.770884+00:00",
+  "selection": "The loop's own verifier accepted round 3 (its verdict says achieved) and that round's kept set was recorded as it stands; the loop chose it, this benchmark's score did not, and no held-out data was used.",
+  "split": {
+    "dev_keys": [
+      "arfA",
+      "aroE",
+      "clsA",
+      "osmF",
+      "rplF",
+      "tusE",
+      "uspD",
+      "ydcT",
+      "ymdG"
+    ],
+    "holdout_fraction_asked": 0.3,
+    "holdout_keys": [
+      "gadW",
+      "sgcE",
+      "yacH",
+      "ybaT",
+      "ycaD"
+    ],
+    "n_dev": 9,
+    "n_holdout": 5,
+    "salt": "",
+    "split_hash": "2d16522d73205e93"
+  },
+  "strategies": {
+    "loop": {
+      "evaluations": 13,
+      "mean_gap_closed": 0.05069169372732716,
+      "n_instances": 1,
+      "passed": 1,
+      "per_instance": [
+        {
+          "evaluations": 13,
+          "fraction_of_optimum": 0.5811571440860375,
+          "gap_closed": 0.05069169372732716,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "arfA",
+          "optimum": 1.0,
+          "parent_score": 0.5587915399597726,
+          "passed": true,
+          "score": 0.5811571440860375
+        }
+      ]
+    }
+  }
+}

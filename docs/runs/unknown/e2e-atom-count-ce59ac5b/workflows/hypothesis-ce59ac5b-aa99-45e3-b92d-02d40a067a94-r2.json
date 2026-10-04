@@ -1,0 +1,229 @@
+{
+  "dag": {
+    "inputs": {
+      "seqs": "dna"
+    },
+    "steps": {
+      "recode": {
+        "config": {
+          "name": "recode_codons",
+          "config_hash": "dd925cd9",
+          "targets": [
+            "GCT",
+            "GCA",
+            "GCG",
+            "TTA",
+            "TTG",
+            "CTT",
+            "CTA",
+            "CTG"
+          ]
+        },
+        "inputs": {
+          "sequence": "seqs"
+        }
+      },
+      "score": {
+        "config": {
+          "name": "dna_atom_score",
+          "config_hash": "3745d4af",
+          "reference": {
+            "kind": "dna",
+            "sequence": "ATGGCTCTGAAATAA",
+            "id": "1e142be77490",
+            "display": "ATG GCT CTG AAA TAA"
+          }
+        },
+        "inputs": {
+          "sequence": "recode"
+        }
+      },
+      "same_protein": {
+        "config": {
+          "name": "at_most",
+          "config_hash": "2c25cae6",
+          "column": "dna_atom_score__3745d4af__amino_acid_changes",
+          "threshold": 0.0
+        },
+        "inputs": {
+          "items": "score"
+        }
+      },
+      "fewer_atoms": {
+        "config": {
+          "name": "at_most",
+          "config_hash": "7075fa0b",
+          "column": "dna_atom_score__3745d4af__atom_count",
+          "threshold": 493.0
+        },
+        "inputs": {
+          "items": "same_protein.yes"
+        }
+      }
+    }
+  },
+  "steps": {
+    "recode": "done",
+    "score": "done",
+    "same_protein": "done",
+    "fewer_atoms": "done"
+  },
+  "values": {
+    "seqs": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTGAAATAA",
+          "id": "1e142be77490",
+          "display": "ATG GCT CTG AAA TAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTAAAGTAG",
+          "id": "b4fd7183a224",
+          "display": "ATG GCG TTA AAG TAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTGAAATGA",
+          "id": "f9932d4787c6",
+          "display": "ATG GCC CTG AAA TGA"
+        }
+      ],
+      "scores": {}
+    },
+    "recode": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAATAA",
+          "id": "83bb49832420",
+          "display": "ATG GCC CTC AAA TAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAGTAG",
+          "id": "38e16ea536ec",
+          "display": "ATG GCC CTC AAG TAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAATGA",
+          "id": "603999b914a5",
+          "display": "ATG GCC CTC AAA TGA"
+        }
+      ],
+      "scores": {}
+    },
+    "score": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAATAA",
+          "id": "83bb49832420",
+          "display": "ATG GCC CTC AAA TAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAGTAG",
+          "id": "38e16ea536ec",
+          "display": "ATG GCC CTC AAG TAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAATGA",
+          "id": "603999b914a5",
+          "display": "ATG GCC CTC AAA TGA"
+        }
+      ],
+      "scores": {
+        "dna_atom_score__3745d4af__atom_count": {
+          "83bb49832420": 489.0,
+          "38e16ea536ec": 491.0,
+          "603999b914a5": 490.0
+        },
+        "dna_atom_score__3745d4af__amino_acid_changes": {
+          "83bb49832420": 0.0,
+          "38e16ea536ec": 0.0,
+          "603999b914a5": 0.0
+        }
+      }
+    },
+    "same_protein.yes": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAATAA",
+          "id": "83bb49832420",
+          "display": "ATG GCC CTC AAA TAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAGTAG",
+          "id": "38e16ea536ec",
+          "display": "ATG GCC CTC AAG TAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAATGA",
+          "id": "603999b914a5",
+          "display": "ATG GCC CTC AAA TGA"
+        }
+      ],
+      "scores": {
+        "dna_atom_score__3745d4af__atom_count": {
+          "83bb49832420": 489.0,
+          "38e16ea536ec": 491.0,
+          "603999b914a5": 490.0
+        },
+        "dna_atom_score__3745d4af__amino_acid_changes": {
+          "83bb49832420": 0.0,
+          "38e16ea536ec": 0.0,
+          "603999b914a5": 0.0
+        }
+      }
+    },
+    "same_protein.no": {
+      "items": [],
+      "scores": {}
+    },
+    "fewer_atoms.yes": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAATAA",
+          "id": "83bb49832420",
+          "display": "ATG GCC CTC AAA TAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAGTAG",
+          "id": "38e16ea536ec",
+          "display": "ATG GCC CTC AAG TAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAATGA",
+          "id": "603999b914a5",
+          "display": "ATG GCC CTC AAA TGA"
+        }
+      ],
+      "scores": {
+        "dna_atom_score__3745d4af__atom_count": {
+          "83bb49832420": 489.0,
+          "38e16ea536ec": 491.0,
+          "603999b914a5": 490.0
+        },
+        "dna_atom_score__3745d4af__amino_acid_changes": {
+          "83bb49832420": 0.0,
+          "38e16ea536ec": 0.0,
+          "603999b914a5": 0.0
+        }
+      }
+    },
+    "fewer_atoms.no": {
+      "items": [],
+      "scores": {}
+    }
+  }
+}

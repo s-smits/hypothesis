@@ -1,0 +1,96 @@
+"""Score a saved loop run on a benchmark instance with the CODON-PAIR objective, from recorded bytes only.
+No model, no network.
+
+Mirrors bench_score.py (the replication pack's version, so score_all.py can drive it): for each round it takes what
+the plan kept (the smallest non-empty `.yes` table), runs the benchmark's own gate and `codon_pair_objective` on it,
+and prints: kept count, how many do NOT beat the original (or fail the gate), the best candidate's gap_closed (the
+benchmark's metric), and what the loop said (held, achieved). A last line "@@ {json}" carries the same numbers.
+Usage: score_cp.py <results dir> <hypothesis id> <gene> <pack.json>
+
+Differences from bench_score.py, and nothing else:
+ - the objective is `codon_pair_objective(pack["pair_weights"], pack["missing"])` (the full 3,900-pair table the
+   benchmark uses), not the per-gene table the goal embeds;
+ - a candidate is scored only if it passes all three conditions of `Result.passed` (protein, length, targets), as
+   record_loop_attempt.py does, not the protein gate alone;
+ - if scorer.json sits beside the pack, the exact optimum and parent score are checked against it;
+ - a gap_closed above 1.0 is flagged: the benchmark's exact DP fixes the first and the last codon, the protein gate
+   does not, so a changed stop codon can pass the gate and score above the DP optimum.
+This output names the exact optimum: keep it outside any directory a run can read.
+"""
+
+import json
+import math
+import sys
+from pathlib import Path
+
+from node_dag.benchmark import Instance, Result, codon_pair_objective, gate
+from node_dag.types import Dna
+
+
+def passes(gates: dict) -> bool:
+    """The same three conditions as `Result.passed`."""
+    return (
+        gates.get("protein_unchanged") == 1.0
+        and gates.get("length_unchanged") == 1.0
+        and gates.get("targets_remaining", 0.0) == 0.0
+    )
+
+
+def main(argv: list[str]) -> None:
+    root, hid, gene, pack_path = Path(argv[1]), argv[2], argv[3], Path(argv[4])
+    pack = json.loads(pack_path.read_text())
+    obj = codon_pair_objective(pack["pair_weights"], pack["missing"])
+    inst = Instance(key=gene, parent=Dna(sequence=pack["dev"][gene]))
+    optimum = obj.score(obj.optimum(inst))
+    parent = obj.score(inst.parent.sequence)
+    oracle = pack_path.with_name("scorer.json")
+    if oracle.exists():
+        want = json.loads(oracle.read_text())["genes"][gene]
+        if abs(want["optimum_pair"] - optimum) > 1e-12 or abs(want["parent_pair"] - parent) > 1e-12:
+            sys.exit(f"score_cp: scorer.json disagrees with the pack for {gene}; refusing to score")
+    h = json.loads((root / "hypotheses" / f"{hid}.json").read_text())
+    print(f"{gene}: parent pair score {parent:.4f}, exact optimum {optimum:.4f}; run state {h.get('state')}, rounds {len(h['attempts'])}")
+    rounds = []
+    for a in h["attempts"]:
+        r = a["round"]
+        v = a.get("verdict") or {}
+        wf = root / "workflows" / f"{hid}-r{r}.json"
+        if not wf.exists():
+            print(f"  r{r}: held {a.get('held')} agrees={v.get('agrees')} achieved={v.get('achieved')} | no workflow saved, kept 0")
+            rounds.append({"round": r, "kept": 0, "not_better": 0, "gap_closed": None, "achieved": v.get("achieved"), "workflow": False})
+            continue
+        flow = json.loads(wf.read_text())
+        # What the plan kept: the smallest non-empty `.yes` table. A filter chain only narrows, and
+        # an audit filter on the kept branch repeats it, so the last stage holds the answer.
+        yes = [k for k in flow["values"] if k.endswith(".yes") and flow["values"][k]["items"]]
+        items = min((flow["values"][k]["items"] for k in yes), key=len, default=[])
+        seqs = [i["sequence"] for i in items]
+        scored = []
+        for s in seqs:
+            ok = passes(gate(inst, s))
+            scored.append((s, ok, obj.score(s) if ok else None))
+        passing = [(val, s) for s, ok, val in scored if ok and val is not None and math.isfinite(val)]
+        best = max(passing, default=None)
+        res = Result(
+            instance=gene, strategy="loop", candidate=best[1] if best else None,
+            score=best[0] if best else None, optimum=optimum, parent_score=parent,
+            gates=gate(inst, best[1]) if best else {}, evaluations=len(seqs),
+        )
+        not_better = sum(1 for _, ok, val in scored if not ok or val is None or val <= parent + 1e-12)
+        gc = res.gap_closed
+        rounds.append({"round": r, "kept": len(seqs), "not_better": not_better, "gap_closed": gc, "achieved": v.get("achieved"), "workflow": True})
+        over = (
+            " (above 1.0: the DP fixes the first and last codon, the gate does not; a changed stop codon)"
+            if gc is not None and gc > 1 + 1e-9
+            else ""
+        )
+        print(
+            f"  r{r}: held {a.get('held')} agrees={v.get('agrees')} achieved={v.get('achieved')} | "
+            f"kept {len(seqs)}, not better than original {not_better}, "
+            f"best gap_closed {'none' if gc is None else f'{gc:.3f}'}{over}"
+        )
+    print("@@ " + json.dumps({"gene": gene, "hypothesis": hid, "state": h.get("state"), "tokens": (h.get("usage") or {}).get("total", 0), "rounds": rounds}))
+
+
+if __name__ == "__main__":
+    main(sys.argv)

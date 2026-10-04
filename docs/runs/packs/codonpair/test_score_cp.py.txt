@@ -1,0 +1,158 @@
+"""Synthetic test of the codon-pair pack and score_cp.py. No model, no network, no run, no held-out gene.
+
+For tusE and uspD it checks, with the benchmark's own objective and the full table in pack.json:
+  parent -> gap_closed 0, the exact DP optimum -> 1.0 (within 1e-9), the greedy chain -> the ledger's greedy number;
+  then it writes a fake results dir (made-up hypothesis, workflow files) and runs score_cp.py on it as a subprocess,
+  and checks the printed and "@@" numbers round by round.
+Also checks that no goal file holds the optimum score, the optimum sequence or the greedy number.
+
+Usage: test_score_cp.py <pack dir> <ledger pair attempt json> <fixture dir (outside the pack)>
+Run with the repo's python and PYTHONPATH=<repo>:<repo>/src.
+"""
+
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+from node_dag.benchmark import (
+    Instance,
+    Result,
+    codon_pair_objective,
+    exact_codon_pair,
+    gate,
+    greedy_chain,
+    random_synonymous,
+)
+from node_dag.dna import CODON_TABLE, SYNONYMS, codons
+from node_dag.types import Dna
+
+pack_dir, ledger_path, fixtures = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
+pack = json.loads((pack_dir / "pack.json").read_text())
+scorer = json.loads((pack_dir / "scorer.json").read_text())["genes"]
+ledger = json.loads(ledger_path.read_text())["strategies"]["greedy"]["per_instance"]
+ledger_greedy = {p["instance"]: p["gap_closed"] for p in ledger}
+obj = codon_pair_objective(pack["pair_weights"], pack["missing"])
+failures: list[str] = []
+
+
+def check(name: str, ok: bool, detail: str = "") -> None:
+    print(f"{'ok  ' if ok else 'FAIL'} {name} {detail}")
+    if not ok:
+        failures.append(name)
+
+
+def gap(inst: Instance, seq: str, optimum: float, parent: float) -> float | None:
+    s = obj.score(seq)
+    return Result(
+        instance=inst.key, strategy="t", candidate=seq, score=s, optimum=optimum,
+        parent_score=parent, gates=gate(inst, seq), evaluations=1,
+    ).gap_closed
+
+
+def change_protein(seq: str) -> str:
+    """Swap codon 5 for a codon of a different amino acid: the protein gate must fail."""
+    cs = codons(seq)
+    other = next(c for c, aa in CODON_TABLE.items() if aa != CODON_TABLE[cs[5]] and aa != "*")
+    cs[5] = other
+    return "".join(cs)
+
+
+def stop_swapped(inst: Instance, pair_w: dict, missing: float) -> str:
+    """The best sequence when the last (stop) codon may change: the protein gate lets it."""
+    free = Instance(key=inst.key, parent=inst.parent, immutable=frozenset({0}))
+    return exact_codon_pair(free, pair_w, missing)
+
+
+expected_rounds: dict[str, list[dict]] = {}
+for gene, seq in pack["dev"].items():
+    inst = Instance(key=gene, parent=Dna(sequence=seq))
+    opt_seq = exact_codon_pair(inst, pack["pair_weights"], pack["missing"])
+    optimum, parent = obj.score(opt_seq), obj.score(seq)
+    greedy_seq = greedy_chain(inst, pack["pair_weights"], pack["missing"])
+    check(f"{gene} optimum score equals scorer.json", abs(optimum - scorer[gene]["optimum_pair"]) < 1e-12, f"{optimum:.6f}")
+    check(f"{gene} parent score equals scorer.json", abs(parent - scorer[gene]["parent_pair"]) < 1e-12, f"{parent:.6f}")
+    g_parent, g_opt, g_greedy = gap(inst, seq, optimum, parent), gap(inst, opt_seq, optimum, parent), gap(inst, greedy_seq, optimum, parent)
+    check(f"{gene} parent -> gap_closed 0", g_parent is not None and abs(g_parent) < 1e-9, str(g_parent))
+    check(f"{gene} exact optimum -> gap_closed 1.0", g_opt is not None and abs(g_opt - 1.0) < 1e-9, str(g_opt))
+    check(f"{gene} greedy -> ledger {ledger_greedy[gene]:.4f}", g_greedy is not None and abs(g_greedy - ledger_greedy[gene]) < 1e-9, str(g_greedy))
+    check(f"{gene} protein-changed sequence fails the gate", gate(inst, change_protein(seq))["protein_unchanged"] == 0.0)
+
+    # a fake saved run
+    rnd = random_synonymous(inst, seed=3)
+    swap = stop_swapped(inst, pack["pair_weights"], pack["missing"])
+    swap_gap = gap(inst, swap, optimum, parent)
+    hid = f"hypothesis-synthetic-{gene}"
+    kept = {
+        1: [seq, rnd],  # nothing better than the original
+        2: [greedy_seq, rnd],  # greedy plus a worse one
+        3: [opt_seq, change_protein(seq)],  # the optimum plus a protein change
+        4: [swap],  # the stop codon changed: above the DP optimum
+        6: [],  # nothing kept
+    }
+    h = {
+        "id": hid, "state": "not achieved", "usage": {"total": 1234},
+        "inputs": {"seqs": [{"kind": "dna", "sequence": seq}]},
+        "attempts": [{"round": r, "held": [], "verdict": {"agrees": True, "achieved": r == 2}} for r in (1, 2, 3, 4, 5, 6)],
+    }
+    run = fixtures / gene
+    (run / "hypotheses").mkdir(parents=True, exist_ok=True)
+    (run / "workflows").mkdir(parents=True, exist_ok=True)
+    (run / "hypotheses" / f"{hid}.json").write_text(json.dumps(h))
+    for r, seqs in kept.items():
+        values = {"f.yes": {"items": [{"sequence": s} for s in seqs], "scores": {}}, "f.no": {"items": [{"sequence": seq}], "scores": {}}}
+        (run / "workflows" / f"{hid}-r{r}.json").write_text(json.dumps({"values": values}))
+    # round 5: no workflow file saved
+
+    out = subprocess.run(
+        [sys.executable, str(pack_dir / "score_cp.py"), str(run), hid, gene, str(pack_dir / "pack.json")],
+        capture_output=True, text=True,
+    )
+    check(f"{gene} score_cp.py exits 0", out.returncode == 0, out.stderr[-300:])
+    tail = [ln for ln in out.stdout.splitlines() if ln.startswith("@@ ")]
+    got = {x["round"]: x for x in json.loads(tail[-1][3:])["rounds"]} if tail else {}
+    want = {
+        1: (2, 2, 0.0),
+        2: (2, 1, ledger_greedy[gene]),
+        3: (2, 1, 1.0),
+        4: (1, 0, swap_gap),
+        5: (0, 0, None),
+        6: (0, 0, None),
+    }
+    for r, (k, nb, gc) in want.items():
+        x = got.get(r, {})
+        same = (
+            x.get("kept") == k
+            and x.get("not_better") == nb
+            and ((x.get("gap_closed") is None) if gc is None else (x.get("gap_closed") is not None and abs(x["gap_closed"] - gc) < 1e-9))
+        )
+        check(f"{gene} r{r} kept {k}, not_better {nb}, gap_closed {gc if gc is None else round(gc, 4)}", same, str(x))
+    check(f"{gene} the stop-swapped round is flagged above 1.0", "above 1.0" in out.stdout and swap_gap is not None and swap_gap > 1.0, f"{swap_gap}")
+    print(out.stdout)
+
+# the goal files carry no oracle
+for gene in pack["dev"]:
+    raw = json.loads((pack_dir / f"goal_{gene}.json").read_text())
+    # The weights themselves are 16-digit floats and can contain any short digit string by chance, so the
+    # number checks look at the text with the table entries taken out; the sequence checks use the whole file.
+    text = json.dumps(raw)
+    prose = re.sub(r'"[ACGT]{6}":-?[0-9.e-]+,?', "", raw["goal"])
+    seq = pack["dev"][gene]
+    inst = Instance(key=gene, parent=Dna(sequence=seq))
+    opt_seq = exact_codon_pair(inst, pack["pair_weights"], pack["missing"])
+    greedy_seq = greedy_chain(inst, pack["pair_weights"], pack["missing"])
+    for label, needle, where in (
+        ("optimum sequence", opt_seq, text),
+        ("greedy sequence", greedy_seq, text),
+        ("optimum score 4 digits outside the table", f"{scorer[gene]['optimum_pair']:.4f}", prose),
+        ("greedy gap_closed 3 digits outside the table", f"{ledger_greedy[gene]:.3f}", prose),
+        ("parent score 4 digits outside the table", f"{scorer[gene]['parent_pair']:.4f}", prose),
+        ("the word optimum", "optimum", text),
+        ("gap_closed", "gap_closed", text),
+    ):
+        check(f"{gene} goal file has no {label}", needle not in where)
+    check(f"{gene} prose outside the table is short", len(prose) < 700, f"{len(prose)} chars")
+
+print("FAILED" if failures else "ALL OK", failures)
+sys.exit(1 if failures else 0)

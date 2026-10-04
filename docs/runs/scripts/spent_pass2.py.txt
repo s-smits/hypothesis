@@ -1,0 +1,15 @@
+"""Tokens recorded in this pass's ledgers (arm C and arm E). Prints one integer."""
+import json
+from pathlib import Path
+
+S = Path("/private/tmp/claude-501/-Users-air-Developer-hypothesis/95f44646-4f13-48e9-a640-91afd80574df/scratchpad")
+total = 0
+for arm in ("C", "E"):
+    f = S / f"arm-{arm}" / "results" / "ledger.jsonl"
+    if f.exists():
+        for line in f.read_text().splitlines():
+            try:
+                total += int(json.loads(line).get("tokens") or 0)
+            except (ValueError, TypeError):
+                pass
+print(total)

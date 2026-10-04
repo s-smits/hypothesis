@@ -1,0 +1,85 @@
+{
+  "dag": {
+    "inputs": {
+      "seqs": "dna"
+    },
+    "steps": {
+      "prot": {
+        "config": {
+          "name": "dna_to_protein",
+          "config_hash": "17f985df"
+        },
+        "inputs": {
+          "sequence": "seqs"
+        }
+      }
+    }
+  },
+  "steps": {
+    "prot": "done"
+  },
+  "values": {
+    "seqs": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGAAACTGTAA",
+          "id": "ebc5eb46c9cb",
+          "display": "ATGAAACTGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTGAAATCCTAA",
+          "id": "6ce280f72d75",
+          "display": "ATGGCTCTGAAATCCTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTGAAATCCACTGGCGAATAA",
+          "id": "5ff31578ee1e",
+          "display": "ATGGCTCTGAAATCCACTGGCGAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTGAAATCCACTGGCGAAGTTCCGCAGAACCTGGATCGTTACGTGAAATAA",
+          "id": "c803bc591289",
+          "display": "ATGGCTCTGAAATCCACTGGCGAAGTTCCGCAGAACCTGGATCGTTACGTGAAATAA"
+        }
+      ],
+      "scores": {}
+    },
+    "prot": {
+      "items": [
+        {
+          "kind": "amino_acid_sequence",
+          "sequence": "MKL*",
+          "id": "896db5b9367d",
+          "display": "MKL*"
+        },
+        {
+          "kind": "amino_acid_sequence",
+          "sequence": "MALKS*",
+          "id": "e11296b6700a",
+          "display": "MALKS*"
+        },
+        {
+          "kind": "amino_acid_sequence",
+          "sequence": "MALKSTGE*",
+          "id": "f4d335db0722",
+          "display": "MALKSTGE*"
+        },
+        {
+          "kind": "amino_acid_sequence",
+          "sequence": "MALKSTGEVPQNLDRYVK*",
+          "id": "813a354ecdee",
+          "display": "MALKSTGEVPQNLDRYVK*"
+        }
+      ],
+      "scores": {}
+    }
+  },
+  "status": "COMPLETED",
+  "start_time": "2026-10-04T00:49:39.492000Z",
+  "close_time": "2026-10-04T00:49:39.501000Z",
+  "error": null
+}

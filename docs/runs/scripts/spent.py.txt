@@ -1,0 +1,16 @@
+"""Tokens recorded so far in both arms' ledgers. Prints one integer."""
+import json
+import sys
+from pathlib import Path
+
+S = Path(sys.argv[1])
+total = 0
+for arm in ("A", "B"):
+    f = S / f"arm-{arm}" / "results" / "ledger.jsonl"
+    if f.exists():
+        for line in f.read_text().splitlines():
+            try:
+                total += int(json.loads(line).get("tokens") or 0)
+            except (ValueError, TypeError):
+                pass
+print(total)

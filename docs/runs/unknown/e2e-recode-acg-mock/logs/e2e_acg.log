@@ -1,0 +1,10 @@
+time=2026-10-03T17:31:29.414 level=WARN msg="Cluster Id in Cluster Metadata config is not a valid uuid. Generating a new Cluster Id" component=metadata-initializer
+Temporal CLI 1.9.1 (Server 1.32.0, UI 2.54.1)
+
+Temporal Server:      localhost:50012
+Temporal Persistence: in-memory
+Temporal Metrics:     http://localhost:50017/metrics
+[progress] round 0: building
+[progress] round 1: building
+[progress] round 1: blocked
+time=2026-10-04T01:01:00.502 level=WARN msg="RecordActivityHeartbeat with error" service=worker Namespace=temporal-system TaskQueue=temporal-sys-tq-scanner-taskqueue-0 WorkerID=temporal-system@127.0.0.1:50021 ActivityID=5 ActivityType=temporal-sys-tq-scanner-scvg-activity Attempt=1 WorkflowType=temporal-sys-tq-scanner-workflow WorkflowID=temporal-sys-tq-scanner RunID=01a1029b-38c2-7d5d-81cc-b6233ef7b496 Error="context canceled"

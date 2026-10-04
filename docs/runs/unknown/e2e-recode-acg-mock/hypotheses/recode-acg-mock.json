@@ -1,0 +1,377 @@
+{
+  "id": "recode-acg-mock",
+  "goal": "Recode the gene to eliminate the ACG codon while maintaining the ORFs of both trpA and trpB",
+  "inputs": {
+    "gene": [
+      {
+        "kind": "dna",
+        "sequence": "ATGCCGAGGCGTACGAATACATGCGCAACTACGGCTAATTTTGAGATTACGACCCTCTAATTAAGGAGGTATGCTAACAACGACCGCCCTCAATTGCGCGAGACAAACGGGGGCTAATGCGGCTACGAATCAATAA",
+        "id": "4ebdb2464c99",
+        "display": "ATGCCGAGGCGTACGAATACATGCGCAACTACGGCTAATTTTGAGATTACGACCCTCTAATTAAGGAGGTATGCTAACAACGACCGCCCTCAATTGCGCGAGACAAACGGGGGCTAATGCGGCTACGAATCAATAA"
+      }
+    ]
+  },
+  "hypothesis": "The gene has trpA in frame 0 (ATG..CTC TAA, nt 0-62) and trpB in frame +1 (ATG at nt 73..TAA at end). recode_codons only works on frame 0, so it can't remove ACG from trpB (its ACGs sit out of frame 0). A frame-aware recoder is needed that recodes each ORF in its own frame, followed by a per-ORF checker and filters.",
+  "dag": null,
+  "workflow_id": null,
+  "outcome": null,
+  "verdict": null,
+  "criteria": [
+    {
+      "id": "no_acg_codons",
+      "claim": "In the recoded DNA sequence, no in-frame codon in the reading frame of trpA or trpB is ACG.",
+      "source": "derived"
+    },
+    {
+      "id": "trpa_orf_intact",
+      "claim": "The recoded sequence contains a trpA ORF with the same start codon, a protein translation identical to the original trpA, and a terminating stop codon, with no premature stops.",
+      "source": "derived"
+    },
+    {
+      "id": "trpb_orf_intact",
+      "claim": "The recoded sequence contains a trpB ORF with the same start codon, a protein translation identical to the original trpB, and a terminating stop codon, with no premature stops.",
+      "source": "derived"
+    },
+    {
+      "id": "valid_dna_output",
+      "claim": "The output is a valid DNA sequence (only A, C, G, T) that is a recoded version of the input gene, with trpA and trpB in the same relative positions and orientation as the original.",
+      "source": "derived"
+    }
+  ],
+  "state": "blocked",
+  "round": 1,
+  "attempts": [
+    {
+      "round": 1,
+      "plan": {
+        "hypothesis": "The gene has trpA in frame 0 (ATG..CTC TAA, nt 0-62) and trpB in frame +1 (ATG at nt 73..TAA at end). recode_codons only works on frame 0, so it can't remove ACG from trpB (its ACGs sit out of frame 0). A frame-aware recoder is needed that recodes each ORF in its own frame, followed by a per-ORF checker and filters.",
+        "expected": "A recoded DNA of the same length, with ACG replaced synonymously in both ORFs, so trpA and trpB proteins are identical, start ATG and terminal TAA are kept, and no in-frame ACG remains in either ORF. Filters on acg count and ORF defect counts all take the yes branch.",
+        "assertions": [
+          {
+            "criterion": "no_acg_codons",
+            "step": "f_acg",
+            "branch": "yes",
+            "claim": "Recoded sequence has zero ACG in-frame codons in trpA and trpB."
+          },
+          {
+            "criterion": "trpa_orf_intact",
+            "step": "f_trpa",
+            "branch": "yes",
+            "claim": "trpA keeps ATG start, identical protein, terminal stop, no premature stops."
+          },
+          {
+            "criterion": "trpb_orf_intact",
+            "step": "f_trpb",
+            "branch": "yes",
+            "claim": "trpB keeps ATG start, identical protein, terminal stop, no premature stops."
+          },
+          {
+            "criterion": "valid_dna_output",
+            "step": "f_valid",
+            "branch": "yes",
+            "claim": "Output is valid ACGT DNA with ORFs in the same positions and orientation."
+          }
+        ],
+        "inputs": {
+          "gene": "dna"
+        },
+        "steps": {
+          "recode": {
+            "node": "recode_orf_codons",
+            "config": {
+              "targets": [
+                "ACG"
+              ],
+              "orf_starts": [
+                "0",
+                "73"
+              ]
+            },
+            "inputs": {
+              "sequence": "gene"
+            },
+            "why": "Remove ACG in both trpA (frame 0) and trpB (frame +1) synonymously."
+          },
+          "check": {
+            "node": "orf_acg_check",
+            "config": {
+              "reference": "ATGCCGAGGCGTACGAATACATGCGCAACTACGGCTAATTTTGAGATTACGACCCTCTAATTAAGGAGGTATGCTAACAACGACCGCCCTCAATTGCGCGAGACAAACGGGGGCTAATGCGGCTACGAATCAATAA",
+              "codon": "ACG",
+              "orf_starts": [
+                "0",
+                "73"
+              ]
+            },
+            "inputs": {
+              "sequence": "recode"
+            },
+            "why": "Score ACG count and ORF integrity of both ORFs."
+          },
+          "f_acg": {
+            "node": "at_most",
+            "config": {
+              "column": "orf_acg_check__6c085d2a__acg_in_orf_count",
+              "threshold": 0
+            },
+            "inputs": {
+              "items": "check"
+            },
+            "why": "No in-frame ACG remains in either ORF."
+          },
+          "f_trpa": {
+            "node": "at_most",
+            "config": {
+              "column": "orf_acg_check__6c085d2a__trpa_orf_defects",
+              "threshold": 0
+            },
+            "inputs": {
+              "items": "f_acg.yes"
+            },
+            "why": "trpA ORF intact."
+          },
+          "f_trpb": {
+            "node": "at_most",
+            "config": {
+              "column": "orf_acg_check__6c085d2a__trpb_orf_defects",
+              "threshold": 0
+            },
+            "inputs": {
+              "items": "f_trpa.yes"
+            },
+            "why": "trpB ORF intact."
+          },
+          "f_valid": {
+            "node": "at_most",
+            "config": {
+              "column": "orf_acg_check__6c085d2a__layout_defects",
+              "threshold": 0
+            },
+            "inputs": {
+              "items": "f_trpb.yes"
+            },
+            "why": "Valid DNA with same layout."
+          }
+        },
+        "requests": {
+          "recode_orf_codons": {
+            "name": "recode_orf_codons",
+            "node": "tool",
+            "purpose": "Replace target codons with synonymous non-target codons, in each of several ORFs given by 0-based start offsets, each in its own reading frame, leaving everything outside the ORFs unchanged.",
+            "port": "sequence",
+            "kind": "dna",
+            "output": "dna",
+            "config_fields": [
+              {
+                "name": "targets",
+                "type": "list[str]",
+                "description": "Codons to remove",
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "orf_starts",
+                "type": "list[str]",
+                "description": "0-based start offsets of ORFs, as strings",
+                "required": true,
+                "default": null
+              }
+            ],
+            "why_needed": "trpA is in frame 0 and trpB in frame +1 (starts at nt 73), so ACG codons in trpB must be recoded in that frame, which recode_codons cannot do.",
+            "why_not_composable": "recode_codons acts only on frame 0 of the whole sequence; mutate_synonymous is random and also frame 0; no slicing/frame-shift node exists.",
+            "example": "gene with targets=[ACG], orf_starts=[0,73] -> same sequence with ACG in trpA frame and trpB frame replaced by ACC (Thr), all else unchanged"
+          },
+          "orf_acg_check": {
+            "name": "orf_acg_check",
+            "node": "score",
+            "purpose": "For a recoded DNA, given the original, report per ORF: number of in-frame target codons, and defects (start codon changed, protein differs from original, premature stop, missing terminal stop), plus layout defects (non-ACGT chars, length/position change).",
+            "port": "sequence",
+            "kind": "dna",
+            "output": [
+              "acg_in_orf_count",
+              "trpa_orf_defects",
+              "trpb_orf_defects",
+              "layout_defects"
+            ],
+            "config_fields": [
+              {
+                "name": "reference",
+                "type": "str",
+                "description": "Original gene sequence",
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "codon",
+                "type": "str",
+                "description": "Codon that must be absent",
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "orf_starts",
+                "type": "list[str]",
+                "description": "0-based ORF start offsets",
+                "required": true,
+                "default": null
+              }
+            ],
+            "why_needed": "Need to verify both ORFs in their own frames, which codon_count and dna_atom_score cannot do.",
+            "why_not_composable": "codon_count only checks frame 0; dna_atom_score compares only a single whole-sequence frame-0 protein.",
+            "example": "recoded gene vs original, orf_starts=[0,73], codon ACG -> acg_in_orf_count=0, trpa_orf_defects=0, trpb_orf_defects=0, layout_defects=0"
+          }
+        },
+        "addresses_critique": ""
+      },
+      "requests": [
+        {
+          "name": "orf_acg_check",
+          "node": "score",
+          "purpose": "For a recoded DNA, given the original, report per ORF: number of in-frame target codons, and defects (start codon changed, protein differs from original, premature stop, missing terminal stop), plus layout defects (non-ACGT chars, length/position change).",
+          "port": "sequence",
+          "kind": "dna",
+          "output": [
+            "acg_in_orf_count",
+            "trpa_orf_defects",
+            "trpb_orf_defects",
+            "layout_defects"
+          ],
+          "config_fields": [
+            {
+              "name": "reference",
+              "type": "str",
+              "description": "Original gene sequence",
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "codon",
+              "type": "str",
+              "description": "Codon that must be absent",
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "orf_starts",
+              "type": "list[str]",
+              "description": "0-based ORF start offsets",
+              "required": true,
+              "default": null
+            }
+          ],
+          "why_needed": "Need to verify both ORFs in their own frames, which codon_count and dna_atom_score cannot do.",
+          "why_not_composable": "codon_count only checks frame 0; dna_atom_score compares only a single whole-sequence frame-0 protein.",
+          "example": "recoded gene vs original, orf_starts=[0,73], codon ACG -> acg_in_orf_count=0, trpa_orf_defects=0, trpb_orf_defects=0, layout_defects=0"
+        },
+        {
+          "name": "recode_orf_codons",
+          "node": "tool",
+          "purpose": "Replace target codons with synonymous non-target codons, in each of several ORFs given by 0-based start offsets, each in its own reading frame, leaving everything outside the ORFs unchanged.",
+          "port": "sequence",
+          "kind": "dna",
+          "output": "dna",
+          "config_fields": [
+            {
+              "name": "targets",
+              "type": "list[str]",
+              "description": "Codons to remove",
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "orf_starts",
+              "type": "list[str]",
+              "description": "0-based start offsets of ORFs, as strings",
+              "required": true,
+              "default": null
+            }
+          ],
+          "why_needed": "trpA is in frame 0 and trpB in frame +1 (starts at nt 73), so ACG codons in trpB must be recoded in that frame, which recode_codons cannot do.",
+          "why_not_composable": "recode_codons acts only on frame 0 of the whole sequence; mutate_synonymous is random and also frame 0; no slicing/frame-shift node exists.",
+          "example": "gene with targets=[ACG], orf_starts=[0,73] -> same sequence with ACG in trpA frame and trpB frame replaced by ACC (Thr), all else unchanged"
+        }
+      ],
+      "dag": null,
+      "outcome": null,
+      "held": {},
+      "produced": {},
+      "verdict": null,
+      "critique": null,
+      "error": null,
+      "started": "2026-10-03T16:31:37.384705Z"
+    }
+  ],
+  "pending": [
+    {
+      "name": "orf_acg_check",
+      "node": "score",
+      "purpose": "For a recoded DNA, given the original, report per ORF: number of in-frame target codons, and defects (start codon changed, protein differs from original, premature stop, missing terminal stop), plus layout defects (non-ACGT chars, length/position change).",
+      "port": "sequence",
+      "kind": "dna",
+      "output": [
+        "acg_in_orf_count",
+        "trpa_orf_defects",
+        "trpb_orf_defects",
+        "layout_defects"
+      ],
+      "config_fields": [
+        {
+          "name": "reference",
+          "type": "str",
+          "description": "Original gene sequence",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "codon",
+          "type": "str",
+          "description": "Codon that must be absent",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "orf_starts",
+          "type": "list[str]",
+          "description": "0-based ORF start offsets",
+          "required": true,
+          "default": null
+        }
+      ],
+      "why_needed": "Need to verify both ORFs in their own frames, which codon_count and dna_atom_score cannot do.",
+      "why_not_composable": "codon_count only checks frame 0; dna_atom_score compares only a single whole-sequence frame-0 protein.",
+      "example": "recoded gene vs original, orf_starts=[0,73], codon ACG -> acg_in_orf_count=0, trpa_orf_defects=0, trpb_orf_defects=0, layout_defects=0"
+    },
+    {
+      "name": "recode_orf_codons",
+      "node": "tool",
+      "purpose": "Replace target codons with synonymous non-target codons, in each of several ORFs given by 0-based start offsets, each in its own reading frame, leaving everything outside the ORFs unchanged.",
+      "port": "sequence",
+      "kind": "dna",
+      "output": "dna",
+      "config_fields": [
+        {
+          "name": "targets",
+          "type": "list[str]",
+          "description": "Codons to remove",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "orf_starts",
+          "type": "list[str]",
+          "description": "0-based start offsets of ORFs, as strings",
+          "required": true,
+          "default": null
+        }
+      ],
+      "why_needed": "trpA is in frame 0 and trpB in frame +1 (starts at nt 73), so ACG codons in trpB must be recoded in that frame, which recode_codons cannot do.",
+      "why_not_composable": "recode_codons acts only on frame 0 of the whole sequence; mutate_synonymous is random and also frame 0; no slicing/frame-shift node exists.",
+      "example": "gene with targets=[ACG], orf_starts=[0,73] -> same sequence with ACG in trpA frame and trpB frame replaced by ACC (Thr), all else unchanged"
+    }
+  ],
+  "usage": {
+    "criteria": 1293,
+    "total": 74854,
+    "plan": 73561
+  },
+  "stopped_because": null
+}

@@ -1,0 +1,60 @@
+"""Build a small goal pack from the benchmark's development split (no model, no held-out access).
+
+Same selection as `temporal/run_benchmark.py` (default accession, 14 genes, default split), so the
+weights are the benchmark's own. Writes pack.json (instances, CAI weights) and one goal file per gene.
+The exact optimum is NOT written into any goal file: it stays in the scorer.
+Usage: bench_pack.py <out dir> <gene> [<gene> ...]
+"""
+
+import json
+import sys
+from pathlib import Path
+
+from node_dag import entrez
+from node_dag.benchmark import Instance, cai_weights_from, split_instances
+from node_dag.types import Dna
+from temporal.run_benchmark import _pick
+
+out = Path(sys.argv[1])
+genes = sys.argv[2:]
+out.mkdir(parents=True, exist_ok=True)
+records = [r for r in entrez.fetch_cds("NC_000913.3") if r.get("usable")]
+picked = _pick(records, 14)
+ids = {r["id"] for r in picked}
+reference = [r["sequence"] for r in records if r["id"] not in ids]
+weights = cai_weights_from(reference)
+instances = [
+    Instance(key=r["gene"] or r["id"], parent=Dna(sequence=r["sequence"])) for r in picked
+]
+split = split_instances(instances, holdout_fraction=0.3, salt="")
+dev = {i.key: i for i in split.dev}
+(out / "pack.json").write_text(
+    json.dumps(
+        {
+            "split_hash": split.split_hash,
+            "dev": {k: v.parent.sequence for k, v in dev.items()},
+            "cai_weights": weights,
+        },
+        indent=1,
+    )
+)
+table = json.dumps(dict(sorted(weights.items())), separators=(",", ":"))
+criteria = [
+    ("protein_preserved", "Every kept output DNA sequence translates to exactly the same protein as the input sequence: only synonymous codon changes were made."),
+    ("higher_cai", "Every kept output sequence has a codon adaptation index, scored with the given weight table, strictly higher than that of the first input sequence."),
+    ("only_improved_kept", "Any sequence whose codon adaptation index is not higher than the first sequence's is excluded from the output."),
+    ("length_preserved", "Every kept output sequence has the same length as the input sequence."),
+]
+for gene in genes:
+    goal = {
+        "goal": (
+            "Raise the codon adaptation index of the DNA sequence without changing its protein. "
+            f"Score it with this codon weight table: {table} . "
+            "Keep the ones that score higher than the first sequence."
+        ),
+        "inputs": {"seqs": [{"kind": "dna", "sequence": dev[gene].parent.sequence}]},
+        "criteria": [{"id": i, "claim": c, "source": "human"} for i, c in criteria],
+    }
+    (out / f"goal_{gene}.json").write_text(json.dumps(goal, indent=1))
+    print(gene, len(dev[gene].parent.sequence) // 3, "codons")
+print("dev genes:", sorted(dev), "split", split.split_hash)

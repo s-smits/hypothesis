@@ -1,0 +1,64 @@
+{
+  "dag": {
+    "inputs": {
+      "seq": "dna"
+    },
+    "steps": {
+      "recoded": {
+        "config": {
+          "name": "recode_codons",
+          "targets": [
+            "TCG",
+            "TCA"
+          ]
+        },
+        "inputs": {
+          "sequence": "seq"
+        }
+      },
+      "clean": {
+        "config": {
+          "name": "codons_absent",
+          "codons": [
+            "TCG",
+            "TCA"
+          ]
+        },
+        "inputs": {
+          "sequence": "recoded"
+        }
+      },
+      "protein": {
+        "config": {
+          "name": "dna_to_protein"
+        },
+        "inputs": {
+          "sequence": "clean.yes"
+        }
+      }
+    }
+  },
+  "steps": {
+    "recoded": "done",
+    "clean": "done",
+    "protein": "done"
+  },
+  "values": {
+    "seq": {
+      "kind": "dna",
+      "sequence": "ATGTCGTCAGCTTAA"
+    },
+    "recoded": {
+      "kind": "dna",
+      "sequence": "ATGTCTTCTGCTTAA"
+    },
+    "clean.yes": {
+      "kind": "dna",
+      "sequence": "ATGTCTTCTGCTTAA"
+    },
+    "protein": {
+      "kind": "amino_acid_sequence",
+      "sequence": "MSSA*"
+    }
+  }
+}

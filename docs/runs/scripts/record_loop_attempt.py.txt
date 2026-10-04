@@ -1,0 +1,258 @@
+"""Record one saved HypothesisLoop run in the benchmark's append-only attempt ledger. No model, no network.
+
+It scores the run's kept sequences with the benchmark's own gate and CAI objective, from saved bytes
+(the same selection bench_score.py makes), builds a `Result` for strategy "loop", and appends one
+attempt with `record_attempt`. Development genes only: the pack holds no held-out sequence, and the
+split is rebuilt with `split_instances` and checked against the pack's split_hash.
+
+Usage:
+    record_loop_attempt.py <results dir> <hypothesis id or 8-char prefix> <gene> <pack.json> <commit> <ledger root>
+
+<ledger root> is the NODE_DAG_RESULTS root (entries go under <root>/ledger, as `Ledger()` does by
+default); a path that itself ends in `ledger` is used as the entry directory.
+
+Which round is recorded:
+  - state "achieved": the round the loop's verifier accepted (the attempt whose verdict says achieved).
+  - any other finished state: the best round by the benchmark's own gap_closed, and `selection` says so.
+    That choice is made after scoring, on development data, so such an entry is optimistic.
+  - a run that is still building, running, verifying, critiquing or blocked is refused.
+In every case the kept set is what the plan kept: the smallest non-empty `.yes` table of the round's
+workflow values (a filter chain only narrows, so the last stage holds the answer).
+
+Refuses (exit 1) when this hypothesis id is already recorded in that ledger.
+"""
+
+import json
+import math
+import os
+import sys
+from pathlib import Path
+
+from node_dag.benchmark import (
+    Instance,
+    Ledger,
+    Result,
+    cai_objective,
+    gate,
+    manifest,
+    record_attempt,
+    split_instances,
+)
+from node_dag.types import Dna
+
+TERMINAL = {"achieved", "not achieved", "abandoned", "failed"}
+
+
+def fail(message: str) -> "None":
+    sys.exit(f"record_loop_attempt: {message}")
+
+
+def resolve(results: Path, wanted: str) -> Path:
+    """The saved hypothesis file for a full id, a uuid, or a prefix. Chosen by file name only."""
+    files = sorted((results / "hypotheses").glob("hypothesis-*.json"))
+    bare = wanted[len("hypothesis-"):] if wanted.startswith("hypothesis-") else wanted
+    hits = [p for p in files if p.stem == f"hypothesis-{bare}" or p.stem.startswith(f"hypothesis-{bare}")]
+    if len(hits) != 1:
+        fail(f"{wanted!r} matches {len(hits)} hypothesis files under {results / 'hypotheses'}, need exactly 1")
+    return hits[0]
+
+
+def already_recorded(entries_dir: Path, hid: str) -> list[Path]:
+    marker = f"loop run {hid} "
+    found = []
+    for path in sorted(entries_dir.glob("*.json")) if entries_dir.exists() else []:
+        try:
+            body = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        notes = (body.get("manifest") or {}).get("notes") or ""
+        if body.get("kind") == "attempt" and marker in notes:
+            found.append(path)
+    return found
+
+
+def rebuild_split(pack: dict, entries_dir: Path):
+    """The Split the benchmark made, rebuilt with `split_instances` and checked against the pack.
+
+    The pack carries only development sequences. The held-out side is rebuilt from KEYS ONLY, taken
+    from the split summary every recorded attempt already carries (`split.holdout_keys`, salt,
+    fraction), with an empty placeholder sequence: no held-out sequence is read or needed, since the
+    assignment and `split_hash` depend on keys and salt alone.
+    """
+    summary = next(
+        (
+            e["split"]
+            for e in Ledger(entries_dir).entries()
+            if e.get("kind") == "attempt"
+            and (e.get("split") or {}).get("split_hash") == pack["split_hash"]
+        ),
+        None,
+    )
+    if summary is None:
+        fail(f"no attempt in {entries_dir} carries split_hash {pack['split_hash']}; cannot rebuild the split keys")
+    if sorted(summary["dev_keys"]) != sorted(pack["dev"]):
+        fail("the ledger's dev_keys differ from the pack's dev genes")
+    instances = [Instance(key=k, parent=Dna(sequence=s)) for k, s in pack["dev"].items()]
+    instances += [Instance(key=k, parent=Dna(sequence="")) for k in summary["holdout_keys"]]
+    split = split_instances(
+        instances, holdout_fraction=summary["holdout_fraction_asked"], salt=summary["salt"]
+    )
+    if split.split_hash != pack["split_hash"]:
+        fail(f"rebuilt split_hash {split.split_hash} != pack split_hash {pack['split_hash']}")
+    if sorted(i.key for i in split.dev) != sorted(pack["dev"]):
+        fail("rebuilt split puts a different set of genes on the development side")
+    return split
+
+
+def passes(gates: dict) -> bool:
+    """The same three conditions as `Result.passed`."""
+    return (
+        gates.get("protein_unchanged") == 1.0
+        and gates.get("length_unchanged") == 1.0
+        and gates.get("targets_remaining", 0.0) == 0.0
+    )
+
+
+def kept_set(results: Path, h: dict, attempt: dict) -> list[str]:
+    name = attempt.get("workflow_id") or f"{h['id']}-r{attempt['round']}"
+    path = results / "workflows" / f"{name}.json"
+    if not path.exists():
+        return []
+    flow = json.loads(path.read_text())
+    yes = [k for k in flow["values"] if k.endswith(".yes") and flow["values"][k]["items"]]
+    items = min((flow["values"][k]["items"] for k in yes), key=len, default=[])
+    return [i["sequence"] for i in items]
+
+
+def score_round(inst: Instance, obj, optimum: float, parent: float, gene: str, seqs: list[str]):
+    scored = []
+    for s in seqs:
+        g = gate(inst, s)
+        ok = passes(g)
+        scored.append((s, ok, obj.score(s) if ok else None))
+    passing = [(v, s) for s, ok, v in scored if ok and v is not None and math.isfinite(v)]
+    best = max(passing, default=None)
+    res = Result(
+        instance=gene,
+        strategy="loop",
+        candidate=best[1] if best else None,
+        score=best[0] if best else None,
+        optimum=optimum,
+        parent_score=parent,
+        gates=gate(inst, best[1]) if best else {},
+        evaluations=len(seqs),
+    )
+    not_better = sum(1 for _, ok, v in scored if not ok or v is None or v <= parent + 1e-12)
+    return res, not_better
+
+
+def main(argv: list[str]) -> None:
+    if len(argv) != 7:
+        fail("usage: record_loop_attempt.py <results dir> <hypothesis id> <gene> <pack.json> <commit> <ledger root>")
+    results, wanted, gene, pack_path, commit, ledger_arg = (
+        Path(argv[1]), argv[2], argv[3], Path(argv[4]), argv[5], Path(argv[6]),
+    )
+    entries_dir = ledger_arg if ledger_arg.name == "ledger" else ledger_arg / "ledger"
+    os.environ["NODE_DAG_RESULTS"] = str(entries_dir.parent)  # what Ledger() would use by default
+
+    hfile = resolve(results, wanted)
+    h = json.loads(hfile.read_text())
+    hid, state = h["id"], h.get("state")
+    if state not in TERMINAL:
+        fail(f"{hid} is {state!r}, not finished (need one of {sorted(TERMINAL)}); nothing recorded")
+    prior = already_recorded(entries_dir, hid)
+    if prior:
+        fail(f"{hid} is already recorded in {entries_dir}: {prior[0].name}; nothing written")
+
+    pack = json.loads(pack_path.read_text())
+    if gene not in pack["dev"]:
+        fail(f"{gene!r} is not a development gene in the pack (dev genes: {sorted(pack['dev'])})")
+    inst = Instance(key=gene, parent=Dna(sequence=pack["dev"][gene]))
+    given = [i["sequence"] for i in (h.get("inputs") or {}).get("seqs", [])]
+    if given != [inst.parent.sequence]:
+        fail(f"{hid}'s input is not the pack's {gene} sequence; refusing to score it as {gene}")
+    table = json.dumps(dict(sorted(pack["cai_weights"].items())), separators=(",", ":"))
+    if table not in h["goal"]:
+        fail(f"{hid}'s goal does not carry the pack's CAI weight table; the objective would differ")
+
+    split = rebuild_split(pack, entries_dir)
+    obj = cai_objective(pack["cai_weights"])
+    optimum, parent = obj.score(obj.optimum(inst)), obj.score(inst.parent.sequence)
+
+    rounds = {}
+    for a in h["attempts"]:
+        seqs = kept_set(results, h, a)
+        rounds[a["round"]] = (a, *score_round(inst, obj, optimum, parent, gene, seqs))
+
+    accepted = [a["round"] for a in h["attempts"] if (a.get("verdict") or {}).get("achieved")]
+    if state == "achieved":
+        accepted_round = accepted[-1] if accepted else h.get("round")
+        chosen = accepted_round if accepted_round in rounds else None
+        basis = "its verdict says achieved" if accepted else "inferred from state, no verdict says achieved"
+        selection = (
+            f"The loop's own verifier accepted round {accepted_round} ({basis}) and that round's kept set "
+            "was recorded as it stands; the loop chose it, this benchmark's score did not, and no "
+            "held-out data was used."
+        )
+    else:
+        accepted_round = None
+
+        def key(r):
+            gc = rounds[r][1].gap_closed
+            return (gc is not None, gc if gc is not None else 0.0, r)
+
+        chosen = max(rounds, key=key) if rounds else None
+        selection = (
+            f"The run ended {state!r} and its verifier accepted no round, so the best round "
+            f"({chosen if chosen is not None else 'none'}) by this benchmark's own gap_closed on the "
+            "development gene was recorded; that choice was made after scoring, so it is optimistic, "
+            "and no held-out data was used."
+        )
+    if chosen is None:
+        result = Result(
+            instance=gene, strategy="loop", candidate=None, score=None, optimum=optimum,
+            parent_score=parent, gates={}, evaluations=0,
+        )
+        kept, not_better = 0, 0
+    else:
+        a, result, not_better = rounds[chosen]
+        kept = result.evaluations
+
+    usage = h.get("usage") or {}
+    ledger_line = {}
+    ledger_path = results / "ledger.jsonl"
+    if ledger_path.exists():
+        for line in ledger_path.read_text().splitlines():
+            try:
+                d = json.loads(line)
+            except ValueError:
+                continue
+            if d.get("hypothesis") == hid:
+                ledger_line = d
+    models = h.get("models") or ledger_line.get("models") or {}
+    seed = h["seed"] if isinstance(h.get("seed"), int) else 0
+    notes = (
+        f"loop run {hid} state={state} rounds={len(h['attempts'])} tokens={usage.get('total', 'unknown')} "
+        f"accepted_round={accepted_round if accepted_round is not None else 'none'}; "
+        f"kept {kept}, {not_better} not above the original; "
+        f"models build={models.get('plan') or models.get('build') or 'not saved'} "
+        f"verify={models.get('verify') or 'not saved'}; "
+        "evaluations is the kept count, not the loop's scoring budget"
+    )
+    m = manifest([inst], obj, pack["cai_weights"], seed=seed, notes=notes, split=split)
+    m["commit"] = commit  # manifest() reads HEAD of the cwd; the run's own commit is what belongs here
+    path = record_attempt(
+        Ledger(entries_dir),
+        manifest_=m,
+        split=split,
+        results={"loop": [result]},
+        selection=selection,
+    )
+    gc = result.gap_closed
+    print(f"{gene}: round {chosen}, kept {kept}, {not_better} not above original, "
+          f"gap_closed {'none' if gc is None else f'{gc:.4f}'}, passed {result.passed}")
+    print(path)
+
+
+if __name__ == "__main__":
+    main(sys.argv)

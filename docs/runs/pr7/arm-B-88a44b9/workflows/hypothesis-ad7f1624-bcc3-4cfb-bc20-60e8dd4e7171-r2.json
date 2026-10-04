@@ -1,0 +1,5076 @@
+{
+  "dag": {
+    "inputs": {
+      "seqs": "dna"
+    },
+    "steps": {
+      "baseline": {
+        "config": {
+          "name": "ostir_expression",
+          "config_hash": "c7b59231",
+          "utr": "TTTAAGAAGGAGATATACATAAAAAAAACATACAA",
+          "anti_sd": "ACCTCCTTA"
+        },
+        "inputs": {
+          "sequence": "seqs"
+        }
+      },
+      "mutate": {
+        "config": {
+          "name": "mutate_synonymous",
+          "config_hash": "0c2e8ea1",
+          "seed": 2,
+          "count": 3,
+          "variants_per_sequence": 60
+        },
+        "inputs": {
+          "sequence": "seqs"
+        }
+      },
+      "check": {
+        "config": {
+          "name": "constraint_check",
+          "config_hash": "c174c7c7",
+          "reference": {
+            "kind": "dna",
+            "sequence": "ATGGCTCTGAAATAA",
+            "id": "1e142be77490",
+            "display": "ATGGCTCTGAAATAA"
+          },
+          "targeted_codons": []
+        },
+        "inputs": {
+          "sequence": "mutate"
+        }
+      },
+      "protein_filter": {
+        "config": {
+          "name": "at_least",
+          "config_hash": "cd25bef6",
+          "column": "constraint_check__c174c7c7__protein_unchanged",
+          "threshold": 1.0
+        },
+        "inputs": {
+          "items": "check"
+        }
+      },
+      "length_filter": {
+        "config": {
+          "name": "at_least",
+          "config_hash": "37214df3",
+          "column": "constraint_check__c174c7c7__length_unchanged",
+          "threshold": 1.0
+        },
+        "inputs": {
+          "items": "protein_filter.yes"
+        }
+      },
+      "score": {
+        "config": {
+          "name": "ostir_expression",
+          "config_hash": "c7b59231",
+          "utr": "TTTAAGAAGGAGATATACATAAAAAAAACATACAA",
+          "anti_sd": "ACCTCCTTA"
+        },
+        "inputs": {
+          "sequence": "length_filter.yes"
+        }
+      },
+      "keep_better": {
+        "config": {
+          "name": "at_least",
+          "config_hash": "bcb3fd98",
+          "column": "ostir_expression__c7b59231__expression",
+          "threshold": 45.0
+        },
+        "inputs": {
+          "items": "score"
+        }
+      }
+    }
+  },
+  "steps": {
+    "baseline": "done",
+    "mutate": "done",
+    "check": "done",
+    "protein_filter": "done",
+    "length_filter": "done",
+    "score": "done",
+    "keep_better": "done"
+  },
+  "values": {
+    "seqs": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTGAAATAA",
+          "id": "1e142be77490",
+          "display": "ATGGCTCTGAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTAAAGTAG",
+          "id": "b4fd7183a224",
+          "display": "ATGGCGTTAAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTGAAATGA",
+          "id": "f9932d4787c6",
+          "display": "ATGGCCCTGAAATGA"
+        }
+      ],
+      "scores": {}
+    },
+    "baseline": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTGAAATAA",
+          "id": "1e142be77490",
+          "display": "ATGGCTCTGAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTAAAGTAG",
+          "id": "b4fd7183a224",
+          "display": "ATGGCGTTAAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTGAAATGA",
+          "id": "f9932d4787c6",
+          "display": "ATGGCCCTGAAATGA"
+        }
+      ],
+      "scores": {
+        "ostir_expression__c7b59231__expression": {
+          "1e142be77490": 41.6249,
+          "b4fd7183a224": 50.8414,
+          "f9932d4787c6": 50.8414
+        }
+      }
+    },
+    "mutate": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAGTAA",
+          "id": "ad533fa21c2a",
+          "display": "ATGGCATTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTGAAGTAG",
+          "id": "e1ce74e8b75a",
+          "display": "ATGGCCCTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAGTAA",
+          "id": "4e13c5cbad03",
+          "display": "ATGGCATTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTGAAATAG",
+          "id": "69374516d0bb",
+          "display": "ATGGCGTTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAGTAA",
+          "id": "f8797149893b",
+          "display": "ATGGCGCTCAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAGTGA",
+          "id": "fdcde510ae48",
+          "display": "ATGGCGCTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTAAAATGA",
+          "id": "6f14c80346a8",
+          "display": "ATGGCGTTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAATGA",
+          "id": "817f8909b1d4",
+          "display": "ATGGCACTTAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAATAG",
+          "id": "8cf72b72f96e",
+          "display": "ATGGCCCTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTGAAATGA",
+          "id": "fb308a801cec",
+          "display": "ATGGCGTTGAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAATGA",
+          "id": "09358ea56193",
+          "display": "ATGGCACTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAATGA",
+          "id": "a73adc7c7b83",
+          "display": "ATGGCATTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAATAG",
+          "id": "fd87edbb3210",
+          "display": "ATGGCCCTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAATGA",
+          "id": "b0e29c18ddf7",
+          "display": "ATGGCATTGAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTAAAGTGA",
+          "id": "c71ffed3d857",
+          "display": "ATGGCTCTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAATAG",
+          "id": "2334befd95e9",
+          "display": "ATGGCGCTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAGTGA",
+          "id": "f2272f4209c6",
+          "display": "ATGGCACTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTGAAGTAG",
+          "id": "b8f426b0b389",
+          "display": "ATGGCTTTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTGAAGTGA",
+          "id": "10e7076dbe5d",
+          "display": "ATGGCTTTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAATAG",
+          "id": "81d9aaf0cd60",
+          "display": "ATGGCCTTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAGTAA",
+          "id": "e7ab578ad990",
+          "display": "ATGGCCCTCAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTAAAATAG",
+          "id": "666916b07004",
+          "display": "ATGGCGCTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAGTAA",
+          "id": "062ad2c3ec95",
+          "display": "ATGGCACTTAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAGTAA",
+          "id": "4749ea6b9463",
+          "display": "ATGGCGCTTAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAGTAA",
+          "id": "84566ae9725d",
+          "display": "ATGGCCTTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTAAAGTGA",
+          "id": "5338c1ef73a2",
+          "display": "ATGGCTTTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTCAAGTGA",
+          "id": "770e74e38463",
+          "display": "ATGGCTCTCAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAGTAA",
+          "id": "d216326c58c0",
+          "display": "ATGGCACTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTGAAGTGA",
+          "id": "1694853e27e5",
+          "display": "ATGGCCCTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTCAAGTAG",
+          "id": "5e7b2c902ad1",
+          "display": "ATGGCTCTCAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAGTAA",
+          "id": "4758c60e07dc",
+          "display": "ATGGCCTTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAATAG",
+          "id": "7990d24a1bf8",
+          "display": "ATGGCCTTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAGTAG",
+          "id": "e36a52f20c7a",
+          "display": "ATGGCACTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAATAG",
+          "id": "01b8c1b5d496",
+          "display": "ATGGCATTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAGTAA",
+          "id": "4ad91eb8a132",
+          "display": "ATGGCACTCAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAATAG",
+          "id": "41c74bb4f2fe",
+          "display": "ATGGCATTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAGTAG",
+          "id": "ec53b0921bf3",
+          "display": "ATGGCGCTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAGTGA",
+          "id": "b1ed95c341a4",
+          "display": "ATGGCCTTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAATAG",
+          "id": "2896a1d9374b",
+          "display": "ATGGCACTTAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAATAA",
+          "id": "ed6650e04a61",
+          "display": "ATGGCATTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAGTGA",
+          "id": "8e68d29f2a65",
+          "display": "ATGGCACTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAATAA",
+          "id": "a8c800e23f0b",
+          "display": "ATGGCCTTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAATGA",
+          "id": "655250ba12d0",
+          "display": "ATGGCGCTCAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTGAAATAG",
+          "id": "cc9108014893",
+          "display": "ATGGCTCTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAATGA",
+          "id": "f4608c073b2e",
+          "display": "ATGGCGCTTAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAATAA",
+          "id": "5460d953bbde",
+          "display": "ATGGCGCTCAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTAAAATGA",
+          "id": "a71a04043925",
+          "display": "ATGGCTTTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAATAA",
+          "id": "f6dca8075bdf",
+          "display": "ATGGCGCTGAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAGTGA",
+          "id": "06e49eec879c",
+          "display": "ATGGCATTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAATAA",
+          "id": "75212f9fd8d1",
+          "display": "ATGGCGCTTAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTGAAATAG",
+          "id": "1d7035c4bdf9",
+          "display": "ATGGCCCTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTTAAGTGA",
+          "id": "26dcf90a3441",
+          "display": "ATGGCTCTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAATGA",
+          "id": "ecd500cb2359",
+          "display": "ATGGCGCTGAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTCAAATAG",
+          "id": "5d1de54558bd",
+          "display": "ATGGCTCTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAATGA",
+          "id": "7ea054e8bc24",
+          "display": "ATGGCCTTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTAAAATAG",
+          "id": "251f4c136e15",
+          "display": "ATGGCTCTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTTAAATAG",
+          "id": "fccf125c5bc6",
+          "display": "ATGGCTCTTAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTTAAGTGA",
+          "id": "3f78fc9c130a",
+          "display": "ATGGCCCTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAGTGA",
+          "id": "9efc54ef5738",
+          "display": "ATGGCCCTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAATAG",
+          "id": "1383697ccae9",
+          "display": "ATGGCACTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAGTAA",
+          "id": "099734a66b09",
+          "display": "ATGGCACTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAATAG",
+          "id": "7a3f5ef6620a",
+          "display": "ATGGCACTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAATAA",
+          "id": "234719444037",
+          "display": "ATGGCACTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTTAAGTAG",
+          "id": "86fde9dde211",
+          "display": "ATGGCCCTTAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAGTGA",
+          "id": "0e122eafd978",
+          "display": "ATGGCGCTCAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAGTAA",
+          "id": "2ac8f06ccc48",
+          "display": "ATGGCCCTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTGAAGTGA",
+          "id": "c6cb4f24193a",
+          "display": "ATGGCGTTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTAAAGTGA",
+          "id": "39083091c9b8",
+          "display": "ATGGCGTTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAGTGA",
+          "id": "a17a578e9057",
+          "display": "ATGGCACTCAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTTAAGTAA",
+          "id": "014d49a047b3",
+          "display": "ATGGCCCTTAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAGTAG",
+          "id": "5720ba0ed3b8",
+          "display": "ATGGCCTTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAGTGA",
+          "id": "1b32d0a0fb4a",
+          "display": "ATGGCACTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAGTAA",
+          "id": "93303d4820e3",
+          "display": "ATGGCGCTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTAAAGTGA",
+          "id": "6c33f0f40a05",
+          "display": "ATGGCGCTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAGTGA",
+          "id": "cbf44cf021b3",
+          "display": "ATGGCATTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAGTGA",
+          "id": "f47089b24bbb",
+          "display": "ATGGCGCTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAGTAG",
+          "id": "e1dc4b60fa1c",
+          "display": "ATGGCCCTAAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAATAA",
+          "id": "473272b8d643",
+          "display": "ATGGCACTCAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTAAAATAA",
+          "id": "c9d6af53a58e",
+          "display": "ATGGCGCTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTAAAATAG",
+          "id": "7cd2bd0f5ffd",
+          "display": "ATGGCTTTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTAAAATAA",
+          "id": "3cd48f30ef2a",
+          "display": "ATGGCGTTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAGTAG",
+          "id": "38e16ea536ec",
+          "display": "ATGGCCCTCAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAGTAG",
+          "id": "2f5b808380eb",
+          "display": "ATGGCCTTAAAGTAG"
+        }
+      ],
+      "scores": {}
+    },
+    "check": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAGTAA",
+          "id": "ad533fa21c2a",
+          "display": "ATGGCATTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTGAAGTAG",
+          "id": "e1ce74e8b75a",
+          "display": "ATGGCCCTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAGTAA",
+          "id": "4e13c5cbad03",
+          "display": "ATGGCATTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTGAAATAG",
+          "id": "69374516d0bb",
+          "display": "ATGGCGTTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAGTAA",
+          "id": "f8797149893b",
+          "display": "ATGGCGCTCAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAGTGA",
+          "id": "fdcde510ae48",
+          "display": "ATGGCGCTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTAAAATGA",
+          "id": "6f14c80346a8",
+          "display": "ATGGCGTTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAATGA",
+          "id": "817f8909b1d4",
+          "display": "ATGGCACTTAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAATAG",
+          "id": "8cf72b72f96e",
+          "display": "ATGGCCCTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTGAAATGA",
+          "id": "fb308a801cec",
+          "display": "ATGGCGTTGAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAATGA",
+          "id": "09358ea56193",
+          "display": "ATGGCACTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAATGA",
+          "id": "a73adc7c7b83",
+          "display": "ATGGCATTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAATAG",
+          "id": "fd87edbb3210",
+          "display": "ATGGCCCTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAATGA",
+          "id": "b0e29c18ddf7",
+          "display": "ATGGCATTGAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTAAAGTGA",
+          "id": "c71ffed3d857",
+          "display": "ATGGCTCTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAATAG",
+          "id": "2334befd95e9",
+          "display": "ATGGCGCTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAGTGA",
+          "id": "f2272f4209c6",
+          "display": "ATGGCACTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTGAAGTAG",
+          "id": "b8f426b0b389",
+          "display": "ATGGCTTTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTGAAGTGA",
+          "id": "10e7076dbe5d",
+          "display": "ATGGCTTTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAATAG",
+          "id": "81d9aaf0cd60",
+          "display": "ATGGCCTTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAGTAA",
+          "id": "e7ab578ad990",
+          "display": "ATGGCCCTCAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTAAAATAG",
+          "id": "666916b07004",
+          "display": "ATGGCGCTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAGTAA",
+          "id": "062ad2c3ec95",
+          "display": "ATGGCACTTAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAGTAA",
+          "id": "4749ea6b9463",
+          "display": "ATGGCGCTTAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAGTAA",
+          "id": "84566ae9725d",
+          "display": "ATGGCCTTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTAAAGTGA",
+          "id": "5338c1ef73a2",
+          "display": "ATGGCTTTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTCAAGTGA",
+          "id": "770e74e38463",
+          "display": "ATGGCTCTCAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAGTAA",
+          "id": "d216326c58c0",
+          "display": "ATGGCACTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTGAAGTGA",
+          "id": "1694853e27e5",
+          "display": "ATGGCCCTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTCAAGTAG",
+          "id": "5e7b2c902ad1",
+          "display": "ATGGCTCTCAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAGTAA",
+          "id": "4758c60e07dc",
+          "display": "ATGGCCTTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAATAG",
+          "id": "7990d24a1bf8",
+          "display": "ATGGCCTTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAGTAG",
+          "id": "e36a52f20c7a",
+          "display": "ATGGCACTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAATAG",
+          "id": "01b8c1b5d496",
+          "display": "ATGGCATTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAGTAA",
+          "id": "4ad91eb8a132",
+          "display": "ATGGCACTCAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAATAG",
+          "id": "41c74bb4f2fe",
+          "display": "ATGGCATTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAGTAG",
+          "id": "ec53b0921bf3",
+          "display": "ATGGCGCTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAGTGA",
+          "id": "b1ed95c341a4",
+          "display": "ATGGCCTTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAATAG",
+          "id": "2896a1d9374b",
+          "display": "ATGGCACTTAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAATAA",
+          "id": "ed6650e04a61",
+          "display": "ATGGCATTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAGTGA",
+          "id": "8e68d29f2a65",
+          "display": "ATGGCACTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAATAA",
+          "id": "a8c800e23f0b",
+          "display": "ATGGCCTTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAATGA",
+          "id": "655250ba12d0",
+          "display": "ATGGCGCTCAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTGAAATAG",
+          "id": "cc9108014893",
+          "display": "ATGGCTCTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAATGA",
+          "id": "f4608c073b2e",
+          "display": "ATGGCGCTTAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAATAA",
+          "id": "5460d953bbde",
+          "display": "ATGGCGCTCAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTAAAATGA",
+          "id": "a71a04043925",
+          "display": "ATGGCTTTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAATAA",
+          "id": "f6dca8075bdf",
+          "display": "ATGGCGCTGAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAGTGA",
+          "id": "06e49eec879c",
+          "display": "ATGGCATTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAATAA",
+          "id": "75212f9fd8d1",
+          "display": "ATGGCGCTTAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTGAAATAG",
+          "id": "1d7035c4bdf9",
+          "display": "ATGGCCCTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTTAAGTGA",
+          "id": "26dcf90a3441",
+          "display": "ATGGCTCTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAATGA",
+          "id": "ecd500cb2359",
+          "display": "ATGGCGCTGAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTCAAATAG",
+          "id": "5d1de54558bd",
+          "display": "ATGGCTCTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAATGA",
+          "id": "7ea054e8bc24",
+          "display": "ATGGCCTTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTAAAATAG",
+          "id": "251f4c136e15",
+          "display": "ATGGCTCTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTTAAATAG",
+          "id": "fccf125c5bc6",
+          "display": "ATGGCTCTTAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTTAAGTGA",
+          "id": "3f78fc9c130a",
+          "display": "ATGGCCCTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAGTGA",
+          "id": "9efc54ef5738",
+          "display": "ATGGCCCTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAATAG",
+          "id": "1383697ccae9",
+          "display": "ATGGCACTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAGTAA",
+          "id": "099734a66b09",
+          "display": "ATGGCACTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAATAG",
+          "id": "7a3f5ef6620a",
+          "display": "ATGGCACTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAATAA",
+          "id": "234719444037",
+          "display": "ATGGCACTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTTAAGTAG",
+          "id": "86fde9dde211",
+          "display": "ATGGCCCTTAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAGTGA",
+          "id": "0e122eafd978",
+          "display": "ATGGCGCTCAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAGTAA",
+          "id": "2ac8f06ccc48",
+          "display": "ATGGCCCTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTGAAGTGA",
+          "id": "c6cb4f24193a",
+          "display": "ATGGCGTTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTAAAGTGA",
+          "id": "39083091c9b8",
+          "display": "ATGGCGTTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAGTGA",
+          "id": "a17a578e9057",
+          "display": "ATGGCACTCAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTTAAGTAA",
+          "id": "014d49a047b3",
+          "display": "ATGGCCCTTAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAGTAG",
+          "id": "5720ba0ed3b8",
+          "display": "ATGGCCTTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAGTGA",
+          "id": "1b32d0a0fb4a",
+          "display": "ATGGCACTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAGTAA",
+          "id": "93303d4820e3",
+          "display": "ATGGCGCTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTAAAGTGA",
+          "id": "6c33f0f40a05",
+          "display": "ATGGCGCTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAGTGA",
+          "id": "cbf44cf021b3",
+          "display": "ATGGCATTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAGTGA",
+          "id": "f47089b24bbb",
+          "display": "ATGGCGCTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAGTAG",
+          "id": "e1dc4b60fa1c",
+          "display": "ATGGCCCTAAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAATAA",
+          "id": "473272b8d643",
+          "display": "ATGGCACTCAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTAAAATAA",
+          "id": "c9d6af53a58e",
+          "display": "ATGGCGCTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTAAAATAG",
+          "id": "7cd2bd0f5ffd",
+          "display": "ATGGCTTTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTAAAATAA",
+          "id": "3cd48f30ef2a",
+          "display": "ATGGCGTTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAGTAG",
+          "id": "38e16ea536ec",
+          "display": "ATGGCCCTCAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAGTAG",
+          "id": "2f5b808380eb",
+          "display": "ATGGCCTTAAAGTAG"
+        }
+      ],
+      "scores": {
+        "constraint_check__c174c7c7__protein_unchanged": {
+          "ad533fa21c2a": 1.0,
+          "e1ce74e8b75a": 1.0,
+          "4e13c5cbad03": 1.0,
+          "69374516d0bb": 1.0,
+          "f8797149893b": 1.0,
+          "fdcde510ae48": 1.0,
+          "6f14c80346a8": 1.0,
+          "817f8909b1d4": 1.0,
+          "8cf72b72f96e": 1.0,
+          "fb308a801cec": 1.0,
+          "09358ea56193": 1.0,
+          "a73adc7c7b83": 1.0,
+          "fd87edbb3210": 1.0,
+          "b0e29c18ddf7": 1.0,
+          "c71ffed3d857": 1.0,
+          "2334befd95e9": 1.0,
+          "f2272f4209c6": 1.0,
+          "b8f426b0b389": 1.0,
+          "10e7076dbe5d": 1.0,
+          "81d9aaf0cd60": 1.0,
+          "e7ab578ad990": 1.0,
+          "666916b07004": 1.0,
+          "062ad2c3ec95": 1.0,
+          "4749ea6b9463": 1.0,
+          "84566ae9725d": 1.0,
+          "5338c1ef73a2": 1.0,
+          "770e74e38463": 1.0,
+          "d216326c58c0": 1.0,
+          "1694853e27e5": 1.0,
+          "5e7b2c902ad1": 1.0,
+          "4758c60e07dc": 1.0,
+          "7990d24a1bf8": 1.0,
+          "e36a52f20c7a": 1.0,
+          "01b8c1b5d496": 1.0,
+          "4ad91eb8a132": 1.0,
+          "41c74bb4f2fe": 1.0,
+          "ec53b0921bf3": 1.0,
+          "b1ed95c341a4": 1.0,
+          "2896a1d9374b": 1.0,
+          "ed6650e04a61": 1.0,
+          "8e68d29f2a65": 1.0,
+          "a8c800e23f0b": 1.0,
+          "655250ba12d0": 1.0,
+          "cc9108014893": 1.0,
+          "f4608c073b2e": 1.0,
+          "5460d953bbde": 1.0,
+          "a71a04043925": 1.0,
+          "f6dca8075bdf": 1.0,
+          "06e49eec879c": 1.0,
+          "75212f9fd8d1": 1.0,
+          "1d7035c4bdf9": 1.0,
+          "26dcf90a3441": 1.0,
+          "ecd500cb2359": 1.0,
+          "5d1de54558bd": 1.0,
+          "7ea054e8bc24": 1.0,
+          "251f4c136e15": 1.0,
+          "fccf125c5bc6": 1.0,
+          "3f78fc9c130a": 1.0,
+          "9efc54ef5738": 1.0,
+          "1383697ccae9": 1.0,
+          "099734a66b09": 1.0,
+          "7a3f5ef6620a": 1.0,
+          "234719444037": 1.0,
+          "86fde9dde211": 1.0,
+          "0e122eafd978": 1.0,
+          "2ac8f06ccc48": 1.0,
+          "c6cb4f24193a": 1.0,
+          "39083091c9b8": 1.0,
+          "a17a578e9057": 1.0,
+          "014d49a047b3": 1.0,
+          "5720ba0ed3b8": 1.0,
+          "1b32d0a0fb4a": 1.0,
+          "93303d4820e3": 1.0,
+          "6c33f0f40a05": 1.0,
+          "cbf44cf021b3": 1.0,
+          "f47089b24bbb": 1.0,
+          "e1dc4b60fa1c": 1.0,
+          "473272b8d643": 1.0,
+          "c9d6af53a58e": 1.0,
+          "7cd2bd0f5ffd": 1.0,
+          "3cd48f30ef2a": 1.0,
+          "38e16ea536ec": 1.0,
+          "2f5b808380eb": 1.0
+        },
+        "constraint_check__c174c7c7__length_unchanged": {
+          "ad533fa21c2a": 1.0,
+          "e1ce74e8b75a": 1.0,
+          "4e13c5cbad03": 1.0,
+          "69374516d0bb": 1.0,
+          "f8797149893b": 1.0,
+          "fdcde510ae48": 1.0,
+          "6f14c80346a8": 1.0,
+          "817f8909b1d4": 1.0,
+          "8cf72b72f96e": 1.0,
+          "fb308a801cec": 1.0,
+          "09358ea56193": 1.0,
+          "a73adc7c7b83": 1.0,
+          "fd87edbb3210": 1.0,
+          "b0e29c18ddf7": 1.0,
+          "c71ffed3d857": 1.0,
+          "2334befd95e9": 1.0,
+          "f2272f4209c6": 1.0,
+          "b8f426b0b389": 1.0,
+          "10e7076dbe5d": 1.0,
+          "81d9aaf0cd60": 1.0,
+          "e7ab578ad990": 1.0,
+          "666916b07004": 1.0,
+          "062ad2c3ec95": 1.0,
+          "4749ea6b9463": 1.0,
+          "84566ae9725d": 1.0,
+          "5338c1ef73a2": 1.0,
+          "770e74e38463": 1.0,
+          "d216326c58c0": 1.0,
+          "1694853e27e5": 1.0,
+          "5e7b2c902ad1": 1.0,
+          "4758c60e07dc": 1.0,
+          "7990d24a1bf8": 1.0,
+          "e36a52f20c7a": 1.0,
+          "01b8c1b5d496": 1.0,
+          "4ad91eb8a132": 1.0,
+          "41c74bb4f2fe": 1.0,
+          "ec53b0921bf3": 1.0,
+          "b1ed95c341a4": 1.0,
+          "2896a1d9374b": 1.0,
+          "ed6650e04a61": 1.0,
+          "8e68d29f2a65": 1.0,
+          "a8c800e23f0b": 1.0,
+          "655250ba12d0": 1.0,
+          "cc9108014893": 1.0,
+          "f4608c073b2e": 1.0,
+          "5460d953bbde": 1.0,
+          "a71a04043925": 1.0,
+          "f6dca8075bdf": 1.0,
+          "06e49eec879c": 1.0,
+          "75212f9fd8d1": 1.0,
+          "1d7035c4bdf9": 1.0,
+          "26dcf90a3441": 1.0,
+          "ecd500cb2359": 1.0,
+          "5d1de54558bd": 1.0,
+          "7ea054e8bc24": 1.0,
+          "251f4c136e15": 1.0,
+          "fccf125c5bc6": 1.0,
+          "3f78fc9c130a": 1.0,
+          "9efc54ef5738": 1.0,
+          "1383697ccae9": 1.0,
+          "099734a66b09": 1.0,
+          "7a3f5ef6620a": 1.0,
+          "234719444037": 1.0,
+          "86fde9dde211": 1.0,
+          "0e122eafd978": 1.0,
+          "2ac8f06ccc48": 1.0,
+          "c6cb4f24193a": 1.0,
+          "39083091c9b8": 1.0,
+          "a17a578e9057": 1.0,
+          "014d49a047b3": 1.0,
+          "5720ba0ed3b8": 1.0,
+          "1b32d0a0fb4a": 1.0,
+          "93303d4820e3": 1.0,
+          "6c33f0f40a05": 1.0,
+          "cbf44cf021b3": 1.0,
+          "f47089b24bbb": 1.0,
+          "e1dc4b60fa1c": 1.0,
+          "473272b8d643": 1.0,
+          "c9d6af53a58e": 1.0,
+          "7cd2bd0f5ffd": 1.0,
+          "3cd48f30ef2a": 1.0,
+          "38e16ea536ec": 1.0,
+          "2f5b808380eb": 1.0
+        },
+        "constraint_check__c174c7c7__targets_remaining": {
+          "ad533fa21c2a": 0.0,
+          "e1ce74e8b75a": 0.0,
+          "4e13c5cbad03": 0.0,
+          "69374516d0bb": 0.0,
+          "f8797149893b": 0.0,
+          "fdcde510ae48": 0.0,
+          "6f14c80346a8": 0.0,
+          "817f8909b1d4": 0.0,
+          "8cf72b72f96e": 0.0,
+          "fb308a801cec": 0.0,
+          "09358ea56193": 0.0,
+          "a73adc7c7b83": 0.0,
+          "fd87edbb3210": 0.0,
+          "b0e29c18ddf7": 0.0,
+          "c71ffed3d857": 0.0,
+          "2334befd95e9": 0.0,
+          "f2272f4209c6": 0.0,
+          "b8f426b0b389": 0.0,
+          "10e7076dbe5d": 0.0,
+          "81d9aaf0cd60": 0.0,
+          "e7ab578ad990": 0.0,
+          "666916b07004": 0.0,
+          "062ad2c3ec95": 0.0,
+          "4749ea6b9463": 0.0,
+          "84566ae9725d": 0.0,
+          "5338c1ef73a2": 0.0,
+          "770e74e38463": 0.0,
+          "d216326c58c0": 0.0,
+          "1694853e27e5": 0.0,
+          "5e7b2c902ad1": 0.0,
+          "4758c60e07dc": 0.0,
+          "7990d24a1bf8": 0.0,
+          "e36a52f20c7a": 0.0,
+          "01b8c1b5d496": 0.0,
+          "4ad91eb8a132": 0.0,
+          "41c74bb4f2fe": 0.0,
+          "ec53b0921bf3": 0.0,
+          "b1ed95c341a4": 0.0,
+          "2896a1d9374b": 0.0,
+          "ed6650e04a61": 0.0,
+          "8e68d29f2a65": 0.0,
+          "a8c800e23f0b": 0.0,
+          "655250ba12d0": 0.0,
+          "cc9108014893": 0.0,
+          "f4608c073b2e": 0.0,
+          "5460d953bbde": 0.0,
+          "a71a04043925": 0.0,
+          "f6dca8075bdf": 0.0,
+          "06e49eec879c": 0.0,
+          "75212f9fd8d1": 0.0,
+          "1d7035c4bdf9": 0.0,
+          "26dcf90a3441": 0.0,
+          "ecd500cb2359": 0.0,
+          "5d1de54558bd": 0.0,
+          "7ea054e8bc24": 0.0,
+          "251f4c136e15": 0.0,
+          "fccf125c5bc6": 0.0,
+          "3f78fc9c130a": 0.0,
+          "9efc54ef5738": 0.0,
+          "1383697ccae9": 0.0,
+          "099734a66b09": 0.0,
+          "7a3f5ef6620a": 0.0,
+          "234719444037": 0.0,
+          "86fde9dde211": 0.0,
+          "0e122eafd978": 0.0,
+          "2ac8f06ccc48": 0.0,
+          "c6cb4f24193a": 0.0,
+          "39083091c9b8": 0.0,
+          "a17a578e9057": 0.0,
+          "014d49a047b3": 0.0,
+          "5720ba0ed3b8": 0.0,
+          "1b32d0a0fb4a": 0.0,
+          "93303d4820e3": 0.0,
+          "6c33f0f40a05": 0.0,
+          "cbf44cf021b3": 0.0,
+          "f47089b24bbb": 0.0,
+          "e1dc4b60fa1c": 0.0,
+          "473272b8d643": 0.0,
+          "c9d6af53a58e": 0.0,
+          "7cd2bd0f5ffd": 0.0,
+          "3cd48f30ef2a": 0.0,
+          "38e16ea536ec": 0.0,
+          "2f5b808380eb": 0.0
+        },
+        "constraint_check__c174c7c7__targets_unreachable": {
+          "ad533fa21c2a": 0.0,
+          "e1ce74e8b75a": 0.0,
+          "4e13c5cbad03": 0.0,
+          "69374516d0bb": 0.0,
+          "f8797149893b": 0.0,
+          "fdcde510ae48": 0.0,
+          "6f14c80346a8": 0.0,
+          "817f8909b1d4": 0.0,
+          "8cf72b72f96e": 0.0,
+          "fb308a801cec": 0.0,
+          "09358ea56193": 0.0,
+          "a73adc7c7b83": 0.0,
+          "fd87edbb3210": 0.0,
+          "b0e29c18ddf7": 0.0,
+          "c71ffed3d857": 0.0,
+          "2334befd95e9": 0.0,
+          "f2272f4209c6": 0.0,
+          "b8f426b0b389": 0.0,
+          "10e7076dbe5d": 0.0,
+          "81d9aaf0cd60": 0.0,
+          "e7ab578ad990": 0.0,
+          "666916b07004": 0.0,
+          "062ad2c3ec95": 0.0,
+          "4749ea6b9463": 0.0,
+          "84566ae9725d": 0.0,
+          "5338c1ef73a2": 0.0,
+          "770e74e38463": 0.0,
+          "d216326c58c0": 0.0,
+          "1694853e27e5": 0.0,
+          "5e7b2c902ad1": 0.0,
+          "4758c60e07dc": 0.0,
+          "7990d24a1bf8": 0.0,
+          "e36a52f20c7a": 0.0,
+          "01b8c1b5d496": 0.0,
+          "4ad91eb8a132": 0.0,
+          "41c74bb4f2fe": 0.0,
+          "ec53b0921bf3": 0.0,
+          "b1ed95c341a4": 0.0,
+          "2896a1d9374b": 0.0,
+          "ed6650e04a61": 0.0,
+          "8e68d29f2a65": 0.0,
+          "a8c800e23f0b": 0.0,
+          "655250ba12d0": 0.0,
+          "cc9108014893": 0.0,
+          "f4608c073b2e": 0.0,
+          "5460d953bbde": 0.0,
+          "a71a04043925": 0.0,
+          "f6dca8075bdf": 0.0,
+          "06e49eec879c": 0.0,
+          "75212f9fd8d1": 0.0,
+          "1d7035c4bdf9": 0.0,
+          "26dcf90a3441": 0.0,
+          "ecd500cb2359": 0.0,
+          "5d1de54558bd": 0.0,
+          "7ea054e8bc24": 0.0,
+          "251f4c136e15": 0.0,
+          "fccf125c5bc6": 0.0,
+          "3f78fc9c130a": 0.0,
+          "9efc54ef5738": 0.0,
+          "1383697ccae9": 0.0,
+          "099734a66b09": 0.0,
+          "7a3f5ef6620a": 0.0,
+          "234719444037": 0.0,
+          "86fde9dde211": 0.0,
+          "0e122eafd978": 0.0,
+          "2ac8f06ccc48": 0.0,
+          "c6cb4f24193a": 0.0,
+          "39083091c9b8": 0.0,
+          "a17a578e9057": 0.0,
+          "014d49a047b3": 0.0,
+          "5720ba0ed3b8": 0.0,
+          "1b32d0a0fb4a": 0.0,
+          "93303d4820e3": 0.0,
+          "6c33f0f40a05": 0.0,
+          "cbf44cf021b3": 0.0,
+          "f47089b24bbb": 0.0,
+          "e1dc4b60fa1c": 0.0,
+          "473272b8d643": 0.0,
+          "c9d6af53a58e": 0.0,
+          "7cd2bd0f5ffd": 0.0,
+          "3cd48f30ef2a": 0.0,
+          "38e16ea536ec": 0.0,
+          "2f5b808380eb": 0.0
+        }
+      }
+    },
+    "protein_filter.yes": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAGTAA",
+          "id": "ad533fa21c2a",
+          "display": "ATGGCATTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTGAAGTAG",
+          "id": "e1ce74e8b75a",
+          "display": "ATGGCCCTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAGTAA",
+          "id": "4e13c5cbad03",
+          "display": "ATGGCATTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTGAAATAG",
+          "id": "69374516d0bb",
+          "display": "ATGGCGTTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAGTAA",
+          "id": "f8797149893b",
+          "display": "ATGGCGCTCAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAGTGA",
+          "id": "fdcde510ae48",
+          "display": "ATGGCGCTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTAAAATGA",
+          "id": "6f14c80346a8",
+          "display": "ATGGCGTTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAATGA",
+          "id": "817f8909b1d4",
+          "display": "ATGGCACTTAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAATAG",
+          "id": "8cf72b72f96e",
+          "display": "ATGGCCCTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTGAAATGA",
+          "id": "fb308a801cec",
+          "display": "ATGGCGTTGAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAATGA",
+          "id": "09358ea56193",
+          "display": "ATGGCACTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAATGA",
+          "id": "a73adc7c7b83",
+          "display": "ATGGCATTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAATAG",
+          "id": "fd87edbb3210",
+          "display": "ATGGCCCTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAATGA",
+          "id": "b0e29c18ddf7",
+          "display": "ATGGCATTGAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTAAAGTGA",
+          "id": "c71ffed3d857",
+          "display": "ATGGCTCTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAATAG",
+          "id": "2334befd95e9",
+          "display": "ATGGCGCTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAGTGA",
+          "id": "f2272f4209c6",
+          "display": "ATGGCACTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTGAAGTAG",
+          "id": "b8f426b0b389",
+          "display": "ATGGCTTTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTGAAGTGA",
+          "id": "10e7076dbe5d",
+          "display": "ATGGCTTTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAATAG",
+          "id": "81d9aaf0cd60",
+          "display": "ATGGCCTTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAGTAA",
+          "id": "e7ab578ad990",
+          "display": "ATGGCCCTCAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTAAAATAG",
+          "id": "666916b07004",
+          "display": "ATGGCGCTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAGTAA",
+          "id": "062ad2c3ec95",
+          "display": "ATGGCACTTAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAGTAA",
+          "id": "4749ea6b9463",
+          "display": "ATGGCGCTTAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAGTAA",
+          "id": "84566ae9725d",
+          "display": "ATGGCCTTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTAAAGTGA",
+          "id": "5338c1ef73a2",
+          "display": "ATGGCTTTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTCAAGTGA",
+          "id": "770e74e38463",
+          "display": "ATGGCTCTCAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAGTAA",
+          "id": "d216326c58c0",
+          "display": "ATGGCACTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTGAAGTGA",
+          "id": "1694853e27e5",
+          "display": "ATGGCCCTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTCAAGTAG",
+          "id": "5e7b2c902ad1",
+          "display": "ATGGCTCTCAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAGTAA",
+          "id": "4758c60e07dc",
+          "display": "ATGGCCTTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAATAG",
+          "id": "7990d24a1bf8",
+          "display": "ATGGCCTTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAGTAG",
+          "id": "e36a52f20c7a",
+          "display": "ATGGCACTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAATAG",
+          "id": "01b8c1b5d496",
+          "display": "ATGGCATTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAGTAA",
+          "id": "4ad91eb8a132",
+          "display": "ATGGCACTCAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAATAG",
+          "id": "41c74bb4f2fe",
+          "display": "ATGGCATTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAGTAG",
+          "id": "ec53b0921bf3",
+          "display": "ATGGCGCTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAGTGA",
+          "id": "b1ed95c341a4",
+          "display": "ATGGCCTTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAATAG",
+          "id": "2896a1d9374b",
+          "display": "ATGGCACTTAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAATAA",
+          "id": "ed6650e04a61",
+          "display": "ATGGCATTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAGTGA",
+          "id": "8e68d29f2a65",
+          "display": "ATGGCACTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAATAA",
+          "id": "a8c800e23f0b",
+          "display": "ATGGCCTTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAATGA",
+          "id": "655250ba12d0",
+          "display": "ATGGCGCTCAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTGAAATAG",
+          "id": "cc9108014893",
+          "display": "ATGGCTCTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAATGA",
+          "id": "f4608c073b2e",
+          "display": "ATGGCGCTTAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAATAA",
+          "id": "5460d953bbde",
+          "display": "ATGGCGCTCAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTAAAATGA",
+          "id": "a71a04043925",
+          "display": "ATGGCTTTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAATAA",
+          "id": "f6dca8075bdf",
+          "display": "ATGGCGCTGAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAGTGA",
+          "id": "06e49eec879c",
+          "display": "ATGGCATTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAATAA",
+          "id": "75212f9fd8d1",
+          "display": "ATGGCGCTTAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTGAAATAG",
+          "id": "1d7035c4bdf9",
+          "display": "ATGGCCCTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTTAAGTGA",
+          "id": "26dcf90a3441",
+          "display": "ATGGCTCTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAATGA",
+          "id": "ecd500cb2359",
+          "display": "ATGGCGCTGAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTCAAATAG",
+          "id": "5d1de54558bd",
+          "display": "ATGGCTCTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAATGA",
+          "id": "7ea054e8bc24",
+          "display": "ATGGCCTTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTAAAATAG",
+          "id": "251f4c136e15",
+          "display": "ATGGCTCTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTTAAATAG",
+          "id": "fccf125c5bc6",
+          "display": "ATGGCTCTTAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTTAAGTGA",
+          "id": "3f78fc9c130a",
+          "display": "ATGGCCCTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAGTGA",
+          "id": "9efc54ef5738",
+          "display": "ATGGCCCTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAATAG",
+          "id": "1383697ccae9",
+          "display": "ATGGCACTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAGTAA",
+          "id": "099734a66b09",
+          "display": "ATGGCACTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAATAG",
+          "id": "7a3f5ef6620a",
+          "display": "ATGGCACTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAATAA",
+          "id": "234719444037",
+          "display": "ATGGCACTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTTAAGTAG",
+          "id": "86fde9dde211",
+          "display": "ATGGCCCTTAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAGTGA",
+          "id": "0e122eafd978",
+          "display": "ATGGCGCTCAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAGTAA",
+          "id": "2ac8f06ccc48",
+          "display": "ATGGCCCTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTGAAGTGA",
+          "id": "c6cb4f24193a",
+          "display": "ATGGCGTTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTAAAGTGA",
+          "id": "39083091c9b8",
+          "display": "ATGGCGTTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAGTGA",
+          "id": "a17a578e9057",
+          "display": "ATGGCACTCAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTTAAGTAA",
+          "id": "014d49a047b3",
+          "display": "ATGGCCCTTAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAGTAG",
+          "id": "5720ba0ed3b8",
+          "display": "ATGGCCTTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAGTGA",
+          "id": "1b32d0a0fb4a",
+          "display": "ATGGCACTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAGTAA",
+          "id": "93303d4820e3",
+          "display": "ATGGCGCTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTAAAGTGA",
+          "id": "6c33f0f40a05",
+          "display": "ATGGCGCTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAGTGA",
+          "id": "cbf44cf021b3",
+          "display": "ATGGCATTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAGTGA",
+          "id": "f47089b24bbb",
+          "display": "ATGGCGCTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAGTAG",
+          "id": "e1dc4b60fa1c",
+          "display": "ATGGCCCTAAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAATAA",
+          "id": "473272b8d643",
+          "display": "ATGGCACTCAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTAAAATAA",
+          "id": "c9d6af53a58e",
+          "display": "ATGGCGCTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTAAAATAG",
+          "id": "7cd2bd0f5ffd",
+          "display": "ATGGCTTTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTAAAATAA",
+          "id": "3cd48f30ef2a",
+          "display": "ATGGCGTTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAGTAG",
+          "id": "38e16ea536ec",
+          "display": "ATGGCCCTCAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAGTAG",
+          "id": "2f5b808380eb",
+          "display": "ATGGCCTTAAAGTAG"
+        }
+      ],
+      "scores": {
+        "constraint_check__c174c7c7__protein_unchanged": {
+          "ad533fa21c2a": 1.0,
+          "e1ce74e8b75a": 1.0,
+          "4e13c5cbad03": 1.0,
+          "69374516d0bb": 1.0,
+          "f8797149893b": 1.0,
+          "fdcde510ae48": 1.0,
+          "6f14c80346a8": 1.0,
+          "817f8909b1d4": 1.0,
+          "8cf72b72f96e": 1.0,
+          "fb308a801cec": 1.0,
+          "09358ea56193": 1.0,
+          "a73adc7c7b83": 1.0,
+          "fd87edbb3210": 1.0,
+          "b0e29c18ddf7": 1.0,
+          "c71ffed3d857": 1.0,
+          "2334befd95e9": 1.0,
+          "f2272f4209c6": 1.0,
+          "b8f426b0b389": 1.0,
+          "10e7076dbe5d": 1.0,
+          "81d9aaf0cd60": 1.0,
+          "e7ab578ad990": 1.0,
+          "666916b07004": 1.0,
+          "062ad2c3ec95": 1.0,
+          "4749ea6b9463": 1.0,
+          "84566ae9725d": 1.0,
+          "5338c1ef73a2": 1.0,
+          "770e74e38463": 1.0,
+          "d216326c58c0": 1.0,
+          "1694853e27e5": 1.0,
+          "5e7b2c902ad1": 1.0,
+          "4758c60e07dc": 1.0,
+          "7990d24a1bf8": 1.0,
+          "e36a52f20c7a": 1.0,
+          "01b8c1b5d496": 1.0,
+          "4ad91eb8a132": 1.0,
+          "41c74bb4f2fe": 1.0,
+          "ec53b0921bf3": 1.0,
+          "b1ed95c341a4": 1.0,
+          "2896a1d9374b": 1.0,
+          "ed6650e04a61": 1.0,
+          "8e68d29f2a65": 1.0,
+          "a8c800e23f0b": 1.0,
+          "655250ba12d0": 1.0,
+          "cc9108014893": 1.0,
+          "f4608c073b2e": 1.0,
+          "5460d953bbde": 1.0,
+          "a71a04043925": 1.0,
+          "f6dca8075bdf": 1.0,
+          "06e49eec879c": 1.0,
+          "75212f9fd8d1": 1.0,
+          "1d7035c4bdf9": 1.0,
+          "26dcf90a3441": 1.0,
+          "ecd500cb2359": 1.0,
+          "5d1de54558bd": 1.0,
+          "7ea054e8bc24": 1.0,
+          "251f4c136e15": 1.0,
+          "fccf125c5bc6": 1.0,
+          "3f78fc9c130a": 1.0,
+          "9efc54ef5738": 1.0,
+          "1383697ccae9": 1.0,
+          "099734a66b09": 1.0,
+          "7a3f5ef6620a": 1.0,
+          "234719444037": 1.0,
+          "86fde9dde211": 1.0,
+          "0e122eafd978": 1.0,
+          "2ac8f06ccc48": 1.0,
+          "c6cb4f24193a": 1.0,
+          "39083091c9b8": 1.0,
+          "a17a578e9057": 1.0,
+          "014d49a047b3": 1.0,
+          "5720ba0ed3b8": 1.0,
+          "1b32d0a0fb4a": 1.0,
+          "93303d4820e3": 1.0,
+          "6c33f0f40a05": 1.0,
+          "cbf44cf021b3": 1.0,
+          "f47089b24bbb": 1.0,
+          "e1dc4b60fa1c": 1.0,
+          "473272b8d643": 1.0,
+          "c9d6af53a58e": 1.0,
+          "7cd2bd0f5ffd": 1.0,
+          "3cd48f30ef2a": 1.0,
+          "38e16ea536ec": 1.0,
+          "2f5b808380eb": 1.0
+        },
+        "constraint_check__c174c7c7__length_unchanged": {
+          "ad533fa21c2a": 1.0,
+          "e1ce74e8b75a": 1.0,
+          "4e13c5cbad03": 1.0,
+          "69374516d0bb": 1.0,
+          "f8797149893b": 1.0,
+          "fdcde510ae48": 1.0,
+          "6f14c80346a8": 1.0,
+          "817f8909b1d4": 1.0,
+          "8cf72b72f96e": 1.0,
+          "fb308a801cec": 1.0,
+          "09358ea56193": 1.0,
+          "a73adc7c7b83": 1.0,
+          "fd87edbb3210": 1.0,
+          "b0e29c18ddf7": 1.0,
+          "c71ffed3d857": 1.0,
+          "2334befd95e9": 1.0,
+          "f2272f4209c6": 1.0,
+          "b8f426b0b389": 1.0,
+          "10e7076dbe5d": 1.0,
+          "81d9aaf0cd60": 1.0,
+          "e7ab578ad990": 1.0,
+          "666916b07004": 1.0,
+          "062ad2c3ec95": 1.0,
+          "4749ea6b9463": 1.0,
+          "84566ae9725d": 1.0,
+          "5338c1ef73a2": 1.0,
+          "770e74e38463": 1.0,
+          "d216326c58c0": 1.0,
+          "1694853e27e5": 1.0,
+          "5e7b2c902ad1": 1.0,
+          "4758c60e07dc": 1.0,
+          "7990d24a1bf8": 1.0,
+          "e36a52f20c7a": 1.0,
+          "01b8c1b5d496": 1.0,
+          "4ad91eb8a132": 1.0,
+          "41c74bb4f2fe": 1.0,
+          "ec53b0921bf3": 1.0,
+          "b1ed95c341a4": 1.0,
+          "2896a1d9374b": 1.0,
+          "ed6650e04a61": 1.0,
+          "8e68d29f2a65": 1.0,
+          "a8c800e23f0b": 1.0,
+          "655250ba12d0": 1.0,
+          "cc9108014893": 1.0,
+          "f4608c073b2e": 1.0,
+          "5460d953bbde": 1.0,
+          "a71a04043925": 1.0,
+          "f6dca8075bdf": 1.0,
+          "06e49eec879c": 1.0,
+          "75212f9fd8d1": 1.0,
+          "1d7035c4bdf9": 1.0,
+          "26dcf90a3441": 1.0,
+          "ecd500cb2359": 1.0,
+          "5d1de54558bd": 1.0,
+          "7ea054e8bc24": 1.0,
+          "251f4c136e15": 1.0,
+          "fccf125c5bc6": 1.0,
+          "3f78fc9c130a": 1.0,
+          "9efc54ef5738": 1.0,
+          "1383697ccae9": 1.0,
+          "099734a66b09": 1.0,
+          "7a3f5ef6620a": 1.0,
+          "234719444037": 1.0,
+          "86fde9dde211": 1.0,
+          "0e122eafd978": 1.0,
+          "2ac8f06ccc48": 1.0,
+          "c6cb4f24193a": 1.0,
+          "39083091c9b8": 1.0,
+          "a17a578e9057": 1.0,
+          "014d49a047b3": 1.0,
+          "5720ba0ed3b8": 1.0,
+          "1b32d0a0fb4a": 1.0,
+          "93303d4820e3": 1.0,
+          "6c33f0f40a05": 1.0,
+          "cbf44cf021b3": 1.0,
+          "f47089b24bbb": 1.0,
+          "e1dc4b60fa1c": 1.0,
+          "473272b8d643": 1.0,
+          "c9d6af53a58e": 1.0,
+          "7cd2bd0f5ffd": 1.0,
+          "3cd48f30ef2a": 1.0,
+          "38e16ea536ec": 1.0,
+          "2f5b808380eb": 1.0
+        },
+        "constraint_check__c174c7c7__targets_remaining": {
+          "ad533fa21c2a": 0.0,
+          "e1ce74e8b75a": 0.0,
+          "4e13c5cbad03": 0.0,
+          "69374516d0bb": 0.0,
+          "f8797149893b": 0.0,
+          "fdcde510ae48": 0.0,
+          "6f14c80346a8": 0.0,
+          "817f8909b1d4": 0.0,
+          "8cf72b72f96e": 0.0,
+          "fb308a801cec": 0.0,
+          "09358ea56193": 0.0,
+          "a73adc7c7b83": 0.0,
+          "fd87edbb3210": 0.0,
+          "b0e29c18ddf7": 0.0,
+          "c71ffed3d857": 0.0,
+          "2334befd95e9": 0.0,
+          "f2272f4209c6": 0.0,
+          "b8f426b0b389": 0.0,
+          "10e7076dbe5d": 0.0,
+          "81d9aaf0cd60": 0.0,
+          "e7ab578ad990": 0.0,
+          "666916b07004": 0.0,
+          "062ad2c3ec95": 0.0,
+          "4749ea6b9463": 0.0,
+          "84566ae9725d": 0.0,
+          "5338c1ef73a2": 0.0,
+          "770e74e38463": 0.0,
+          "d216326c58c0": 0.0,
+          "1694853e27e5": 0.0,
+          "5e7b2c902ad1": 0.0,
+          "4758c60e07dc": 0.0,
+          "7990d24a1bf8": 0.0,
+          "e36a52f20c7a": 0.0,
+          "01b8c1b5d496": 0.0,
+          "4ad91eb8a132": 0.0,
+          "41c74bb4f2fe": 0.0,
+          "ec53b0921bf3": 0.0,
+          "b1ed95c341a4": 0.0,
+          "2896a1d9374b": 0.0,
+          "ed6650e04a61": 0.0,
+          "8e68d29f2a65": 0.0,
+          "a8c800e23f0b": 0.0,
+          "655250ba12d0": 0.0,
+          "cc9108014893": 0.0,
+          "f4608c073b2e": 0.0,
+          "5460d953bbde": 0.0,
+          "a71a04043925": 0.0,
+          "f6dca8075bdf": 0.0,
+          "06e49eec879c": 0.0,
+          "75212f9fd8d1": 0.0,
+          "1d7035c4bdf9": 0.0,
+          "26dcf90a3441": 0.0,
+          "ecd500cb2359": 0.0,
+          "5d1de54558bd": 0.0,
+          "7ea054e8bc24": 0.0,
+          "251f4c136e15": 0.0,
+          "fccf125c5bc6": 0.0,
+          "3f78fc9c130a": 0.0,
+          "9efc54ef5738": 0.0,
+          "1383697ccae9": 0.0,
+          "099734a66b09": 0.0,
+          "7a3f5ef6620a": 0.0,
+          "234719444037": 0.0,
+          "86fde9dde211": 0.0,
+          "0e122eafd978": 0.0,
+          "2ac8f06ccc48": 0.0,
+          "c6cb4f24193a": 0.0,
+          "39083091c9b8": 0.0,
+          "a17a578e9057": 0.0,
+          "014d49a047b3": 0.0,
+          "5720ba0ed3b8": 0.0,
+          "1b32d0a0fb4a": 0.0,
+          "93303d4820e3": 0.0,
+          "6c33f0f40a05": 0.0,
+          "cbf44cf021b3": 0.0,
+          "f47089b24bbb": 0.0,
+          "e1dc4b60fa1c": 0.0,
+          "473272b8d643": 0.0,
+          "c9d6af53a58e": 0.0,
+          "7cd2bd0f5ffd": 0.0,
+          "3cd48f30ef2a": 0.0,
+          "38e16ea536ec": 0.0,
+          "2f5b808380eb": 0.0
+        },
+        "constraint_check__c174c7c7__targets_unreachable": {
+          "ad533fa21c2a": 0.0,
+          "e1ce74e8b75a": 0.0,
+          "4e13c5cbad03": 0.0,
+          "69374516d0bb": 0.0,
+          "f8797149893b": 0.0,
+          "fdcde510ae48": 0.0,
+          "6f14c80346a8": 0.0,
+          "817f8909b1d4": 0.0,
+          "8cf72b72f96e": 0.0,
+          "fb308a801cec": 0.0,
+          "09358ea56193": 0.0,
+          "a73adc7c7b83": 0.0,
+          "fd87edbb3210": 0.0,
+          "b0e29c18ddf7": 0.0,
+          "c71ffed3d857": 0.0,
+          "2334befd95e9": 0.0,
+          "f2272f4209c6": 0.0,
+          "b8f426b0b389": 0.0,
+          "10e7076dbe5d": 0.0,
+          "81d9aaf0cd60": 0.0,
+          "e7ab578ad990": 0.0,
+          "666916b07004": 0.0,
+          "062ad2c3ec95": 0.0,
+          "4749ea6b9463": 0.0,
+          "84566ae9725d": 0.0,
+          "5338c1ef73a2": 0.0,
+          "770e74e38463": 0.0,
+          "d216326c58c0": 0.0,
+          "1694853e27e5": 0.0,
+          "5e7b2c902ad1": 0.0,
+          "4758c60e07dc": 0.0,
+          "7990d24a1bf8": 0.0,
+          "e36a52f20c7a": 0.0,
+          "01b8c1b5d496": 0.0,
+          "4ad91eb8a132": 0.0,
+          "41c74bb4f2fe": 0.0,
+          "ec53b0921bf3": 0.0,
+          "b1ed95c341a4": 0.0,
+          "2896a1d9374b": 0.0,
+          "ed6650e04a61": 0.0,
+          "8e68d29f2a65": 0.0,
+          "a8c800e23f0b": 0.0,
+          "655250ba12d0": 0.0,
+          "cc9108014893": 0.0,
+          "f4608c073b2e": 0.0,
+          "5460d953bbde": 0.0,
+          "a71a04043925": 0.0,
+          "f6dca8075bdf": 0.0,
+          "06e49eec879c": 0.0,
+          "75212f9fd8d1": 0.0,
+          "1d7035c4bdf9": 0.0,
+          "26dcf90a3441": 0.0,
+          "ecd500cb2359": 0.0,
+          "5d1de54558bd": 0.0,
+          "7ea054e8bc24": 0.0,
+          "251f4c136e15": 0.0,
+          "fccf125c5bc6": 0.0,
+          "3f78fc9c130a": 0.0,
+          "9efc54ef5738": 0.0,
+          "1383697ccae9": 0.0,
+          "099734a66b09": 0.0,
+          "7a3f5ef6620a": 0.0,
+          "234719444037": 0.0,
+          "86fde9dde211": 0.0,
+          "0e122eafd978": 0.0,
+          "2ac8f06ccc48": 0.0,
+          "c6cb4f24193a": 0.0,
+          "39083091c9b8": 0.0,
+          "a17a578e9057": 0.0,
+          "014d49a047b3": 0.0,
+          "5720ba0ed3b8": 0.0,
+          "1b32d0a0fb4a": 0.0,
+          "93303d4820e3": 0.0,
+          "6c33f0f40a05": 0.0,
+          "cbf44cf021b3": 0.0,
+          "f47089b24bbb": 0.0,
+          "e1dc4b60fa1c": 0.0,
+          "473272b8d643": 0.0,
+          "c9d6af53a58e": 0.0,
+          "7cd2bd0f5ffd": 0.0,
+          "3cd48f30ef2a": 0.0,
+          "38e16ea536ec": 0.0,
+          "2f5b808380eb": 0.0
+        }
+      }
+    },
+    "protein_filter.no": {
+      "items": [],
+      "scores": {}
+    },
+    "length_filter.yes": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAGTAA",
+          "id": "ad533fa21c2a",
+          "display": "ATGGCATTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTGAAGTAG",
+          "id": "e1ce74e8b75a",
+          "display": "ATGGCCCTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAGTAA",
+          "id": "4e13c5cbad03",
+          "display": "ATGGCATTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTGAAATAG",
+          "id": "69374516d0bb",
+          "display": "ATGGCGTTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAGTAA",
+          "id": "f8797149893b",
+          "display": "ATGGCGCTCAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAGTGA",
+          "id": "fdcde510ae48",
+          "display": "ATGGCGCTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTAAAATGA",
+          "id": "6f14c80346a8",
+          "display": "ATGGCGTTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAATGA",
+          "id": "817f8909b1d4",
+          "display": "ATGGCACTTAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAATAG",
+          "id": "8cf72b72f96e",
+          "display": "ATGGCCCTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTGAAATGA",
+          "id": "fb308a801cec",
+          "display": "ATGGCGTTGAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAATGA",
+          "id": "09358ea56193",
+          "display": "ATGGCACTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAATGA",
+          "id": "a73adc7c7b83",
+          "display": "ATGGCATTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAATAG",
+          "id": "fd87edbb3210",
+          "display": "ATGGCCCTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAATGA",
+          "id": "b0e29c18ddf7",
+          "display": "ATGGCATTGAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTAAAGTGA",
+          "id": "c71ffed3d857",
+          "display": "ATGGCTCTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAATAG",
+          "id": "2334befd95e9",
+          "display": "ATGGCGCTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAGTGA",
+          "id": "f2272f4209c6",
+          "display": "ATGGCACTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTGAAGTAG",
+          "id": "b8f426b0b389",
+          "display": "ATGGCTTTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTGAAGTGA",
+          "id": "10e7076dbe5d",
+          "display": "ATGGCTTTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAATAG",
+          "id": "81d9aaf0cd60",
+          "display": "ATGGCCTTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAGTAA",
+          "id": "e7ab578ad990",
+          "display": "ATGGCCCTCAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTAAAATAG",
+          "id": "666916b07004",
+          "display": "ATGGCGCTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAGTAA",
+          "id": "062ad2c3ec95",
+          "display": "ATGGCACTTAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAGTAA",
+          "id": "4749ea6b9463",
+          "display": "ATGGCGCTTAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAGTAA",
+          "id": "84566ae9725d",
+          "display": "ATGGCCTTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTAAAGTGA",
+          "id": "5338c1ef73a2",
+          "display": "ATGGCTTTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTCAAGTGA",
+          "id": "770e74e38463",
+          "display": "ATGGCTCTCAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAGTAA",
+          "id": "d216326c58c0",
+          "display": "ATGGCACTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTGAAGTGA",
+          "id": "1694853e27e5",
+          "display": "ATGGCCCTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTCAAGTAG",
+          "id": "5e7b2c902ad1",
+          "display": "ATGGCTCTCAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAGTAA",
+          "id": "4758c60e07dc",
+          "display": "ATGGCCTTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAATAG",
+          "id": "7990d24a1bf8",
+          "display": "ATGGCCTTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAGTAG",
+          "id": "e36a52f20c7a",
+          "display": "ATGGCACTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAATAG",
+          "id": "01b8c1b5d496",
+          "display": "ATGGCATTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAGTAA",
+          "id": "4ad91eb8a132",
+          "display": "ATGGCACTCAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAATAG",
+          "id": "41c74bb4f2fe",
+          "display": "ATGGCATTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAGTAG",
+          "id": "ec53b0921bf3",
+          "display": "ATGGCGCTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAGTGA",
+          "id": "b1ed95c341a4",
+          "display": "ATGGCCTTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAATAG",
+          "id": "2896a1d9374b",
+          "display": "ATGGCACTTAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAATAA",
+          "id": "ed6650e04a61",
+          "display": "ATGGCATTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAGTGA",
+          "id": "8e68d29f2a65",
+          "display": "ATGGCACTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAATAA",
+          "id": "a8c800e23f0b",
+          "display": "ATGGCCTTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAATGA",
+          "id": "655250ba12d0",
+          "display": "ATGGCGCTCAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTGAAATAG",
+          "id": "cc9108014893",
+          "display": "ATGGCTCTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAATGA",
+          "id": "f4608c073b2e",
+          "display": "ATGGCGCTTAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAATAA",
+          "id": "5460d953bbde",
+          "display": "ATGGCGCTCAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTAAAATGA",
+          "id": "a71a04043925",
+          "display": "ATGGCTTTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAATAA",
+          "id": "f6dca8075bdf",
+          "display": "ATGGCGCTGAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAGTGA",
+          "id": "06e49eec879c",
+          "display": "ATGGCATTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAATAA",
+          "id": "75212f9fd8d1",
+          "display": "ATGGCGCTTAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTGAAATAG",
+          "id": "1d7035c4bdf9",
+          "display": "ATGGCCCTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTTAAGTGA",
+          "id": "26dcf90a3441",
+          "display": "ATGGCTCTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAATGA",
+          "id": "ecd500cb2359",
+          "display": "ATGGCGCTGAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTCAAATAG",
+          "id": "5d1de54558bd",
+          "display": "ATGGCTCTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAATGA",
+          "id": "7ea054e8bc24",
+          "display": "ATGGCCTTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTAAAATAG",
+          "id": "251f4c136e15",
+          "display": "ATGGCTCTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTTAAATAG",
+          "id": "fccf125c5bc6",
+          "display": "ATGGCTCTTAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTTAAGTGA",
+          "id": "3f78fc9c130a",
+          "display": "ATGGCCCTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAGTGA",
+          "id": "9efc54ef5738",
+          "display": "ATGGCCCTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAATAG",
+          "id": "1383697ccae9",
+          "display": "ATGGCACTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAGTAA",
+          "id": "099734a66b09",
+          "display": "ATGGCACTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAATAG",
+          "id": "7a3f5ef6620a",
+          "display": "ATGGCACTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAATAA",
+          "id": "234719444037",
+          "display": "ATGGCACTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTTAAGTAG",
+          "id": "86fde9dde211",
+          "display": "ATGGCCCTTAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAGTGA",
+          "id": "0e122eafd978",
+          "display": "ATGGCGCTCAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAGTAA",
+          "id": "2ac8f06ccc48",
+          "display": "ATGGCCCTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTGAAGTGA",
+          "id": "c6cb4f24193a",
+          "display": "ATGGCGTTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTAAAGTGA",
+          "id": "39083091c9b8",
+          "display": "ATGGCGTTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAGTGA",
+          "id": "a17a578e9057",
+          "display": "ATGGCACTCAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTTAAGTAA",
+          "id": "014d49a047b3",
+          "display": "ATGGCCCTTAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAGTAG",
+          "id": "5720ba0ed3b8",
+          "display": "ATGGCCTTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAGTGA",
+          "id": "1b32d0a0fb4a",
+          "display": "ATGGCACTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAGTAA",
+          "id": "93303d4820e3",
+          "display": "ATGGCGCTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTAAAGTGA",
+          "id": "6c33f0f40a05",
+          "display": "ATGGCGCTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAGTGA",
+          "id": "cbf44cf021b3",
+          "display": "ATGGCATTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAGTGA",
+          "id": "f47089b24bbb",
+          "display": "ATGGCGCTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAGTAG",
+          "id": "e1dc4b60fa1c",
+          "display": "ATGGCCCTAAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAATAA",
+          "id": "473272b8d643",
+          "display": "ATGGCACTCAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTAAAATAA",
+          "id": "c9d6af53a58e",
+          "display": "ATGGCGCTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTAAAATAG",
+          "id": "7cd2bd0f5ffd",
+          "display": "ATGGCTTTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTAAAATAA",
+          "id": "3cd48f30ef2a",
+          "display": "ATGGCGTTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAGTAG",
+          "id": "38e16ea536ec",
+          "display": "ATGGCCCTCAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAGTAG",
+          "id": "2f5b808380eb",
+          "display": "ATGGCCTTAAAGTAG"
+        }
+      ],
+      "scores": {
+        "constraint_check__c174c7c7__protein_unchanged": {
+          "ad533fa21c2a": 1.0,
+          "e1ce74e8b75a": 1.0,
+          "4e13c5cbad03": 1.0,
+          "69374516d0bb": 1.0,
+          "f8797149893b": 1.0,
+          "fdcde510ae48": 1.0,
+          "6f14c80346a8": 1.0,
+          "817f8909b1d4": 1.0,
+          "8cf72b72f96e": 1.0,
+          "fb308a801cec": 1.0,
+          "09358ea56193": 1.0,
+          "a73adc7c7b83": 1.0,
+          "fd87edbb3210": 1.0,
+          "b0e29c18ddf7": 1.0,
+          "c71ffed3d857": 1.0,
+          "2334befd95e9": 1.0,
+          "f2272f4209c6": 1.0,
+          "b8f426b0b389": 1.0,
+          "10e7076dbe5d": 1.0,
+          "81d9aaf0cd60": 1.0,
+          "e7ab578ad990": 1.0,
+          "666916b07004": 1.0,
+          "062ad2c3ec95": 1.0,
+          "4749ea6b9463": 1.0,
+          "84566ae9725d": 1.0,
+          "5338c1ef73a2": 1.0,
+          "770e74e38463": 1.0,
+          "d216326c58c0": 1.0,
+          "1694853e27e5": 1.0,
+          "5e7b2c902ad1": 1.0,
+          "4758c60e07dc": 1.0,
+          "7990d24a1bf8": 1.0,
+          "e36a52f20c7a": 1.0,
+          "01b8c1b5d496": 1.0,
+          "4ad91eb8a132": 1.0,
+          "41c74bb4f2fe": 1.0,
+          "ec53b0921bf3": 1.0,
+          "b1ed95c341a4": 1.0,
+          "2896a1d9374b": 1.0,
+          "ed6650e04a61": 1.0,
+          "8e68d29f2a65": 1.0,
+          "a8c800e23f0b": 1.0,
+          "655250ba12d0": 1.0,
+          "cc9108014893": 1.0,
+          "f4608c073b2e": 1.0,
+          "5460d953bbde": 1.0,
+          "a71a04043925": 1.0,
+          "f6dca8075bdf": 1.0,
+          "06e49eec879c": 1.0,
+          "75212f9fd8d1": 1.0,
+          "1d7035c4bdf9": 1.0,
+          "26dcf90a3441": 1.0,
+          "ecd500cb2359": 1.0,
+          "5d1de54558bd": 1.0,
+          "7ea054e8bc24": 1.0,
+          "251f4c136e15": 1.0,
+          "fccf125c5bc6": 1.0,
+          "3f78fc9c130a": 1.0,
+          "9efc54ef5738": 1.0,
+          "1383697ccae9": 1.0,
+          "099734a66b09": 1.0,
+          "7a3f5ef6620a": 1.0,
+          "234719444037": 1.0,
+          "86fde9dde211": 1.0,
+          "0e122eafd978": 1.0,
+          "2ac8f06ccc48": 1.0,
+          "c6cb4f24193a": 1.0,
+          "39083091c9b8": 1.0,
+          "a17a578e9057": 1.0,
+          "014d49a047b3": 1.0,
+          "5720ba0ed3b8": 1.0,
+          "1b32d0a0fb4a": 1.0,
+          "93303d4820e3": 1.0,
+          "6c33f0f40a05": 1.0,
+          "cbf44cf021b3": 1.0,
+          "f47089b24bbb": 1.0,
+          "e1dc4b60fa1c": 1.0,
+          "473272b8d643": 1.0,
+          "c9d6af53a58e": 1.0,
+          "7cd2bd0f5ffd": 1.0,
+          "3cd48f30ef2a": 1.0,
+          "38e16ea536ec": 1.0,
+          "2f5b808380eb": 1.0
+        },
+        "constraint_check__c174c7c7__length_unchanged": {
+          "ad533fa21c2a": 1.0,
+          "e1ce74e8b75a": 1.0,
+          "4e13c5cbad03": 1.0,
+          "69374516d0bb": 1.0,
+          "f8797149893b": 1.0,
+          "fdcde510ae48": 1.0,
+          "6f14c80346a8": 1.0,
+          "817f8909b1d4": 1.0,
+          "8cf72b72f96e": 1.0,
+          "fb308a801cec": 1.0,
+          "09358ea56193": 1.0,
+          "a73adc7c7b83": 1.0,
+          "fd87edbb3210": 1.0,
+          "b0e29c18ddf7": 1.0,
+          "c71ffed3d857": 1.0,
+          "2334befd95e9": 1.0,
+          "f2272f4209c6": 1.0,
+          "b8f426b0b389": 1.0,
+          "10e7076dbe5d": 1.0,
+          "81d9aaf0cd60": 1.0,
+          "e7ab578ad990": 1.0,
+          "666916b07004": 1.0,
+          "062ad2c3ec95": 1.0,
+          "4749ea6b9463": 1.0,
+          "84566ae9725d": 1.0,
+          "5338c1ef73a2": 1.0,
+          "770e74e38463": 1.0,
+          "d216326c58c0": 1.0,
+          "1694853e27e5": 1.0,
+          "5e7b2c902ad1": 1.0,
+          "4758c60e07dc": 1.0,
+          "7990d24a1bf8": 1.0,
+          "e36a52f20c7a": 1.0,
+          "01b8c1b5d496": 1.0,
+          "4ad91eb8a132": 1.0,
+          "41c74bb4f2fe": 1.0,
+          "ec53b0921bf3": 1.0,
+          "b1ed95c341a4": 1.0,
+          "2896a1d9374b": 1.0,
+          "ed6650e04a61": 1.0,
+          "8e68d29f2a65": 1.0,
+          "a8c800e23f0b": 1.0,
+          "655250ba12d0": 1.0,
+          "cc9108014893": 1.0,
+          "f4608c073b2e": 1.0,
+          "5460d953bbde": 1.0,
+          "a71a04043925": 1.0,
+          "f6dca8075bdf": 1.0,
+          "06e49eec879c": 1.0,
+          "75212f9fd8d1": 1.0,
+          "1d7035c4bdf9": 1.0,
+          "26dcf90a3441": 1.0,
+          "ecd500cb2359": 1.0,
+          "5d1de54558bd": 1.0,
+          "7ea054e8bc24": 1.0,
+          "251f4c136e15": 1.0,
+          "fccf125c5bc6": 1.0,
+          "3f78fc9c130a": 1.0,
+          "9efc54ef5738": 1.0,
+          "1383697ccae9": 1.0,
+          "099734a66b09": 1.0,
+          "7a3f5ef6620a": 1.0,
+          "234719444037": 1.0,
+          "86fde9dde211": 1.0,
+          "0e122eafd978": 1.0,
+          "2ac8f06ccc48": 1.0,
+          "c6cb4f24193a": 1.0,
+          "39083091c9b8": 1.0,
+          "a17a578e9057": 1.0,
+          "014d49a047b3": 1.0,
+          "5720ba0ed3b8": 1.0,
+          "1b32d0a0fb4a": 1.0,
+          "93303d4820e3": 1.0,
+          "6c33f0f40a05": 1.0,
+          "cbf44cf021b3": 1.0,
+          "f47089b24bbb": 1.0,
+          "e1dc4b60fa1c": 1.0,
+          "473272b8d643": 1.0,
+          "c9d6af53a58e": 1.0,
+          "7cd2bd0f5ffd": 1.0,
+          "3cd48f30ef2a": 1.0,
+          "38e16ea536ec": 1.0,
+          "2f5b808380eb": 1.0
+        },
+        "constraint_check__c174c7c7__targets_remaining": {
+          "ad533fa21c2a": 0.0,
+          "e1ce74e8b75a": 0.0,
+          "4e13c5cbad03": 0.0,
+          "69374516d0bb": 0.0,
+          "f8797149893b": 0.0,
+          "fdcde510ae48": 0.0,
+          "6f14c80346a8": 0.0,
+          "817f8909b1d4": 0.0,
+          "8cf72b72f96e": 0.0,
+          "fb308a801cec": 0.0,
+          "09358ea56193": 0.0,
+          "a73adc7c7b83": 0.0,
+          "fd87edbb3210": 0.0,
+          "b0e29c18ddf7": 0.0,
+          "c71ffed3d857": 0.0,
+          "2334befd95e9": 0.0,
+          "f2272f4209c6": 0.0,
+          "b8f426b0b389": 0.0,
+          "10e7076dbe5d": 0.0,
+          "81d9aaf0cd60": 0.0,
+          "e7ab578ad990": 0.0,
+          "666916b07004": 0.0,
+          "062ad2c3ec95": 0.0,
+          "4749ea6b9463": 0.0,
+          "84566ae9725d": 0.0,
+          "5338c1ef73a2": 0.0,
+          "770e74e38463": 0.0,
+          "d216326c58c0": 0.0,
+          "1694853e27e5": 0.0,
+          "5e7b2c902ad1": 0.0,
+          "4758c60e07dc": 0.0,
+          "7990d24a1bf8": 0.0,
+          "e36a52f20c7a": 0.0,
+          "01b8c1b5d496": 0.0,
+          "4ad91eb8a132": 0.0,
+          "41c74bb4f2fe": 0.0,
+          "ec53b0921bf3": 0.0,
+          "b1ed95c341a4": 0.0,
+          "2896a1d9374b": 0.0,
+          "ed6650e04a61": 0.0,
+          "8e68d29f2a65": 0.0,
+          "a8c800e23f0b": 0.0,
+          "655250ba12d0": 0.0,
+          "cc9108014893": 0.0,
+          "f4608c073b2e": 0.0,
+          "5460d953bbde": 0.0,
+          "a71a04043925": 0.0,
+          "f6dca8075bdf": 0.0,
+          "06e49eec879c": 0.0,
+          "75212f9fd8d1": 0.0,
+          "1d7035c4bdf9": 0.0,
+          "26dcf90a3441": 0.0,
+          "ecd500cb2359": 0.0,
+          "5d1de54558bd": 0.0,
+          "7ea054e8bc24": 0.0,
+          "251f4c136e15": 0.0,
+          "fccf125c5bc6": 0.0,
+          "3f78fc9c130a": 0.0,
+          "9efc54ef5738": 0.0,
+          "1383697ccae9": 0.0,
+          "099734a66b09": 0.0,
+          "7a3f5ef6620a": 0.0,
+          "234719444037": 0.0,
+          "86fde9dde211": 0.0,
+          "0e122eafd978": 0.0,
+          "2ac8f06ccc48": 0.0,
+          "c6cb4f24193a": 0.0,
+          "39083091c9b8": 0.0,
+          "a17a578e9057": 0.0,
+          "014d49a047b3": 0.0,
+          "5720ba0ed3b8": 0.0,
+          "1b32d0a0fb4a": 0.0,
+          "93303d4820e3": 0.0,
+          "6c33f0f40a05": 0.0,
+          "cbf44cf021b3": 0.0,
+          "f47089b24bbb": 0.0,
+          "e1dc4b60fa1c": 0.0,
+          "473272b8d643": 0.0,
+          "c9d6af53a58e": 0.0,
+          "7cd2bd0f5ffd": 0.0,
+          "3cd48f30ef2a": 0.0,
+          "38e16ea536ec": 0.0,
+          "2f5b808380eb": 0.0
+        },
+        "constraint_check__c174c7c7__targets_unreachable": {
+          "ad533fa21c2a": 0.0,
+          "e1ce74e8b75a": 0.0,
+          "4e13c5cbad03": 0.0,
+          "69374516d0bb": 0.0,
+          "f8797149893b": 0.0,
+          "fdcde510ae48": 0.0,
+          "6f14c80346a8": 0.0,
+          "817f8909b1d4": 0.0,
+          "8cf72b72f96e": 0.0,
+          "fb308a801cec": 0.0,
+          "09358ea56193": 0.0,
+          "a73adc7c7b83": 0.0,
+          "fd87edbb3210": 0.0,
+          "b0e29c18ddf7": 0.0,
+          "c71ffed3d857": 0.0,
+          "2334befd95e9": 0.0,
+          "f2272f4209c6": 0.0,
+          "b8f426b0b389": 0.0,
+          "10e7076dbe5d": 0.0,
+          "81d9aaf0cd60": 0.0,
+          "e7ab578ad990": 0.0,
+          "666916b07004": 0.0,
+          "062ad2c3ec95": 0.0,
+          "4749ea6b9463": 0.0,
+          "84566ae9725d": 0.0,
+          "5338c1ef73a2": 0.0,
+          "770e74e38463": 0.0,
+          "d216326c58c0": 0.0,
+          "1694853e27e5": 0.0,
+          "5e7b2c902ad1": 0.0,
+          "4758c60e07dc": 0.0,
+          "7990d24a1bf8": 0.0,
+          "e36a52f20c7a": 0.0,
+          "01b8c1b5d496": 0.0,
+          "4ad91eb8a132": 0.0,
+          "41c74bb4f2fe": 0.0,
+          "ec53b0921bf3": 0.0,
+          "b1ed95c341a4": 0.0,
+          "2896a1d9374b": 0.0,
+          "ed6650e04a61": 0.0,
+          "8e68d29f2a65": 0.0,
+          "a8c800e23f0b": 0.0,
+          "655250ba12d0": 0.0,
+          "cc9108014893": 0.0,
+          "f4608c073b2e": 0.0,
+          "5460d953bbde": 0.0,
+          "a71a04043925": 0.0,
+          "f6dca8075bdf": 0.0,
+          "06e49eec879c": 0.0,
+          "75212f9fd8d1": 0.0,
+          "1d7035c4bdf9": 0.0,
+          "26dcf90a3441": 0.0,
+          "ecd500cb2359": 0.0,
+          "5d1de54558bd": 0.0,
+          "7ea054e8bc24": 0.0,
+          "251f4c136e15": 0.0,
+          "fccf125c5bc6": 0.0,
+          "3f78fc9c130a": 0.0,
+          "9efc54ef5738": 0.0,
+          "1383697ccae9": 0.0,
+          "099734a66b09": 0.0,
+          "7a3f5ef6620a": 0.0,
+          "234719444037": 0.0,
+          "86fde9dde211": 0.0,
+          "0e122eafd978": 0.0,
+          "2ac8f06ccc48": 0.0,
+          "c6cb4f24193a": 0.0,
+          "39083091c9b8": 0.0,
+          "a17a578e9057": 0.0,
+          "014d49a047b3": 0.0,
+          "5720ba0ed3b8": 0.0,
+          "1b32d0a0fb4a": 0.0,
+          "93303d4820e3": 0.0,
+          "6c33f0f40a05": 0.0,
+          "cbf44cf021b3": 0.0,
+          "f47089b24bbb": 0.0,
+          "e1dc4b60fa1c": 0.0,
+          "473272b8d643": 0.0,
+          "c9d6af53a58e": 0.0,
+          "7cd2bd0f5ffd": 0.0,
+          "3cd48f30ef2a": 0.0,
+          "38e16ea536ec": 0.0,
+          "2f5b808380eb": 0.0
+        }
+      }
+    },
+    "length_filter.no": {
+      "items": [],
+      "scores": {}
+    },
+    "score": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAGTAA",
+          "id": "ad533fa21c2a",
+          "display": "ATGGCATTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTGAAGTAG",
+          "id": "e1ce74e8b75a",
+          "display": "ATGGCCCTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAGTAA",
+          "id": "4e13c5cbad03",
+          "display": "ATGGCATTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTGAAATAG",
+          "id": "69374516d0bb",
+          "display": "ATGGCGTTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAGTAA",
+          "id": "f8797149893b",
+          "display": "ATGGCGCTCAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAGTGA",
+          "id": "fdcde510ae48",
+          "display": "ATGGCGCTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTAAAATGA",
+          "id": "6f14c80346a8",
+          "display": "ATGGCGTTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAATGA",
+          "id": "817f8909b1d4",
+          "display": "ATGGCACTTAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAATAG",
+          "id": "8cf72b72f96e",
+          "display": "ATGGCCCTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTGAAATGA",
+          "id": "fb308a801cec",
+          "display": "ATGGCGTTGAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAATGA",
+          "id": "09358ea56193",
+          "display": "ATGGCACTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAATGA",
+          "id": "a73adc7c7b83",
+          "display": "ATGGCATTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAATAG",
+          "id": "fd87edbb3210",
+          "display": "ATGGCCCTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAATGA",
+          "id": "b0e29c18ddf7",
+          "display": "ATGGCATTGAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTAAAGTGA",
+          "id": "c71ffed3d857",
+          "display": "ATGGCTCTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAATAG",
+          "id": "2334befd95e9",
+          "display": "ATGGCGCTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAGTGA",
+          "id": "f2272f4209c6",
+          "display": "ATGGCACTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTGAAGTAG",
+          "id": "b8f426b0b389",
+          "display": "ATGGCTTTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTGAAGTGA",
+          "id": "10e7076dbe5d",
+          "display": "ATGGCTTTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAATAG",
+          "id": "81d9aaf0cd60",
+          "display": "ATGGCCTTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAGTAA",
+          "id": "e7ab578ad990",
+          "display": "ATGGCCCTCAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTAAAATAG",
+          "id": "666916b07004",
+          "display": "ATGGCGCTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAGTAA",
+          "id": "062ad2c3ec95",
+          "display": "ATGGCACTTAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAGTAA",
+          "id": "4749ea6b9463",
+          "display": "ATGGCGCTTAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAGTAA",
+          "id": "84566ae9725d",
+          "display": "ATGGCCTTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTAAAGTGA",
+          "id": "5338c1ef73a2",
+          "display": "ATGGCTTTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTCAAGTGA",
+          "id": "770e74e38463",
+          "display": "ATGGCTCTCAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAGTAA",
+          "id": "d216326c58c0",
+          "display": "ATGGCACTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTGAAGTGA",
+          "id": "1694853e27e5",
+          "display": "ATGGCCCTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTCAAGTAG",
+          "id": "5e7b2c902ad1",
+          "display": "ATGGCTCTCAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAGTAA",
+          "id": "4758c60e07dc",
+          "display": "ATGGCCTTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAATAG",
+          "id": "7990d24a1bf8",
+          "display": "ATGGCCTTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAGTAG",
+          "id": "e36a52f20c7a",
+          "display": "ATGGCACTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAATAG",
+          "id": "01b8c1b5d496",
+          "display": "ATGGCATTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAGTAA",
+          "id": "4ad91eb8a132",
+          "display": "ATGGCACTCAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAATAG",
+          "id": "41c74bb4f2fe",
+          "display": "ATGGCATTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAGTAG",
+          "id": "ec53b0921bf3",
+          "display": "ATGGCGCTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAGTGA",
+          "id": "b1ed95c341a4",
+          "display": "ATGGCCTTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAATAG",
+          "id": "2896a1d9374b",
+          "display": "ATGGCACTTAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAATAA",
+          "id": "ed6650e04a61",
+          "display": "ATGGCATTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAGTGA",
+          "id": "8e68d29f2a65",
+          "display": "ATGGCACTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAATAA",
+          "id": "a8c800e23f0b",
+          "display": "ATGGCCTTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAATGA",
+          "id": "655250ba12d0",
+          "display": "ATGGCGCTCAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTGAAATAG",
+          "id": "cc9108014893",
+          "display": "ATGGCTCTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAATGA",
+          "id": "f4608c073b2e",
+          "display": "ATGGCGCTTAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAATAA",
+          "id": "5460d953bbde",
+          "display": "ATGGCGCTCAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTAAAATGA",
+          "id": "a71a04043925",
+          "display": "ATGGCTTTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAATAA",
+          "id": "f6dca8075bdf",
+          "display": "ATGGCGCTGAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAGTGA",
+          "id": "06e49eec879c",
+          "display": "ATGGCATTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAATAA",
+          "id": "75212f9fd8d1",
+          "display": "ATGGCGCTTAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTGAAATAG",
+          "id": "1d7035c4bdf9",
+          "display": "ATGGCCCTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTTAAGTGA",
+          "id": "26dcf90a3441",
+          "display": "ATGGCTCTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAATGA",
+          "id": "ecd500cb2359",
+          "display": "ATGGCGCTGAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTCAAATAG",
+          "id": "5d1de54558bd",
+          "display": "ATGGCTCTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAATGA",
+          "id": "7ea054e8bc24",
+          "display": "ATGGCCTTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTAAAATAG",
+          "id": "251f4c136e15",
+          "display": "ATGGCTCTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTTAAATAG",
+          "id": "fccf125c5bc6",
+          "display": "ATGGCTCTTAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTTAAGTGA",
+          "id": "3f78fc9c130a",
+          "display": "ATGGCCCTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAGTGA",
+          "id": "9efc54ef5738",
+          "display": "ATGGCCCTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAATAG",
+          "id": "1383697ccae9",
+          "display": "ATGGCACTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAGTAA",
+          "id": "099734a66b09",
+          "display": "ATGGCACTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAATAG",
+          "id": "7a3f5ef6620a",
+          "display": "ATGGCACTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAATAA",
+          "id": "234719444037",
+          "display": "ATGGCACTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTTAAGTAG",
+          "id": "86fde9dde211",
+          "display": "ATGGCCCTTAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAGTGA",
+          "id": "0e122eafd978",
+          "display": "ATGGCGCTCAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAGTAA",
+          "id": "2ac8f06ccc48",
+          "display": "ATGGCCCTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTGAAGTGA",
+          "id": "c6cb4f24193a",
+          "display": "ATGGCGTTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTAAAGTGA",
+          "id": "39083091c9b8",
+          "display": "ATGGCGTTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAGTGA",
+          "id": "a17a578e9057",
+          "display": "ATGGCACTCAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTTAAGTAA",
+          "id": "014d49a047b3",
+          "display": "ATGGCCCTTAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAGTAG",
+          "id": "5720ba0ed3b8",
+          "display": "ATGGCCTTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAGTGA",
+          "id": "1b32d0a0fb4a",
+          "display": "ATGGCACTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAGTAA",
+          "id": "93303d4820e3",
+          "display": "ATGGCGCTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTAAAGTGA",
+          "id": "6c33f0f40a05",
+          "display": "ATGGCGCTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAGTGA",
+          "id": "cbf44cf021b3",
+          "display": "ATGGCATTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAGTGA",
+          "id": "f47089b24bbb",
+          "display": "ATGGCGCTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAGTAG",
+          "id": "e1dc4b60fa1c",
+          "display": "ATGGCCCTAAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAATAA",
+          "id": "473272b8d643",
+          "display": "ATGGCACTCAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTAAAATAA",
+          "id": "c9d6af53a58e",
+          "display": "ATGGCGCTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTAAAATAG",
+          "id": "7cd2bd0f5ffd",
+          "display": "ATGGCTTTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTAAAATAA",
+          "id": "3cd48f30ef2a",
+          "display": "ATGGCGTTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAGTAG",
+          "id": "38e16ea536ec",
+          "display": "ATGGCCCTCAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAGTAG",
+          "id": "2f5b808380eb",
+          "display": "ATGGCCTTAAAGTAG"
+        }
+      ],
+      "scores": {
+        "constraint_check__c174c7c7__protein_unchanged": {
+          "ad533fa21c2a": 1.0,
+          "e1ce74e8b75a": 1.0,
+          "4e13c5cbad03": 1.0,
+          "69374516d0bb": 1.0,
+          "f8797149893b": 1.0,
+          "fdcde510ae48": 1.0,
+          "6f14c80346a8": 1.0,
+          "817f8909b1d4": 1.0,
+          "8cf72b72f96e": 1.0,
+          "fb308a801cec": 1.0,
+          "09358ea56193": 1.0,
+          "a73adc7c7b83": 1.0,
+          "fd87edbb3210": 1.0,
+          "b0e29c18ddf7": 1.0,
+          "c71ffed3d857": 1.0,
+          "2334befd95e9": 1.0,
+          "f2272f4209c6": 1.0,
+          "b8f426b0b389": 1.0,
+          "10e7076dbe5d": 1.0,
+          "81d9aaf0cd60": 1.0,
+          "e7ab578ad990": 1.0,
+          "666916b07004": 1.0,
+          "062ad2c3ec95": 1.0,
+          "4749ea6b9463": 1.0,
+          "84566ae9725d": 1.0,
+          "5338c1ef73a2": 1.0,
+          "770e74e38463": 1.0,
+          "d216326c58c0": 1.0,
+          "1694853e27e5": 1.0,
+          "5e7b2c902ad1": 1.0,
+          "4758c60e07dc": 1.0,
+          "7990d24a1bf8": 1.0,
+          "e36a52f20c7a": 1.0,
+          "01b8c1b5d496": 1.0,
+          "4ad91eb8a132": 1.0,
+          "41c74bb4f2fe": 1.0,
+          "ec53b0921bf3": 1.0,
+          "b1ed95c341a4": 1.0,
+          "2896a1d9374b": 1.0,
+          "ed6650e04a61": 1.0,
+          "8e68d29f2a65": 1.0,
+          "a8c800e23f0b": 1.0,
+          "655250ba12d0": 1.0,
+          "cc9108014893": 1.0,
+          "f4608c073b2e": 1.0,
+          "5460d953bbde": 1.0,
+          "a71a04043925": 1.0,
+          "f6dca8075bdf": 1.0,
+          "06e49eec879c": 1.0,
+          "75212f9fd8d1": 1.0,
+          "1d7035c4bdf9": 1.0,
+          "26dcf90a3441": 1.0,
+          "ecd500cb2359": 1.0,
+          "5d1de54558bd": 1.0,
+          "7ea054e8bc24": 1.0,
+          "251f4c136e15": 1.0,
+          "fccf125c5bc6": 1.0,
+          "3f78fc9c130a": 1.0,
+          "9efc54ef5738": 1.0,
+          "1383697ccae9": 1.0,
+          "099734a66b09": 1.0,
+          "7a3f5ef6620a": 1.0,
+          "234719444037": 1.0,
+          "86fde9dde211": 1.0,
+          "0e122eafd978": 1.0,
+          "2ac8f06ccc48": 1.0,
+          "c6cb4f24193a": 1.0,
+          "39083091c9b8": 1.0,
+          "a17a578e9057": 1.0,
+          "014d49a047b3": 1.0,
+          "5720ba0ed3b8": 1.0,
+          "1b32d0a0fb4a": 1.0,
+          "93303d4820e3": 1.0,
+          "6c33f0f40a05": 1.0,
+          "cbf44cf021b3": 1.0,
+          "f47089b24bbb": 1.0,
+          "e1dc4b60fa1c": 1.0,
+          "473272b8d643": 1.0,
+          "c9d6af53a58e": 1.0,
+          "7cd2bd0f5ffd": 1.0,
+          "3cd48f30ef2a": 1.0,
+          "38e16ea536ec": 1.0,
+          "2f5b808380eb": 1.0
+        },
+        "constraint_check__c174c7c7__length_unchanged": {
+          "ad533fa21c2a": 1.0,
+          "e1ce74e8b75a": 1.0,
+          "4e13c5cbad03": 1.0,
+          "69374516d0bb": 1.0,
+          "f8797149893b": 1.0,
+          "fdcde510ae48": 1.0,
+          "6f14c80346a8": 1.0,
+          "817f8909b1d4": 1.0,
+          "8cf72b72f96e": 1.0,
+          "fb308a801cec": 1.0,
+          "09358ea56193": 1.0,
+          "a73adc7c7b83": 1.0,
+          "fd87edbb3210": 1.0,
+          "b0e29c18ddf7": 1.0,
+          "c71ffed3d857": 1.0,
+          "2334befd95e9": 1.0,
+          "f2272f4209c6": 1.0,
+          "b8f426b0b389": 1.0,
+          "10e7076dbe5d": 1.0,
+          "81d9aaf0cd60": 1.0,
+          "e7ab578ad990": 1.0,
+          "666916b07004": 1.0,
+          "062ad2c3ec95": 1.0,
+          "4749ea6b9463": 1.0,
+          "84566ae9725d": 1.0,
+          "5338c1ef73a2": 1.0,
+          "770e74e38463": 1.0,
+          "d216326c58c0": 1.0,
+          "1694853e27e5": 1.0,
+          "5e7b2c902ad1": 1.0,
+          "4758c60e07dc": 1.0,
+          "7990d24a1bf8": 1.0,
+          "e36a52f20c7a": 1.0,
+          "01b8c1b5d496": 1.0,
+          "4ad91eb8a132": 1.0,
+          "41c74bb4f2fe": 1.0,
+          "ec53b0921bf3": 1.0,
+          "b1ed95c341a4": 1.0,
+          "2896a1d9374b": 1.0,
+          "ed6650e04a61": 1.0,
+          "8e68d29f2a65": 1.0,
+          "a8c800e23f0b": 1.0,
+          "655250ba12d0": 1.0,
+          "cc9108014893": 1.0,
+          "f4608c073b2e": 1.0,
+          "5460d953bbde": 1.0,
+          "a71a04043925": 1.0,
+          "f6dca8075bdf": 1.0,
+          "06e49eec879c": 1.0,
+          "75212f9fd8d1": 1.0,
+          "1d7035c4bdf9": 1.0,
+          "26dcf90a3441": 1.0,
+          "ecd500cb2359": 1.0,
+          "5d1de54558bd": 1.0,
+          "7ea054e8bc24": 1.0,
+          "251f4c136e15": 1.0,
+          "fccf125c5bc6": 1.0,
+          "3f78fc9c130a": 1.0,
+          "9efc54ef5738": 1.0,
+          "1383697ccae9": 1.0,
+          "099734a66b09": 1.0,
+          "7a3f5ef6620a": 1.0,
+          "234719444037": 1.0,
+          "86fde9dde211": 1.0,
+          "0e122eafd978": 1.0,
+          "2ac8f06ccc48": 1.0,
+          "c6cb4f24193a": 1.0,
+          "39083091c9b8": 1.0,
+          "a17a578e9057": 1.0,
+          "014d49a047b3": 1.0,
+          "5720ba0ed3b8": 1.0,
+          "1b32d0a0fb4a": 1.0,
+          "93303d4820e3": 1.0,
+          "6c33f0f40a05": 1.0,
+          "cbf44cf021b3": 1.0,
+          "f47089b24bbb": 1.0,
+          "e1dc4b60fa1c": 1.0,
+          "473272b8d643": 1.0,
+          "c9d6af53a58e": 1.0,
+          "7cd2bd0f5ffd": 1.0,
+          "3cd48f30ef2a": 1.0,
+          "38e16ea536ec": 1.0,
+          "2f5b808380eb": 1.0
+        },
+        "constraint_check__c174c7c7__targets_remaining": {
+          "ad533fa21c2a": 0.0,
+          "e1ce74e8b75a": 0.0,
+          "4e13c5cbad03": 0.0,
+          "69374516d0bb": 0.0,
+          "f8797149893b": 0.0,
+          "fdcde510ae48": 0.0,
+          "6f14c80346a8": 0.0,
+          "817f8909b1d4": 0.0,
+          "8cf72b72f96e": 0.0,
+          "fb308a801cec": 0.0,
+          "09358ea56193": 0.0,
+          "a73adc7c7b83": 0.0,
+          "fd87edbb3210": 0.0,
+          "b0e29c18ddf7": 0.0,
+          "c71ffed3d857": 0.0,
+          "2334befd95e9": 0.0,
+          "f2272f4209c6": 0.0,
+          "b8f426b0b389": 0.0,
+          "10e7076dbe5d": 0.0,
+          "81d9aaf0cd60": 0.0,
+          "e7ab578ad990": 0.0,
+          "666916b07004": 0.0,
+          "062ad2c3ec95": 0.0,
+          "4749ea6b9463": 0.0,
+          "84566ae9725d": 0.0,
+          "5338c1ef73a2": 0.0,
+          "770e74e38463": 0.0,
+          "d216326c58c0": 0.0,
+          "1694853e27e5": 0.0,
+          "5e7b2c902ad1": 0.0,
+          "4758c60e07dc": 0.0,
+          "7990d24a1bf8": 0.0,
+          "e36a52f20c7a": 0.0,
+          "01b8c1b5d496": 0.0,
+          "4ad91eb8a132": 0.0,
+          "41c74bb4f2fe": 0.0,
+          "ec53b0921bf3": 0.0,
+          "b1ed95c341a4": 0.0,
+          "2896a1d9374b": 0.0,
+          "ed6650e04a61": 0.0,
+          "8e68d29f2a65": 0.0,
+          "a8c800e23f0b": 0.0,
+          "655250ba12d0": 0.0,
+          "cc9108014893": 0.0,
+          "f4608c073b2e": 0.0,
+          "5460d953bbde": 0.0,
+          "a71a04043925": 0.0,
+          "f6dca8075bdf": 0.0,
+          "06e49eec879c": 0.0,
+          "75212f9fd8d1": 0.0,
+          "1d7035c4bdf9": 0.0,
+          "26dcf90a3441": 0.0,
+          "ecd500cb2359": 0.0,
+          "5d1de54558bd": 0.0,
+          "7ea054e8bc24": 0.0,
+          "251f4c136e15": 0.0,
+          "fccf125c5bc6": 0.0,
+          "3f78fc9c130a": 0.0,
+          "9efc54ef5738": 0.0,
+          "1383697ccae9": 0.0,
+          "099734a66b09": 0.0,
+          "7a3f5ef6620a": 0.0,
+          "234719444037": 0.0,
+          "86fde9dde211": 0.0,
+          "0e122eafd978": 0.0,
+          "2ac8f06ccc48": 0.0,
+          "c6cb4f24193a": 0.0,
+          "39083091c9b8": 0.0,
+          "a17a578e9057": 0.0,
+          "014d49a047b3": 0.0,
+          "5720ba0ed3b8": 0.0,
+          "1b32d0a0fb4a": 0.0,
+          "93303d4820e3": 0.0,
+          "6c33f0f40a05": 0.0,
+          "cbf44cf021b3": 0.0,
+          "f47089b24bbb": 0.0,
+          "e1dc4b60fa1c": 0.0,
+          "473272b8d643": 0.0,
+          "c9d6af53a58e": 0.0,
+          "7cd2bd0f5ffd": 0.0,
+          "3cd48f30ef2a": 0.0,
+          "38e16ea536ec": 0.0,
+          "2f5b808380eb": 0.0
+        },
+        "constraint_check__c174c7c7__targets_unreachable": {
+          "ad533fa21c2a": 0.0,
+          "e1ce74e8b75a": 0.0,
+          "4e13c5cbad03": 0.0,
+          "69374516d0bb": 0.0,
+          "f8797149893b": 0.0,
+          "fdcde510ae48": 0.0,
+          "6f14c80346a8": 0.0,
+          "817f8909b1d4": 0.0,
+          "8cf72b72f96e": 0.0,
+          "fb308a801cec": 0.0,
+          "09358ea56193": 0.0,
+          "a73adc7c7b83": 0.0,
+          "fd87edbb3210": 0.0,
+          "b0e29c18ddf7": 0.0,
+          "c71ffed3d857": 0.0,
+          "2334befd95e9": 0.0,
+          "f2272f4209c6": 0.0,
+          "b8f426b0b389": 0.0,
+          "10e7076dbe5d": 0.0,
+          "81d9aaf0cd60": 0.0,
+          "e7ab578ad990": 0.0,
+          "666916b07004": 0.0,
+          "062ad2c3ec95": 0.0,
+          "4749ea6b9463": 0.0,
+          "84566ae9725d": 0.0,
+          "5338c1ef73a2": 0.0,
+          "770e74e38463": 0.0,
+          "d216326c58c0": 0.0,
+          "1694853e27e5": 0.0,
+          "5e7b2c902ad1": 0.0,
+          "4758c60e07dc": 0.0,
+          "7990d24a1bf8": 0.0,
+          "e36a52f20c7a": 0.0,
+          "01b8c1b5d496": 0.0,
+          "4ad91eb8a132": 0.0,
+          "41c74bb4f2fe": 0.0,
+          "ec53b0921bf3": 0.0,
+          "b1ed95c341a4": 0.0,
+          "2896a1d9374b": 0.0,
+          "ed6650e04a61": 0.0,
+          "8e68d29f2a65": 0.0,
+          "a8c800e23f0b": 0.0,
+          "655250ba12d0": 0.0,
+          "cc9108014893": 0.0,
+          "f4608c073b2e": 0.0,
+          "5460d953bbde": 0.0,
+          "a71a04043925": 0.0,
+          "f6dca8075bdf": 0.0,
+          "06e49eec879c": 0.0,
+          "75212f9fd8d1": 0.0,
+          "1d7035c4bdf9": 0.0,
+          "26dcf90a3441": 0.0,
+          "ecd500cb2359": 0.0,
+          "5d1de54558bd": 0.0,
+          "7ea054e8bc24": 0.0,
+          "251f4c136e15": 0.0,
+          "fccf125c5bc6": 0.0,
+          "3f78fc9c130a": 0.0,
+          "9efc54ef5738": 0.0,
+          "1383697ccae9": 0.0,
+          "099734a66b09": 0.0,
+          "7a3f5ef6620a": 0.0,
+          "234719444037": 0.0,
+          "86fde9dde211": 0.0,
+          "0e122eafd978": 0.0,
+          "2ac8f06ccc48": 0.0,
+          "c6cb4f24193a": 0.0,
+          "39083091c9b8": 0.0,
+          "a17a578e9057": 0.0,
+          "014d49a047b3": 0.0,
+          "5720ba0ed3b8": 0.0,
+          "1b32d0a0fb4a": 0.0,
+          "93303d4820e3": 0.0,
+          "6c33f0f40a05": 0.0,
+          "cbf44cf021b3": 0.0,
+          "f47089b24bbb": 0.0,
+          "e1dc4b60fa1c": 0.0,
+          "473272b8d643": 0.0,
+          "c9d6af53a58e": 0.0,
+          "7cd2bd0f5ffd": 0.0,
+          "3cd48f30ef2a": 0.0,
+          "38e16ea536ec": 0.0,
+          "2f5b808380eb": 0.0
+        },
+        "ostir_expression__c7b59231__expression": {
+          "ad533fa21c2a": 50.8414,
+          "e1ce74e8b75a": 50.8414,
+          "4e13c5cbad03": 50.8414,
+          "69374516d0bb": 50.8414,
+          "f8797149893b": 34.0792,
+          "fdcde510ae48": 39.9927,
+          "6f14c80346a8": 50.8414,
+          "817f8909b1d4": 50.8414,
+          "8cf72b72f96e": 46.9323,
+          "fb308a801cec": 50.8414,
+          "09358ea56193": 50.8414,
+          "a73adc7c7b83": 50.8414,
+          "fd87edbb3210": 50.8414,
+          "b0e29c18ddf7": 50.8414,
+          "c71ffed3d857": 34.0792,
+          "2334befd95e9": 34.0792,
+          "f2272f4209c6": 34.0792,
+          "b8f426b0b389": 41.6249,
+          "10e7076dbe5d": 21.9476,
+          "81d9aaf0cd60": 36.9177,
+          "e7ab578ad990": 46.9323,
+          "666916b07004": 50.8414,
+          "062ad2c3ec95": 50.8414,
+          "4749ea6b9463": 50.8414,
+          "84566ae9725d": 36.9177,
+          "5338c1ef73a2": 32.7428,
+          "770e74e38463": 21.087,
+          "d216326c58c0": 50.8414,
+          "1694853e27e5": 50.8414,
+          "5e7b2c902ad1": 21.087,
+          "4758c60e07dc": 38.4245,
+          "7990d24a1bf8": 38.4245,
+          "e36a52f20c7a": 50.8414,
+          "01b8c1b5d496": 50.8414,
+          "4ad91eb8a132": 46.9323,
+          "41c74bb4f2fe": 50.8414,
+          "ec53b0921bf3": 50.8414,
+          "b1ed95c341a4": 36.9177,
+          "2896a1d9374b": 50.8414,
+          "ed6650e04a61": 50.8414,
+          "8e68d29f2a65": 34.0792,
+          "a8c800e23f0b": 38.4245,
+          "655250ba12d0": 34.0792,
+          "cc9108014893": 41.6249,
+          "f4608c073b2e": 50.8414,
+          "5460d953bbde": 34.0792,
+          "a71a04043925": 36.9177,
+          "f6dca8075bdf": 50.8414,
+          "06e49eec879c": 50.8414,
+          "75212f9fd8d1": 50.8414,
+          "1d7035c4bdf9": 50.8414,
+          "26dcf90a3441": 26.8072,
+          "ecd500cb2359": 50.8414,
+          "5d1de54558bd": 21.087,
+          "7ea054e8bc24": 38.4245,
+          "251f4c136e15": 34.0792,
+          "fccf125c5bc6": 26.8072,
+          "3f78fc9c130a": 38.4245,
+          "9efc54ef5738": 50.8414,
+          "1383697ccae9": 46.9323,
+          "099734a66b09": 50.8414,
+          "7a3f5ef6620a": 50.8414,
+          "234719444037": 50.8414,
+          "86fde9dde211": 38.4245,
+          "0e122eafd978": 34.0792,
+          "2ac8f06ccc48": 50.8414,
+          "c6cb4f24193a": 45.092,
+          "39083091c9b8": 50.8414,
+          "a17a578e9057": 34.0792,
+          "014d49a047b3": 38.4245,
+          "5720ba0ed3b8": 36.9177,
+          "1b32d0a0fb4a": 34.0792,
+          "93303d4820e3": 50.8414,
+          "6c33f0f40a05": 39.9927,
+          "cbf44cf021b3": 50.8414,
+          "f47089b24bbb": 39.9927,
+          "e1dc4b60fa1c": 50.8414,
+          "473272b8d643": 46.9323,
+          "c9d6af53a58e": 50.8414,
+          "7cd2bd0f5ffd": 43.3238,
+          "3cd48f30ef2a": 50.8414,
+          "38e16ea536ec": 46.9323,
+          "2f5b808380eb": 38.4245
+        }
+      }
+    },
+    "keep_better.yes": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAGTAA",
+          "id": "ad533fa21c2a",
+          "display": "ATGGCATTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTGAAGTAG",
+          "id": "e1ce74e8b75a",
+          "display": "ATGGCCCTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAGTAA",
+          "id": "4e13c5cbad03",
+          "display": "ATGGCATTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTGAAATAG",
+          "id": "69374516d0bb",
+          "display": "ATGGCGTTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTAAAATGA",
+          "id": "6f14c80346a8",
+          "display": "ATGGCGTTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAATGA",
+          "id": "817f8909b1d4",
+          "display": "ATGGCACTTAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAATAG",
+          "id": "8cf72b72f96e",
+          "display": "ATGGCCCTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTGAAATGA",
+          "id": "fb308a801cec",
+          "display": "ATGGCGTTGAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAATGA",
+          "id": "09358ea56193",
+          "display": "ATGGCACTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAATGA",
+          "id": "a73adc7c7b83",
+          "display": "ATGGCATTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAATAG",
+          "id": "fd87edbb3210",
+          "display": "ATGGCCCTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAATGA",
+          "id": "b0e29c18ddf7",
+          "display": "ATGGCATTGAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAGTAA",
+          "id": "e7ab578ad990",
+          "display": "ATGGCCCTCAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTAAAATAG",
+          "id": "666916b07004",
+          "display": "ATGGCGCTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAGTAA",
+          "id": "062ad2c3ec95",
+          "display": "ATGGCACTTAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAGTAA",
+          "id": "4749ea6b9463",
+          "display": "ATGGCGCTTAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAGTAA",
+          "id": "d216326c58c0",
+          "display": "ATGGCACTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTGAAGTGA",
+          "id": "1694853e27e5",
+          "display": "ATGGCCCTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAGTAG",
+          "id": "e36a52f20c7a",
+          "display": "ATGGCACTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAATAG",
+          "id": "01b8c1b5d496",
+          "display": "ATGGCATTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAGTAA",
+          "id": "4ad91eb8a132",
+          "display": "ATGGCACTCAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAATAG",
+          "id": "41c74bb4f2fe",
+          "display": "ATGGCATTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAGTAG",
+          "id": "ec53b0921bf3",
+          "display": "ATGGCGCTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAATAG",
+          "id": "2896a1d9374b",
+          "display": "ATGGCACTTAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAATAA",
+          "id": "ed6650e04a61",
+          "display": "ATGGCATTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAATGA",
+          "id": "f4608c073b2e",
+          "display": "ATGGCGCTTAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAATAA",
+          "id": "f6dca8075bdf",
+          "display": "ATGGCGCTGAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAGTGA",
+          "id": "06e49eec879c",
+          "display": "ATGGCATTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAATAA",
+          "id": "75212f9fd8d1",
+          "display": "ATGGCGCTTAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTGAAATAG",
+          "id": "1d7035c4bdf9",
+          "display": "ATGGCCCTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAATGA",
+          "id": "ecd500cb2359",
+          "display": "ATGGCGCTGAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAGTGA",
+          "id": "9efc54ef5738",
+          "display": "ATGGCCCTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAATAG",
+          "id": "1383697ccae9",
+          "display": "ATGGCACTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAGTAA",
+          "id": "099734a66b09",
+          "display": "ATGGCACTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAATAG",
+          "id": "7a3f5ef6620a",
+          "display": "ATGGCACTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAATAA",
+          "id": "234719444037",
+          "display": "ATGGCACTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAGTAA",
+          "id": "2ac8f06ccc48",
+          "display": "ATGGCCCTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTGAAGTGA",
+          "id": "c6cb4f24193a",
+          "display": "ATGGCGTTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTAAAGTGA",
+          "id": "39083091c9b8",
+          "display": "ATGGCGTTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAGTAA",
+          "id": "93303d4820e3",
+          "display": "ATGGCGCTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTAAAGTGA",
+          "id": "cbf44cf021b3",
+          "display": "ATGGCATTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTAAAGTAG",
+          "id": "e1dc4b60fa1c",
+          "display": "ATGGCCCTAAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAATAA",
+          "id": "473272b8d643",
+          "display": "ATGGCACTCAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTAAAATAA",
+          "id": "c9d6af53a58e",
+          "display": "ATGGCGCTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTAAAATAA",
+          "id": "3cd48f30ef2a",
+          "display": "ATGGCGTTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTCAAGTAG",
+          "id": "38e16ea536ec",
+          "display": "ATGGCCCTCAAGTAG"
+        }
+      ],
+      "scores": {
+        "constraint_check__c174c7c7__protein_unchanged": {
+          "ad533fa21c2a": 1.0,
+          "e1ce74e8b75a": 1.0,
+          "4e13c5cbad03": 1.0,
+          "69374516d0bb": 1.0,
+          "6f14c80346a8": 1.0,
+          "817f8909b1d4": 1.0,
+          "8cf72b72f96e": 1.0,
+          "fb308a801cec": 1.0,
+          "09358ea56193": 1.0,
+          "a73adc7c7b83": 1.0,
+          "fd87edbb3210": 1.0,
+          "b0e29c18ddf7": 1.0,
+          "e7ab578ad990": 1.0,
+          "666916b07004": 1.0,
+          "062ad2c3ec95": 1.0,
+          "4749ea6b9463": 1.0,
+          "d216326c58c0": 1.0,
+          "1694853e27e5": 1.0,
+          "e36a52f20c7a": 1.0,
+          "01b8c1b5d496": 1.0,
+          "4ad91eb8a132": 1.0,
+          "41c74bb4f2fe": 1.0,
+          "ec53b0921bf3": 1.0,
+          "2896a1d9374b": 1.0,
+          "ed6650e04a61": 1.0,
+          "f4608c073b2e": 1.0,
+          "f6dca8075bdf": 1.0,
+          "06e49eec879c": 1.0,
+          "75212f9fd8d1": 1.0,
+          "1d7035c4bdf9": 1.0,
+          "ecd500cb2359": 1.0,
+          "9efc54ef5738": 1.0,
+          "1383697ccae9": 1.0,
+          "099734a66b09": 1.0,
+          "7a3f5ef6620a": 1.0,
+          "234719444037": 1.0,
+          "2ac8f06ccc48": 1.0,
+          "c6cb4f24193a": 1.0,
+          "39083091c9b8": 1.0,
+          "93303d4820e3": 1.0,
+          "cbf44cf021b3": 1.0,
+          "e1dc4b60fa1c": 1.0,
+          "473272b8d643": 1.0,
+          "c9d6af53a58e": 1.0,
+          "3cd48f30ef2a": 1.0,
+          "38e16ea536ec": 1.0
+        },
+        "constraint_check__c174c7c7__length_unchanged": {
+          "ad533fa21c2a": 1.0,
+          "e1ce74e8b75a": 1.0,
+          "4e13c5cbad03": 1.0,
+          "69374516d0bb": 1.0,
+          "6f14c80346a8": 1.0,
+          "817f8909b1d4": 1.0,
+          "8cf72b72f96e": 1.0,
+          "fb308a801cec": 1.0,
+          "09358ea56193": 1.0,
+          "a73adc7c7b83": 1.0,
+          "fd87edbb3210": 1.0,
+          "b0e29c18ddf7": 1.0,
+          "e7ab578ad990": 1.0,
+          "666916b07004": 1.0,
+          "062ad2c3ec95": 1.0,
+          "4749ea6b9463": 1.0,
+          "d216326c58c0": 1.0,
+          "1694853e27e5": 1.0,
+          "e36a52f20c7a": 1.0,
+          "01b8c1b5d496": 1.0,
+          "4ad91eb8a132": 1.0,
+          "41c74bb4f2fe": 1.0,
+          "ec53b0921bf3": 1.0,
+          "2896a1d9374b": 1.0,
+          "ed6650e04a61": 1.0,
+          "f4608c073b2e": 1.0,
+          "f6dca8075bdf": 1.0,
+          "06e49eec879c": 1.0,
+          "75212f9fd8d1": 1.0,
+          "1d7035c4bdf9": 1.0,
+          "ecd500cb2359": 1.0,
+          "9efc54ef5738": 1.0,
+          "1383697ccae9": 1.0,
+          "099734a66b09": 1.0,
+          "7a3f5ef6620a": 1.0,
+          "234719444037": 1.0,
+          "2ac8f06ccc48": 1.0,
+          "c6cb4f24193a": 1.0,
+          "39083091c9b8": 1.0,
+          "93303d4820e3": 1.0,
+          "cbf44cf021b3": 1.0,
+          "e1dc4b60fa1c": 1.0,
+          "473272b8d643": 1.0,
+          "c9d6af53a58e": 1.0,
+          "3cd48f30ef2a": 1.0,
+          "38e16ea536ec": 1.0
+        },
+        "constraint_check__c174c7c7__targets_remaining": {
+          "ad533fa21c2a": 0.0,
+          "e1ce74e8b75a": 0.0,
+          "4e13c5cbad03": 0.0,
+          "69374516d0bb": 0.0,
+          "6f14c80346a8": 0.0,
+          "817f8909b1d4": 0.0,
+          "8cf72b72f96e": 0.0,
+          "fb308a801cec": 0.0,
+          "09358ea56193": 0.0,
+          "a73adc7c7b83": 0.0,
+          "fd87edbb3210": 0.0,
+          "b0e29c18ddf7": 0.0,
+          "e7ab578ad990": 0.0,
+          "666916b07004": 0.0,
+          "062ad2c3ec95": 0.0,
+          "4749ea6b9463": 0.0,
+          "d216326c58c0": 0.0,
+          "1694853e27e5": 0.0,
+          "e36a52f20c7a": 0.0,
+          "01b8c1b5d496": 0.0,
+          "4ad91eb8a132": 0.0,
+          "41c74bb4f2fe": 0.0,
+          "ec53b0921bf3": 0.0,
+          "2896a1d9374b": 0.0,
+          "ed6650e04a61": 0.0,
+          "f4608c073b2e": 0.0,
+          "f6dca8075bdf": 0.0,
+          "06e49eec879c": 0.0,
+          "75212f9fd8d1": 0.0,
+          "1d7035c4bdf9": 0.0,
+          "ecd500cb2359": 0.0,
+          "9efc54ef5738": 0.0,
+          "1383697ccae9": 0.0,
+          "099734a66b09": 0.0,
+          "7a3f5ef6620a": 0.0,
+          "234719444037": 0.0,
+          "2ac8f06ccc48": 0.0,
+          "c6cb4f24193a": 0.0,
+          "39083091c9b8": 0.0,
+          "93303d4820e3": 0.0,
+          "cbf44cf021b3": 0.0,
+          "e1dc4b60fa1c": 0.0,
+          "473272b8d643": 0.0,
+          "c9d6af53a58e": 0.0,
+          "3cd48f30ef2a": 0.0,
+          "38e16ea536ec": 0.0
+        },
+        "constraint_check__c174c7c7__targets_unreachable": {
+          "ad533fa21c2a": 0.0,
+          "e1ce74e8b75a": 0.0,
+          "4e13c5cbad03": 0.0,
+          "69374516d0bb": 0.0,
+          "6f14c80346a8": 0.0,
+          "817f8909b1d4": 0.0,
+          "8cf72b72f96e": 0.0,
+          "fb308a801cec": 0.0,
+          "09358ea56193": 0.0,
+          "a73adc7c7b83": 0.0,
+          "fd87edbb3210": 0.0,
+          "b0e29c18ddf7": 0.0,
+          "e7ab578ad990": 0.0,
+          "666916b07004": 0.0,
+          "062ad2c3ec95": 0.0,
+          "4749ea6b9463": 0.0,
+          "d216326c58c0": 0.0,
+          "1694853e27e5": 0.0,
+          "e36a52f20c7a": 0.0,
+          "01b8c1b5d496": 0.0,
+          "4ad91eb8a132": 0.0,
+          "41c74bb4f2fe": 0.0,
+          "ec53b0921bf3": 0.0,
+          "2896a1d9374b": 0.0,
+          "ed6650e04a61": 0.0,
+          "f4608c073b2e": 0.0,
+          "f6dca8075bdf": 0.0,
+          "06e49eec879c": 0.0,
+          "75212f9fd8d1": 0.0,
+          "1d7035c4bdf9": 0.0,
+          "ecd500cb2359": 0.0,
+          "9efc54ef5738": 0.0,
+          "1383697ccae9": 0.0,
+          "099734a66b09": 0.0,
+          "7a3f5ef6620a": 0.0,
+          "234719444037": 0.0,
+          "2ac8f06ccc48": 0.0,
+          "c6cb4f24193a": 0.0,
+          "39083091c9b8": 0.0,
+          "93303d4820e3": 0.0,
+          "cbf44cf021b3": 0.0,
+          "e1dc4b60fa1c": 0.0,
+          "473272b8d643": 0.0,
+          "c9d6af53a58e": 0.0,
+          "3cd48f30ef2a": 0.0,
+          "38e16ea536ec": 0.0
+        },
+        "ostir_expression__c7b59231__expression": {
+          "ad533fa21c2a": 50.8414,
+          "e1ce74e8b75a": 50.8414,
+          "4e13c5cbad03": 50.8414,
+          "69374516d0bb": 50.8414,
+          "6f14c80346a8": 50.8414,
+          "817f8909b1d4": 50.8414,
+          "8cf72b72f96e": 46.9323,
+          "fb308a801cec": 50.8414,
+          "09358ea56193": 50.8414,
+          "a73adc7c7b83": 50.8414,
+          "fd87edbb3210": 50.8414,
+          "b0e29c18ddf7": 50.8414,
+          "e7ab578ad990": 46.9323,
+          "666916b07004": 50.8414,
+          "062ad2c3ec95": 50.8414,
+          "4749ea6b9463": 50.8414,
+          "d216326c58c0": 50.8414,
+          "1694853e27e5": 50.8414,
+          "e36a52f20c7a": 50.8414,
+          "01b8c1b5d496": 50.8414,
+          "4ad91eb8a132": 46.9323,
+          "41c74bb4f2fe": 50.8414,
+          "ec53b0921bf3": 50.8414,
+          "2896a1d9374b": 50.8414,
+          "ed6650e04a61": 50.8414,
+          "f4608c073b2e": 50.8414,
+          "f6dca8075bdf": 50.8414,
+          "06e49eec879c": 50.8414,
+          "75212f9fd8d1": 50.8414,
+          "1d7035c4bdf9": 50.8414,
+          "ecd500cb2359": 50.8414,
+          "9efc54ef5738": 50.8414,
+          "1383697ccae9": 46.9323,
+          "099734a66b09": 50.8414,
+          "7a3f5ef6620a": 50.8414,
+          "234719444037": 50.8414,
+          "2ac8f06ccc48": 50.8414,
+          "c6cb4f24193a": 45.092,
+          "39083091c9b8": 50.8414,
+          "93303d4820e3": 50.8414,
+          "cbf44cf021b3": 50.8414,
+          "e1dc4b60fa1c": 50.8414,
+          "473272b8d643": 46.9323,
+          "c9d6af53a58e": 50.8414,
+          "3cd48f30ef2a": 50.8414,
+          "38e16ea536ec": 46.9323
+        }
+      }
+    },
+    "keep_better.no": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAGTAA",
+          "id": "f8797149893b",
+          "display": "ATGGCGCTCAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTGAAGTGA",
+          "id": "fdcde510ae48",
+          "display": "ATGGCGCTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTAAAGTGA",
+          "id": "c71ffed3d857",
+          "display": "ATGGCTCTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAATAG",
+          "id": "2334befd95e9",
+          "display": "ATGGCGCTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAGTGA",
+          "id": "f2272f4209c6",
+          "display": "ATGGCACTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTGAAGTAG",
+          "id": "b8f426b0b389",
+          "display": "ATGGCTTTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTGAAGTGA",
+          "id": "10e7076dbe5d",
+          "display": "ATGGCTTTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAATAG",
+          "id": "81d9aaf0cd60",
+          "display": "ATGGCCTTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAGTAA",
+          "id": "84566ae9725d",
+          "display": "ATGGCCTTGAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTAAAGTGA",
+          "id": "5338c1ef73a2",
+          "display": "ATGGCTTTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTCAAGTGA",
+          "id": "770e74e38463",
+          "display": "ATGGCTCTCAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTCAAGTAG",
+          "id": "5e7b2c902ad1",
+          "display": "ATGGCTCTCAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAGTAA",
+          "id": "4758c60e07dc",
+          "display": "ATGGCCTTAAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAATAG",
+          "id": "7990d24a1bf8",
+          "display": "ATGGCCTTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAGTGA",
+          "id": "b1ed95c341a4",
+          "display": "ATGGCCTTGAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTAAAGTGA",
+          "id": "8e68d29f2a65",
+          "display": "ATGGCACTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAATAA",
+          "id": "a8c800e23f0b",
+          "display": "ATGGCCTTAAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAATGA",
+          "id": "655250ba12d0",
+          "display": "ATGGCGCTCAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTGAAATAG",
+          "id": "cc9108014893",
+          "display": "ATGGCTCTGAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAATAA",
+          "id": "5460d953bbde",
+          "display": "ATGGCGCTCAAATAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTAAAATGA",
+          "id": "a71a04043925",
+          "display": "ATGGCTTTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTTAAGTGA",
+          "id": "26dcf90a3441",
+          "display": "ATGGCTCTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTCAAATAG",
+          "id": "5d1de54558bd",
+          "display": "ATGGCTCTCAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAATGA",
+          "id": "7ea054e8bc24",
+          "display": "ATGGCCTTAAAATGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTAAAATAG",
+          "id": "251f4c136e15",
+          "display": "ATGGCTCTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTTAAATAG",
+          "id": "fccf125c5bc6",
+          "display": "ATGGCTCTTAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTTAAGTGA",
+          "id": "3f78fc9c130a",
+          "display": "ATGGCCCTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTTAAGTAG",
+          "id": "86fde9dde211",
+          "display": "ATGGCCCTTAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTCAAGTGA",
+          "id": "0e122eafd978",
+          "display": "ATGGCGCTCAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTCAAGTGA",
+          "id": "a17a578e9057",
+          "display": "ATGGCACTCAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTTAAGTAA",
+          "id": "014d49a047b3",
+          "display": "ATGGCCCTTAAGTAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTGAAGTAG",
+          "id": "5720ba0ed3b8",
+          "display": "ATGGCCTTGAAGTAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTTAAGTGA",
+          "id": "1b32d0a0fb4a",
+          "display": "ATGGCACTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTAAAGTGA",
+          "id": "6c33f0f40a05",
+          "display": "ATGGCGCTAAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGCTTAAGTGA",
+          "id": "f47089b24bbb",
+          "display": "ATGGCGCTTAAGTGA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTTTAAAATAG",
+          "id": "7cd2bd0f5ffd",
+          "display": "ATGGCTTTAAAATAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCTTAAAGTAG",
+          "id": "2f5b808380eb",
+          "display": "ATGGCCTTAAAGTAG"
+        }
+      ],
+      "scores": {
+        "constraint_check__c174c7c7__protein_unchanged": {
+          "f8797149893b": 1.0,
+          "fdcde510ae48": 1.0,
+          "c71ffed3d857": 1.0,
+          "2334befd95e9": 1.0,
+          "f2272f4209c6": 1.0,
+          "b8f426b0b389": 1.0,
+          "10e7076dbe5d": 1.0,
+          "81d9aaf0cd60": 1.0,
+          "84566ae9725d": 1.0,
+          "5338c1ef73a2": 1.0,
+          "770e74e38463": 1.0,
+          "5e7b2c902ad1": 1.0,
+          "4758c60e07dc": 1.0,
+          "7990d24a1bf8": 1.0,
+          "b1ed95c341a4": 1.0,
+          "8e68d29f2a65": 1.0,
+          "a8c800e23f0b": 1.0,
+          "655250ba12d0": 1.0,
+          "cc9108014893": 1.0,
+          "5460d953bbde": 1.0,
+          "a71a04043925": 1.0,
+          "26dcf90a3441": 1.0,
+          "5d1de54558bd": 1.0,
+          "7ea054e8bc24": 1.0,
+          "251f4c136e15": 1.0,
+          "fccf125c5bc6": 1.0,
+          "3f78fc9c130a": 1.0,
+          "86fde9dde211": 1.0,
+          "0e122eafd978": 1.0,
+          "a17a578e9057": 1.0,
+          "014d49a047b3": 1.0,
+          "5720ba0ed3b8": 1.0,
+          "1b32d0a0fb4a": 1.0,
+          "6c33f0f40a05": 1.0,
+          "f47089b24bbb": 1.0,
+          "7cd2bd0f5ffd": 1.0,
+          "2f5b808380eb": 1.0
+        },
+        "constraint_check__c174c7c7__length_unchanged": {
+          "f8797149893b": 1.0,
+          "fdcde510ae48": 1.0,
+          "c71ffed3d857": 1.0,
+          "2334befd95e9": 1.0,
+          "f2272f4209c6": 1.0,
+          "b8f426b0b389": 1.0,
+          "10e7076dbe5d": 1.0,
+          "81d9aaf0cd60": 1.0,
+          "84566ae9725d": 1.0,
+          "5338c1ef73a2": 1.0,
+          "770e74e38463": 1.0,
+          "5e7b2c902ad1": 1.0,
+          "4758c60e07dc": 1.0,
+          "7990d24a1bf8": 1.0,
+          "b1ed95c341a4": 1.0,
+          "8e68d29f2a65": 1.0,
+          "a8c800e23f0b": 1.0,
+          "655250ba12d0": 1.0,
+          "cc9108014893": 1.0,
+          "5460d953bbde": 1.0,
+          "a71a04043925": 1.0,
+          "26dcf90a3441": 1.0,
+          "5d1de54558bd": 1.0,
+          "7ea054e8bc24": 1.0,
+          "251f4c136e15": 1.0,
+          "fccf125c5bc6": 1.0,
+          "3f78fc9c130a": 1.0,
+          "86fde9dde211": 1.0,
+          "0e122eafd978": 1.0,
+          "a17a578e9057": 1.0,
+          "014d49a047b3": 1.0,
+          "5720ba0ed3b8": 1.0,
+          "1b32d0a0fb4a": 1.0,
+          "6c33f0f40a05": 1.0,
+          "f47089b24bbb": 1.0,
+          "7cd2bd0f5ffd": 1.0,
+          "2f5b808380eb": 1.0
+        },
+        "constraint_check__c174c7c7__targets_remaining": {
+          "f8797149893b": 0.0,
+          "fdcde510ae48": 0.0,
+          "c71ffed3d857": 0.0,
+          "2334befd95e9": 0.0,
+          "f2272f4209c6": 0.0,
+          "b8f426b0b389": 0.0,
+          "10e7076dbe5d": 0.0,
+          "81d9aaf0cd60": 0.0,
+          "84566ae9725d": 0.0,
+          "5338c1ef73a2": 0.0,
+          "770e74e38463": 0.0,
+          "5e7b2c902ad1": 0.0,
+          "4758c60e07dc": 0.0,
+          "7990d24a1bf8": 0.0,
+          "b1ed95c341a4": 0.0,
+          "8e68d29f2a65": 0.0,
+          "a8c800e23f0b": 0.0,
+          "655250ba12d0": 0.0,
+          "cc9108014893": 0.0,
+          "5460d953bbde": 0.0,
+          "a71a04043925": 0.0,
+          "26dcf90a3441": 0.0,
+          "5d1de54558bd": 0.0,
+          "7ea054e8bc24": 0.0,
+          "251f4c136e15": 0.0,
+          "fccf125c5bc6": 0.0,
+          "3f78fc9c130a": 0.0,
+          "86fde9dde211": 0.0,
+          "0e122eafd978": 0.0,
+          "a17a578e9057": 0.0,
+          "014d49a047b3": 0.0,
+          "5720ba0ed3b8": 0.0,
+          "1b32d0a0fb4a": 0.0,
+          "6c33f0f40a05": 0.0,
+          "f47089b24bbb": 0.0,
+          "7cd2bd0f5ffd": 0.0,
+          "2f5b808380eb": 0.0
+        },
+        "constraint_check__c174c7c7__targets_unreachable": {
+          "f8797149893b": 0.0,
+          "fdcde510ae48": 0.0,
+          "c71ffed3d857": 0.0,
+          "2334befd95e9": 0.0,
+          "f2272f4209c6": 0.0,
+          "b8f426b0b389": 0.0,
+          "10e7076dbe5d": 0.0,
+          "81d9aaf0cd60": 0.0,
+          "84566ae9725d": 0.0,
+          "5338c1ef73a2": 0.0,
+          "770e74e38463": 0.0,
+          "5e7b2c902ad1": 0.0,
+          "4758c60e07dc": 0.0,
+          "7990d24a1bf8": 0.0,
+          "b1ed95c341a4": 0.0,
+          "8e68d29f2a65": 0.0,
+          "a8c800e23f0b": 0.0,
+          "655250ba12d0": 0.0,
+          "cc9108014893": 0.0,
+          "5460d953bbde": 0.0,
+          "a71a04043925": 0.0,
+          "26dcf90a3441": 0.0,
+          "5d1de54558bd": 0.0,
+          "7ea054e8bc24": 0.0,
+          "251f4c136e15": 0.0,
+          "fccf125c5bc6": 0.0,
+          "3f78fc9c130a": 0.0,
+          "86fde9dde211": 0.0,
+          "0e122eafd978": 0.0,
+          "a17a578e9057": 0.0,
+          "014d49a047b3": 0.0,
+          "5720ba0ed3b8": 0.0,
+          "1b32d0a0fb4a": 0.0,
+          "6c33f0f40a05": 0.0,
+          "f47089b24bbb": 0.0,
+          "7cd2bd0f5ffd": 0.0,
+          "2f5b808380eb": 0.0
+        },
+        "ostir_expression__c7b59231__expression": {
+          "f8797149893b": 34.0792,
+          "fdcde510ae48": 39.9927,
+          "c71ffed3d857": 34.0792,
+          "2334befd95e9": 34.0792,
+          "f2272f4209c6": 34.0792,
+          "b8f426b0b389": 41.6249,
+          "10e7076dbe5d": 21.9476,
+          "81d9aaf0cd60": 36.9177,
+          "84566ae9725d": 36.9177,
+          "5338c1ef73a2": 32.7428,
+          "770e74e38463": 21.087,
+          "5e7b2c902ad1": 21.087,
+          "4758c60e07dc": 38.4245,
+          "7990d24a1bf8": 38.4245,
+          "b1ed95c341a4": 36.9177,
+          "8e68d29f2a65": 34.0792,
+          "a8c800e23f0b": 38.4245,
+          "655250ba12d0": 34.0792,
+          "cc9108014893": 41.6249,
+          "5460d953bbde": 34.0792,
+          "a71a04043925": 36.9177,
+          "26dcf90a3441": 26.8072,
+          "5d1de54558bd": 21.087,
+          "7ea054e8bc24": 38.4245,
+          "251f4c136e15": 34.0792,
+          "fccf125c5bc6": 26.8072,
+          "3f78fc9c130a": 38.4245,
+          "86fde9dde211": 38.4245,
+          "0e122eafd978": 34.0792,
+          "a17a578e9057": 34.0792,
+          "014d49a047b3": 38.4245,
+          "5720ba0ed3b8": 36.9177,
+          "1b32d0a0fb4a": 34.0792,
+          "6c33f0f40a05": 39.9927,
+          "f47089b24bbb": 39.9927,
+          "7cd2bd0f5ffd": 43.3238,
+          "2f5b808380eb": 38.4245
+        }
+      }
+    }
+  },
+  "status": "COMPLETED",
+  "start_time": "2026-10-03T21:45:16.442685Z",
+  "close_time": "2026-10-03T21:45:16.578537Z",
+  "error": null
+}

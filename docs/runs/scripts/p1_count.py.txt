@@ -1,0 +1,45 @@
+"""P1's count, from bytes: rounds where every assertion held, the last filter's lowest kept score exceeds its highest
+dropped score, and the verifier still vetoed. Also lists accepted rounds and whether every kept score is strictly
+above the first input's score (measured by a baseline step in the same DAG)."""
+import json
+import sys
+from pathlib import Path
+
+S = Path(sys.argv[1])
+for arm in "AB":
+    root = S / f"arm-{arm}" / "results"
+    rows = []
+    for f in sorted((root / "hypotheses").glob("*.json")):
+        h = json.loads(f.read_text())
+        vetoed_ok = 0
+        accepted = []
+        for a in h["attempts"]:
+            held = a.get("held") or {}
+            flow = root / "workflows" / f"{h['id']}-r{a['round']}.json"
+            if not flow.exists() or not a.get("verdict"):
+                continue
+            v = json.loads(flow.read_text())["values"]
+            filt = [k for k, s in a["dag"]["steps"].items() if s["config"]["name"] == "at_least"]
+            last = filt[-1]
+            col = a["dag"]["steps"][last]["config"]["column"]
+            yes, no = v.get(f"{last}.yes"), v.get(f"{last}.no")
+            if not yes or not yes["items"]:
+                continue
+            kept = [yes["scores"][col][i["id"]] for i in yes["items"]]
+            dropped = [no["scores"][col][i["id"]] for i in no["items"]] if no and no["items"] else []
+            clear = not dropped or min(kept) > max(dropped)
+            all_held = bool(held) and all(held.values())
+            ok = a["verdict"].get("achieved")
+            if all_held and clear and not ok:
+                vetoed_ok += 1
+            if ok:
+                base = None
+                if "baseline" in v:
+                    first = h["inputs"]["seqs"][0]["sequence"]
+                    bid = next(i["id"] for i in v["seqs"]["items"] if i["sequence"] == first)
+                    base = v["baseline"]["scores"].get(col, {}).get(bid)
+                accepted.append((a["round"], len(kept), min(kept), base, base is not None and min(kept) > base))
+        rows.append((h["id"][11:19], h["state"], len(h["attempts"]), vetoed_ok, accepted))
+    print(f"arm {arm}: runs {len(rows)}; runs with a held, clearly-better, vetoed round: {sum(1 for r in rows if r[3])}")
+    for r in rows:
+        print("  ", r)

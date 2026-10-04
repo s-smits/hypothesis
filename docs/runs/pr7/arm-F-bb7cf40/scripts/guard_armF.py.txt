@@ -1,0 +1,64 @@
+"""Spend guard for arm F: two runs at once, a cap per run, a ceiling for the arm.
+
+Every tick it reads each saved Hypothesis in the arm's results dir (usage.total, state), writes one line to
+the status file, and signals `abandon` to any open run whose tokens reached the cap. Reserved spend is
+settled runs' tokens plus, for each open run, the cap (not what it has used so far), so a run that is still
+open is never counted as free. Exits when no run is open for two ticks in a row.
+Usage: guard_armF.py <results dir> <status file> <address> <cap> <ceiling>
+"""
+import asyncio
+import json
+import sys
+import time
+from pathlib import Path
+
+from temporalio.client import Client
+
+results, status, address, cap, ceiling = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3], int(sys.argv[4]), int(sys.argv[5])
+DONE = {"achieved", "not achieved", "abandoned", "failed"}
+
+
+def read() -> list[tuple[str, str, int]]:
+    rows = []
+    for f in sorted((results / "hypotheses").glob("*.json")):
+        try:
+            h = json.loads(f.read_text())
+        except (OSError, ValueError):
+            continue
+        rows.append((h["id"], h["state"], int((h.get("usage") or {}).get("total") or 0)))
+    return rows
+
+
+async def main() -> None:
+    client = await Client.connect(address)
+    quiet = 0
+    asked: set[str] = set()
+    blocked_since: dict[str, float] = {}
+    while quiet < 2:
+        rows = read()
+        open_ = [r for r in rows if r[1] not in DONE]
+        settled = sum(t for _, s, t in rows if s in DONE)
+        reserved = settled + sum(max(cap, t) for _, _, t in open_)
+        line = f"{time.strftime('%F %T')} settled {settled} reserved {reserved} ceiling {ceiling} | " + "; ".join(
+            f"{i[11:19]} {s} {t}" for i, s, t in rows
+        )
+        with status.open("a") as out:
+            out.write(line + "\n")
+        for wid, state, used in open_:
+            if state == "blocked":  # Nobody is here to write a node: after 15 minutes it is no result.
+                blocked_since.setdefault(wid, time.time())
+            else:
+                blocked_since.pop(wid, None)
+            over = used >= cap
+            stuck = state == "blocked" and time.time() - blocked_since[wid] > 900
+            if (over or stuck) and wid not in asked:
+                asked.add(wid)
+                await client.get_workflow_handle(wid).signal("abandon")
+                why = f"reached cap {cap} at {used}" if over else "blocked for 15 minutes"
+                with status.open("a") as out:
+                    out.write(f"{time.strftime('%F %T')} {wid[11:19]} {why}: abandon signalled\n")
+        quiet = quiet + 1 if not open_ and rows else 0
+        await asyncio.sleep(20)
+
+
+asyncio.run(main())

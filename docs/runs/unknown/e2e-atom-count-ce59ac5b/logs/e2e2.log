@@ -1,0 +1,30 @@
+time=2026-10-03T17:21:14.620 level=WARN msg="Cluster Id in Cluster Metadata config is not a valid uuid. Generating a new Cluster Id" component=metadata-initializer
+Temporal CLI 1.9.1 (Server 1.32.0, UI 2.54.1)
+
+Temporal Server:      localhost:49485
+Temporal Persistence: in-memory
+Temporal Metrics:     http://localhost:49489/metrics
+[progress] round 0: building
+[progress] round 1: building
+[progress] round 1: verifying
+[progress] round 1: critiquing
+[progress] round 2: building
+[progress] round 2: verifying
+STATE: achieved
+STOPPED: every criterion was covered by an assertion that held
+USAGE: {'criteria': 1166, 'total': 89491, 'plan': 77244, 'verify': 6072, 'critique': 5009}
+CRITERIA: [('protein_preserved', 'Every kept sequence translates to exactly the same protein as the input sequence it was derived from.'), ('fewer_atoms_than_first', 'Every kept sequence has a strictly lower total atom count than the first sequence in the input list.'), ('valid_dna_output', 'Every kept sequence is a valid DNA sequence, using only A, C, G and T, with a length that is a multiple of three so it can be translated in codons.'), ('no_unqualified_kept', 'No sequence is kept unless its atom count is below that of the first input sequence. Sequences that fail this are dropped.')]
+--- round 1
+  plan: {'mutate': ['mutate_synonymous__d00f2f8f', {}, {'sequence': 'seqs'}], 'score': ['dna_atom_score__3745d4af', {}, {'sequence': 'mutate'}], 'same_protein': ['at_most__2c25cae6', {}, {'items': 'score'}], 'fewer_atoms': ['at_most__7075fa0b', {}, {'items': 'same_protein.yes'}]}
+  assertions: [('protein_preserved', 'same_protein', 'yes'), ('fewer_atoms_than_first', 'fewer_atoms', 'yes'), ('valid_dna_output', 'same_protein', 'yes'), ('no_unqualified_kept', 'fewer_atoms', 'yes')]
+  requests: []
+  held: {'same_protein.yes': True, 'fewer_atoms.yes': False} | error: None
+  verdict: (False, False, True, 'The test design correctly covers all four criteria and properly checks for: (1) protein preservation via amino acid change count, (2) atom count below threshold, (3) valid DNA output (checked during mutation step), and (4) proper filtering logic. However, the outcome contradicts the expected result. The first sequence has 494 atoms, so the threshold should be 493. All three generated variants have')
+  critique: ('wrong_node', 'Replace the random mutate step with a node that picks the lowest-atom synonymous codon for each amino acid, including the stop codon, so the candidates actually have lower atom counts. If no such node exists, the plan needs a deterministic atom-minimizing recoding step, not another random mutate_syn')
+--- round 2
+  plan: {'recode': ['recode_codons__dd925cd9', {}, {'sequence': 'seqs'}], 'score': ['dna_atom_score__3745d4af', {}, {'sequence': 'recode'}], 'same_protein': ['at_most__2c25cae6', {}, {'items': 'score'}], 'fewer_atoms': ['at_most__7075fa0b', {}, {'items': 'same_protein.yes'}]}
+  assertions: [('protein_preserved', 'same_protein', 'yes'), ('fewer_atoms_than_first', 'fewer_atoms', 'yes'), ('valid_dna_output', 'same_protein', 'yes'), ('no_unqualified_kept', 'fewer_atoms', 'yes')]
+  requests: []
+  held: {'same_protein.yes': True, 'fewer_atoms.yes': True} | error: None
+  verdict: (True, True, True, 'The outcome fully satisfies all criteria. First sequence (ATGGCTCTGAAATAA) has 494 atoms as the reference baseline. All three recoded sequences (489, 491, 490 atoms respectively) have strictly lower atom counts than 494. All preserved their proteins (0 amino acid changes each). All kept sequences are valid DNA using only A,C,G,T with lengths that are multiples of 3 (15 nucleotides = 5 codons). The')
+  critique: None

@@ -1,0 +1,37 @@
+"""Replay one saved round through the verifier with a chosen model. Prints the opinion and the tokens used.
+
+    replay_verify.py <results dir> <hypothesis id> <round> <model|--dry>
+Run from a worktree whose code renders the judge view (arm-B has `filters`). Calls no tool; one model call."""
+import asyncio
+import json
+import sys
+from pathlib import Path
+
+from pydantic_ai.usage import RunUsage
+from pydantic_core import to_json
+
+from node_dag.agent import Hypothesis, verify_agent
+from node_dag.dag import DagOutput
+from temporal.hypothesis.activities import _view
+
+root, hid, rnd, model = Path(sys.argv[1]), sys.argv[2], int(sys.argv[3]), sys.argv[4]
+h = Hypothesis.model_validate_json((root / "hypotheses" / f"{hid}.json").read_text())
+flow = json.loads((root / "workflows" / f"{hid}-r{rnd}.json").read_text())
+h.attempts = h.attempts[:rnd]
+a = h.attempts[-1]
+a.outcome = DagOutput.model_validate({"values": flow["values"], "skipped": flow.get("skipped", [])})
+prompt = to_json(_view(h)).decode()
+print(f"{hid[11:19]} r{rnd}: view {len(prompt)} chars (~{len(prompt)//3} tokens); original verdict agrees={a.verdict and a.verdict.agrees}")
+if model == "--dry":
+    sys.exit(0)
+
+
+async def main() -> None:
+    usage = RunUsage()
+    run = await verify_agent(model).run(prompt, usage=usage)
+    o = run.output
+    print(f"  {model}: agrees={o.agrees} covers_goal={o.covers_goal} tokens={usage.total_tokens}")
+    print("  reason:", o.reason[:900].replace("\n", " "))
+
+
+asyncio.run(main())

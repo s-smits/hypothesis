@@ -1,0 +1,386 @@
+{
+  "id": "hypothesis-9afcd59e-e120-4f65-8eda-80c6ae6c23eb",
+  "goal": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the ones that score higher than the first sequence.",
+  "inputs": {
+    "seqs": [
+      {
+        "kind": "dna",
+        "sequence": "ATGGCTCTGAAATAA",
+        "id": "1e142be77490",
+        "display": "ATGGCTCTGAAATAA"
+      },
+      {
+        "kind": "dna",
+        "sequence": "ATGGCGTTAAAGTAG",
+        "id": "b4fd7183a224",
+        "display": "ATGGCGTTAAAGTAG"
+      },
+      {
+        "kind": "dna",
+        "sequence": "ATGGCCCTGAAATGA",
+        "id": "f9932d4787c6",
+        "display": "ATGGCCCTGAAATGA"
+      }
+    ]
+  },
+  "hypothesis": null,
+  "observations": [],
+  "criteria": [
+    {
+      "id": "protein_preserved",
+      "claim": "Each output DNA sequence translates to exactly the same amino acid sequence as its corresponding input sequence, with synonymous codon changes only."
+    },
+    {
+      "id": "initiation_rate_higher",
+      "claim": "Each retained sequence has a predicted translation initiation rate strictly higher than that of the first input sequence, measured with the same scoring method for both."
+    },
+    {
+      "id": "only_higher_kept",
+      "claim": "Sequences whose predicted translation initiation rate is not higher than the first input sequence's rate are excluded from the output."
+    },
+    {
+      "id": "valid_dna_output",
+      "claim": "Every output sequence is valid DNA, using only A, C, G and T, with a length that is a multiple of three and the same as its input."
+    }
+  ],
+  "state": "abandoned",
+  "round": 2,
+  "attempts": [
+    {
+      "round": 1,
+      "plan": {
+        "hypothesis": "Random synonymous recoding of the three CDSs changes mRNA folding near the start codon, so some variants have a higher OSTIR initiation rate than the first input. Scoring variants with the same UTR and keeping those above the first sequence's baseline raises initiation without changing the protein.",
+        "expected": "Only variants with an OSTIR expression above the first input's baseline go to filter.yes. All are synonymous variants (M-A-L-K-stop), valid DNA, and 15 nt long.",
+        "assertions": [
+          {
+            "criterion": "initiation_rate_higher",
+            "step": "keep",
+            "branch": "yes",
+            "claim": "Variants in keep.yes have an OSTIR rate above the first input's baseline."
+          },
+          {
+            "criterion": "only_higher_kept",
+            "step": "keep",
+            "branch": "no",
+            "claim": "Variants at or below the first input's baseline go to keep.no and are excluded."
+          },
+          {
+            "criterion": "protein_preserved",
+            "step": "keep",
+            "branch": "yes",
+            "claim": "All kept sequences come from mutate_synonymous, so the protein is unchanged."
+          },
+          {
+            "criterion": "valid_dna_output",
+            "step": "keep",
+            "branch": "yes",
+            "claim": "Kept sequences use only A, C, G, T, and keep the input length, which is a multiple of three."
+          }
+        ],
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "baseline": {
+            "node": "ostir_expression__b7dae2da",
+            "config": {},
+            "inputs": {
+              "sequence": "seqs"
+            },
+            "why": "Score the original inputs with the same method, to get the first sequence's baseline rate that the threshold is set from."
+          },
+          "mutate": {
+            "node": "mutate_synonymous",
+            "config": {
+              "seed": 7,
+              "count": 3,
+              "variants_per_sequence": 20
+            },
+            "inputs": {
+              "sequence": "seqs"
+            },
+            "why": "Generate a pool of synonymous variants. They keep the protein and the length."
+          },
+          "score": {
+            "node": "ostir_expression__b7dae2da",
+            "config": {},
+            "inputs": {
+              "sequence": "mutate"
+            },
+            "why": "Predict the initiation rate of each variant with the same UTR and anti-SD."
+          },
+          "keep": {
+            "node": "at_least__12bf20ad",
+            "config": {},
+            "inputs": {
+              "items": "score"
+            },
+            "why": "Keep only variants scoring at or above the baseline threshold (the first sequence's rate). Variants that don't beat it go to the no branch."
+          }
+        },
+        "requests": {},
+        "observations": [],
+        "addresses_critique": ""
+      },
+      "requests": [],
+      "dag": {
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "baseline": {
+            "config": {
+              "name": "ostir_expression",
+              "config_hash": "b7dae2da",
+              "utr": "TTTAACTTTAAGAAGGAGATATACATATAAAAAAA",
+              "anti_sd": "ACCTCCTTA"
+            },
+            "inputs": {
+              "sequence": "seqs"
+            }
+          },
+          "mutate": {
+            "config": {
+              "name": "mutate_synonymous",
+              "config_hash": "3f81a886",
+              "seed": 7,
+              "count": 3,
+              "variants_per_sequence": 20
+            },
+            "inputs": {
+              "sequence": "seqs"
+            }
+          },
+          "score": {
+            "config": {
+              "name": "ostir_expression",
+              "config_hash": "b7dae2da",
+              "utr": "TTTAACTTTAAGAAGGAGATATACATATAAAAAAA",
+              "anti_sd": "ACCTCCTTA"
+            },
+            "inputs": {
+              "sequence": "mutate"
+            }
+          },
+          "keep": {
+            "config": {
+              "name": "at_least",
+              "config_hash": "12bf20ad",
+              "column": "ostir_expression__b7dae2da__expression",
+              "threshold": 1000.0
+            },
+            "inputs": {
+              "items": "score"
+            }
+          }
+        }
+      },
+      "workflow_id": "hypothesis-9afcd59e-e120-4f65-8eda-80c6ae6c23eb-r1",
+      "outcome": null,
+      "held": {
+        "keep.yes": false,
+        "keep.no": false
+      },
+      "produced": {
+        "seqs": [
+          "ATGGCTCTGAAA..AAATAA (15)",
+          "ATGGCGTTAAAG..AAGTAG (15)",
+          "ATGGCCCTGAAA..AAATGA (15)"
+        ],
+        "mutate": [
+          "ATGGCTCTCAAG..AAGTAG (15)",
+          "ATGGCACTGAAG..AAGTAG (15)",
+          "ATGGCCTTAAAA..AAATAG (15)"
+        ],
+        "baseline": [
+          "ATGGCTCTGAAA..AAATAA (15)",
+          "ATGGCGTTAAAG..AAGTAG (15)",
+          "ATGGCCCTGAAA..AAATGA (15)"
+        ],
+        "score": [
+          "ATGGCTCTCAAG..AAGTAG (15)",
+          "ATGGCACTGAAG..AAGTAG (15)",
+          "ATGGCCTTAAAA..AAATAG (15)"
+        ],
+        "keep.yes": [
+          "ATGGCTCTCAAG..AAGTAG (15)",
+          "ATGGCACTGAAG..AAGTAG (15)",
+          "ATGGCCTTAAAA..AAATAG (15)"
+        ],
+        "keep.no": [
+          "ATGGCCTTAAAG..AAGTAA (15)",
+          "ATGGCCTTAAAG..AAGTAG (15)"
+        ]
+      },
+      "verdict": {
+        "achieved": false,
+        "reason": "Critical failures on multiple fronts:\n\n1. **THRESHOLD FILTERED NOTHING (criterion: only_higher_kept)**: The filter threshold of 1000.0 is too low. The first input sequence (ATGGCTCTGAAATAA) has a baseline OSTIR score of 3781.49, which is well above 1000.0. The goal explicitly requires keeping only sequences \"higher than the first sequence\" (3781.49). However, the threshold allowed 40 sequences through with scores ranging from 1840.57 to 5420.25—including many that score below the baseline (e.g., id 5e7b2c902ad1 at 1840.57, id 770e74e38463 at 1840.57, id c71ffed3d857 at 1915.69, etc.). The filter decided nothing meaningful; it let almost everything through.\n\n2. **IMPROPER COMPARISON BASIS (criterion: initiation_rate_higher)**: Only 2 sequences went to keep.no (both scoring 794.55), while 40 went to keep.yes. But many sequences in keep.yes score below the first input's baseline of 3781.49, such as:\n   - id 5e7b2c902ad1: 1840.57\n   - id 770e74e38463: 1840.57\n   - id c71ffed3d857: 1915.69\n   - id 5338c1ef73a2: 2075.25\n   - id c6cb4f24193a: 2075.25\n   - And many others between 2000-3700\n   \n   These should be excluded but were retained.\n\n3. **ASSERTION FAILURES (held: false)**: Both keep.yes and keep.no branches show \"held\": false, indicating the assertions did not verify as expected. This is correct because the filter failed to properly implement the threshold logic.\n\n4. **WRONG SCORING BASELINE**: The filter used a hard threshold of 1000.0 instead of comparing each variant against the first input's actual baseline score (3781.49). This is a fundamental misunderstanding of the filtering requirement.\n\nThe outcome demonstrates that the filter threshold was misconfigured and ineffective at excluding variants below the first sequence's performance level.\n\nAcceptance: these assertions did not hold: ['keep.no', 'keep.yes']",
+        "agrees": false,
+        "covers_goal": false
+      },
+      "critique": {
+        "diagnosis": "The keep step (at_least) was configured with a hard-coded threshold of 1000.0 instead of the first input's measured baseline OSTIR score (3781.4938). So 40 of 42 variants passed, including many scoring below the baseline (e.g. 1840.57, 1915.69, 2075.25). Only the two 794.55 variants were excluded. The baseline step ran and produced 3781.4938 for the first sequence, but its output is not wired into keep; keep only takes items from score. Also, baseline scored all three inputs, and only the first sequence's score is relevant.",
+        "root_cause": "wrong_config",
+        "evidence": [
+          "keep config: at_least threshold=1000.0, while baseline score of first input 1e142be77490 is 3781.4938",
+          "keep.yes contains 5e7b2c902ad1 (1840.5674), 770e74e38463 (1840.5674), c71ffed3d857 (1915.6872), 5338c1ef73a2 (2075.2496), all below 3781.49",
+          "keep.no has only 2 items (794.5504 each), so the filter removed almost nothing",
+          "baseline output exists but is not wired into keep; only score feeds keep.items"
+        ],
+        "keep": [
+          "baseline",
+          "mutate",
+          "score"
+        ],
+        "fix": "Keep baseline, mutate and score as they are. Change the keep step so the cutoff equals the first input's baseline score, 3781.4938 (strictly greater than, since ties must be excluded), either by setting the threshold to just above that value (e.g. 3781.4939) or by using a filter that compares each variant against the first baseline score. Do not reuse the threshold=1000.0 wiring. Note that variants of inputs 2 and 3 are also compared to the first sequence's rate, as the goal states, and the mutate step's variants must still be synonymous variants of their own input."
+      },
+      "error": null,
+      "started": "2026-10-03T19:04:14.835783Z"
+    },
+    {
+      "round": 2,
+      "plan": {
+        "hypothesis": "Synonymous recoding changes mRNA folding near the start codon, so some variants have a higher OSTIR initiation rate than the first input (baseline 3781.4938). Keeping only variants strictly above that baseline raises initiation without changing the protein.",
+        "expected": "Only synonymous, valid variants with OSTIR rate > 3781.4938 land in keep.yes; all others go to keep.no.",
+        "assertions": [
+          {
+            "criterion": "protein_preserved",
+            "step": "protein_ok",
+            "branch": "yes",
+            "claim": "All variants have zero amino acid changes versus their parent."
+          },
+          {
+            "criterion": "valid_dna_output",
+            "step": "dna_ok",
+            "branch": "yes",
+            "claim": "All variants are ACGT-only, length multiple of 3 and equal to parent length."
+          },
+          {
+            "criterion": "initiation_rate_higher",
+            "step": "keep",
+            "branch": "yes",
+            "claim": "Every retained variant has OSTIR rate above 3781.4938."
+          },
+          {
+            "criterion": "only_higher_kept",
+            "step": "keep",
+            "branch": "no",
+            "claim": "Variants not above 3781.4938 are excluded into keep.no."
+          }
+        ],
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "mutate": {
+            "node": "mutate_synonymous__3f81a886",
+            "config": {},
+            "inputs": {
+              "sequence": "seqs"
+            },
+            "why": "Generate synonymous variants."
+          },
+          "check": {
+            "node": "dna_variant_check",
+            "config": {},
+            "inputs": {
+              "sequence": "mutate"
+            },
+            "why": "Count amino acid changes versus the parent input and structural DNA violations (non-ACGT bases, length not multiple of 3, length differing from parent)."
+          },
+          "protein_ok": {
+            "node": "at_most",
+            "config": {
+              "column": "dna_variant_check__758a66ba__amino_acid_changes",
+              "threshold": 0.0
+            },
+            "inputs": {
+              "items": "check"
+            },
+            "why": "Keep only variants with zero amino acid changes."
+          },
+          "dna_ok": {
+            "node": "at_most",
+            "config": {
+              "column": "dna_variant_check__758a66ba__format_violations",
+              "threshold": 0.0
+            },
+            "inputs": {
+              "items": "protein_ok.yes"
+            },
+            "why": "Keep only valid DNA of same length, multiple of three."
+          },
+          "score": {
+            "node": "ostir_expression__b7dae2da",
+            "config": {},
+            "inputs": {
+              "sequence": "dna_ok.yes"
+            },
+            "why": "Score initiation rate with the same UTR as the baseline."
+          },
+          "keep": {
+            "node": "at_least__afef651c",
+            "config": {},
+            "inputs": {
+              "items": "score"
+            },
+            "why": "Threshold 3781.4939 is just above first input's baseline 3781.4938, so only strictly higher variants pass."
+          }
+        },
+        "requests": {
+          "dna_variant_check": {
+            "name": "dna_variant_check",
+            "node": "score",
+            "purpose": "For each variant DNA, score amino_acid_changes (differences between its translation and its parent input's translation) and format_violations (count of non-ACGT characters, plus 1 if length is not a multiple of 3, plus 1 if length differs from the parent).",
+            "port": "sequence",
+            "kind": "dna",
+            "output": [
+              "amino_acid_changes",
+              "format_violations"
+            ],
+            "config_fields": [],
+            "why_needed": "Proves protein preservation and valid DNA output as filterable columns.",
+            "why_not_composable": "dna_to_protein gives sequences, not a comparison score; codon_count only counts named codons; ostir_expression scores initiation; at_most/at_least need a numeric column.",
+            "example": "ATGGCCCTGAAATGA variant ATGGCCTTAAAATGA -> amino_acid_changes 0, format_violations 0"
+          }
+        },
+        "observations": [],
+        "addresses_critique": "Replaced the hard-coded 1000.0 threshold with at_least at 3781.4939, just above the first input's baseline 3781.4938; removed the redundant baseline step; added explicit protein and DNA validity checks."
+      },
+      "requests": [
+        {
+          "name": "dna_variant_check",
+          "node": "score",
+          "purpose": "For each variant DNA, score amino_acid_changes (differences between its translation and its parent input's translation) and format_violations (count of non-ACGT characters, plus 1 if length is not a multiple of 3, plus 1 if length differs from the parent).",
+          "port": "sequence",
+          "kind": "dna",
+          "output": [
+            "amino_acid_changes",
+            "format_violations"
+          ],
+          "config_fields": [],
+          "why_needed": "Proves protein preservation and valid DNA output as filterable columns.",
+          "why_not_composable": "dna_to_protein gives sequences, not a comparison score; codon_count only counts named codons; ostir_expression scores initiation; at_most/at_least need a numeric column.",
+          "example": "ATGGCCCTGAAATGA variant ATGGCCTTAAAATGA -> amino_acid_changes 0, format_violations 0"
+        }
+      ],
+      "dag": null,
+      "workflow_id": null,
+      "outcome": null,
+      "held": {},
+      "produced": {},
+      "verdict": null,
+      "critique": null,
+      "error": null,
+      "started": "2026-10-03T19:04:46.429192Z"
+    }
+  ],
+  "usage": {
+    "criteria": 806,
+    "total": 170098,
+    "plan": 146682,
+    "verify": 9381,
+    "critique": 13229
+  },
+  "stopped_because": "abandoned while blocked on a tool"
+}

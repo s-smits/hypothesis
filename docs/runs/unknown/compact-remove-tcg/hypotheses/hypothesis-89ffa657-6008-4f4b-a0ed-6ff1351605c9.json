@@ -1,0 +1,281 @@
+{
+  "id": "hypothesis-89ffa657-6008-4f4b-a0ed-6ff1351605c9",
+  "goal": "remove TCG",
+  "inputs": {
+    "seq": [
+      {
+        "kind": "dna",
+        "sequence": "ATGTCGTAA",
+        "id": "ff8800faa8c2",
+        "display": "ATG TCG TAA"
+      }
+    ]
+  },
+  "hypothesis": "h",
+  "dag": {
+    "inputs": {
+      "seq": "dna"
+    },
+    "steps": {
+      "counted": {
+        "config": {
+          "name": "codon_count",
+          "config_hash": "e5280feb",
+          "codons": [
+            "TCG"
+          ]
+        },
+        "inputs": {
+          "sequence": "seq"
+        }
+      },
+      "small": {
+        "config": {
+          "name": "at_most",
+          "config_hash": "6c3827b5",
+          "column": "codon_count__e5280feb__count",
+          "threshold": 0.0
+        },
+        "inputs": {
+          "items": "counted"
+        }
+      }
+    }
+  },
+  "workflow_id": "hypothesis-89ffa657-6008-4f4b-a0ed-6ff1351605c9-r1",
+  "outcome": {
+    "values": {
+      "seq": {
+        "items": [
+          {
+            "kind": "dna",
+            "sequence": "ATGTCGTAA",
+            "id": "ff8800faa8c2",
+            "display": "ATG TCG TAA"
+          }
+        ],
+        "scores": {}
+      },
+      "counted": {
+        "items": [
+          {
+            "kind": "dna",
+            "sequence": "ATGTCGTAA",
+            "id": "ff8800faa8c2",
+            "display": "ATG TCG TAA"
+          }
+        ],
+        "scores": {
+          "codon_count__e5280feb__count": {
+            "ff8800faa8c2": 1.0
+          }
+        }
+      },
+      "small.yes": {
+        "items": [],
+        "scores": {}
+      },
+      "small.no": {
+        "items": [
+          {
+            "kind": "dna",
+            "sequence": "ATGTCGTAA",
+            "id": "ff8800faa8c2",
+            "display": "ATG TCG TAA"
+          }
+        ],
+        "scores": {
+          "codon_count__e5280feb__count": {
+            "ff8800faa8c2": 1.0
+          }
+        }
+      }
+    },
+    "skipped": []
+  },
+  "verdict": {
+    "achieved": false,
+    "reason": "the opinion\n\nAcceptance: these assertions did not hold: ['small.yes']",
+    "agrees": true,
+    "covers_goal": true,
+    "score": 0.5
+  },
+  "criteria": [
+    {
+      "id": "no_tcg",
+      "claim": "no TCG remains",
+      "source": "human"
+    }
+  ],
+  "state": "not achieved",
+  "round": 1,
+  "attempts": [
+    {
+      "round": 1,
+      "plan": {
+        "hypothesis": "h",
+        "expected": "e",
+        "assertions": [
+          {
+            "criterion": "no_tcg",
+            "step": "small",
+            "branch": "yes",
+            "claim": "c"
+          }
+        ],
+        "inputs": {
+          "seq": "dna"
+        },
+        "steps": {
+          "counted": {
+            "node": "codon_count",
+            "config": {
+              "codons": [
+                "TCG"
+              ]
+            },
+            "inputs": {
+              "sequence": "seq"
+            },
+            "why": "w"
+          },
+          "small": {
+            "node": "at_most",
+            "config": {
+              "column": "codon_count__e5280feb__count",
+              "threshold": 0
+            },
+            "inputs": {
+              "items": "counted"
+            },
+            "why": "w"
+          }
+        },
+        "requests": {},
+        "addresses_critique": ""
+      },
+      "requests": [],
+      "dag": {
+        "inputs": {
+          "seq": "dna"
+        },
+        "steps": {
+          "counted": {
+            "config": {
+              "name": "codon_count",
+              "config_hash": "e5280feb",
+              "codons": [
+                "TCG"
+              ]
+            },
+            "inputs": {
+              "sequence": "seq"
+            }
+          },
+          "small": {
+            "config": {
+              "name": "at_most",
+              "config_hash": "6c3827b5",
+              "column": "codon_count__e5280feb__count",
+              "threshold": 0.0
+            },
+            "inputs": {
+              "items": "counted"
+            }
+          }
+        }
+      },
+      "outcome": {
+        "values": {
+          "seq": {
+            "items": [
+              {
+                "kind": "dna",
+                "sequence": "ATGTCGTAA",
+                "id": "ff8800faa8c2",
+                "display": "ATG TCG TAA"
+              }
+            ],
+            "scores": {}
+          },
+          "counted": {
+            "items": [
+              {
+                "kind": "dna",
+                "sequence": "ATGTCGTAA",
+                "id": "ff8800faa8c2",
+                "display": "ATG TCG TAA"
+              }
+            ],
+            "scores": {
+              "codon_count__e5280feb__count": {
+                "ff8800faa8c2": 1.0
+              }
+            }
+          },
+          "small.yes": {
+            "items": [],
+            "scores": {}
+          },
+          "small.no": {
+            "items": [
+              {
+                "kind": "dna",
+                "sequence": "ATGTCGTAA",
+                "id": "ff8800faa8c2",
+                "display": "ATG TCG TAA"
+              }
+            ],
+            "scores": {
+              "codon_count__e5280feb__count": {
+                "ff8800faa8c2": 1.0
+              }
+            }
+          }
+        },
+        "skipped": []
+      },
+      "held": {
+        "small.yes": false
+      },
+      "produced": {
+        "seq": [
+          "ATG TCG TAA..CG TAA (11)"
+        ],
+        "counted": [
+          "ATG TCG TAA..CG TAA (11)"
+        ],
+        "small.yes": [],
+        "small.no": [
+          "ATG TCG TAA..CG TAA (11)"
+        ]
+      },
+      "verdict": {
+        "achieved": false,
+        "reason": "the opinion\n\nAcceptance: these assertions did not hold: ['small.yes']",
+        "agrees": true,
+        "covers_goal": true,
+        "score": 0.5
+      },
+      "critique": {
+        "diagnosis": "d",
+        "root_cause": "wrong_config",
+        "evidence": [
+          "e"
+        ],
+        "keep": [],
+        "fix": "try another threshold"
+      },
+      "error": null,
+      "started": "2026-10-03T15:33:11.903000Z"
+    }
+  ],
+  "pending": [],
+  "usage": {
+    "plan": 10,
+    "total": 18,
+    "verify": 5,
+    "critique": 3
+  },
+  "stopped_because": "out of rounds after 1"
+}

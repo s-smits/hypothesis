@@ -1,0 +1,155 @@
+"""Build the codon-pair goal pack for dev genes tusE and uspD. No model, no network, development genes only.
+
+Same selection as `temporal/run_benchmark.py` and bench_pack.py (accession NC_000913.3, `_pick(records, 14)`,
+default split, salt ""), weights `pair_weights_from(reference, FLOOR)`, scored with `missing = FLOOR`: the benchmark's
+own codon-pair objective. The entrez cache must already hold the accession (NODE_DAG_RESULTS=<scratch>/bench-results);
+a cache miss would need the network and fails.
+
+Writes, into <out dir>:
+  pack.json      split_hash, the two dev sequences, the full pair table, missing, weights hash (never read by a run)
+  goal_<gene>.json  the goal, one DNA input, 4 human criteria. The goal embeds only the pairs a protein-preserving
+                 sequence of THAT gene can contain (see below). It holds no optimum and no baseline number.
+  scorer.json    ORACLE: exact optimum score and parent score per gene. Never copy into a goal, a prompt or a run dir.
+
+Why a per-gene table: the full table has 3,900 pairs (113,164 chars as compact JSON), the CAI goal's whole table is 64
+entries. A plan has to copy the table into a node config (create_node), and it is then echoed back and carried in every
+later request. Every pair a protein-preserving sequence of the gene can contain (any synonym at every codon, stop codon
+included, because the protein gate lets a stop be swapped) is listed with its exact weight, so the score of every such
+sequence is bit-for-bit the benchmark's. This script checks that against the full table.
+
+Usage: build_pack_cp.py <out dir> <ledger pair attempt json (to check the table and genes against)>
+"""
+
+import json
+import random
+import sys
+from itertools import pairwise
+from pathlib import Path
+
+from node_dag import entrez
+from node_dag.benchmark import (
+    Instance,
+    _digest,
+    codon_pair_objective,
+    exact_codon_pair,
+    greedy_chain,
+    mean_pair_weight,
+    pair_weights_from,
+    split_instances,
+)
+from node_dag.dna import CODON_TABLE, SYNONYMS, codons
+from node_dag.types import Dna
+from temporal.run_benchmark import FLOOR, _pick
+
+GENES = ("tusE", "uspD")
+SPLIT_HASH = "2d16522d73205e93"  # the CAI pack's
+
+out = Path(sys.argv[1])
+ledger_entry = json.loads(Path(sys.argv[2]).read_text())
+out.mkdir(parents=True, exist_ok=True)
+
+records = [r for r in entrez.fetch_cds("NC_000913.3") if r.get("usable")]
+picked = _pick(records, 14)
+ids = {r["id"] for r in picked}
+reference = [r["sequence"] for r in records if r["id"] not in ids]
+pair_w = pair_weights_from(reference, FLOOR)
+instances = [Instance(key=r["gene"] or r["id"], parent=Dna(sequence=r["sequence"])) for r in picked]
+split = split_instances(instances, holdout_fraction=0.3, salt="")
+assert split.split_hash == SPLIT_HASH, split.split_hash
+dev = {i.key: i for i in split.dev}
+
+# What the benchmark's own pair ledger entry recorded: same table, same instances.
+m = ledger_entry["manifest"]
+assert m["objective"] == "codon_pair" and m["split_hash"] == SPLIT_HASH
+assert m["weights_sha256_16"] == _digest(dict(pair_w)), "pair table differs from the ledger's"
+assert m["instance_set_sha256_16"] == _digest([i.parent.sequence for i in split.dev]), "dev instances differ"
+ledger_inst = {i["key"]: i for i in m["instances"]}
+for g in GENES:
+    assert ledger_inst[g]["sequence_sha256_16"] == _digest(dev[g].parent.sequence), g
+
+full_obj = codon_pair_objective(pair_w, FLOOR)
+
+(out / "pack.json").write_text(
+    json.dumps(
+        {
+            "split_hash": split.split_hash,
+            "dev": {g: dev[g].parent.sequence for g in GENES},
+            "pair_weights": dict(sorted(pair_w.items())),
+            "missing": FLOOR,
+            "weights_sha256_16": _digest(dict(pair_w)),
+        },
+        indent=1,
+    )
+)
+
+CRITERIA = [
+    ("protein_preserved", "Every kept output DNA sequence translates to exactly the same protein as the input sequence: only synonymous codon changes were made."),
+    ("higher_pair_score", "Every kept output sequence has a codon-pair score, scored with the given pair weight table, strictly higher than that of the first input sequence."),
+    ("only_improved_kept", "Any sequence whose codon-pair score is not higher than the first sequence's is excluded from the output."),
+    ("length_preserved", "Every kept output sequence has the same length as the input sequence."),
+]
+
+scorer = {}
+for gene in GENES:
+    inst = dev[gene]
+    seq = inst.parent.sequence
+    # Every pair any protein-preserving sequence of this gene can contain: all synonyms at every codon.
+    syn = [tuple(SYNONYMS[CODON_TABLE[c]]) for c in codons(seq)]
+    reach = {a + b for x, y in pairwise(syn) for a in x for b in y}
+    assert reach <= set(pair_w), "a reachable pair is not in the full table (it would score `missing`)"
+    table = {p: pair_w[p] for p in sorted(reach)}
+    text = json.dumps(table, separators=(",", ":"))
+    goal_text = (
+        "Raise the codon-pair score of the DNA sequence without changing its protein. "
+        "Score it with this pair weight table (each key is a codon followed by the next codon; "
+        f"it lists every pair a sequence with the same protein can contain): {text} . "
+        "Keep the ones that score higher than the first sequence."
+    )
+    goal = {
+        "goal": goal_text,
+        "inputs": {"seqs": [{"kind": "dna", "sequence": seq}]},
+        "criteria": [{"id": i, "claim": c, "source": "human"} for i, c in CRITERIA],
+    }
+    (out / f"goal_{gene}.json").write_text(json.dumps(goal, indent=1))
+
+    # The restricted table must give the benchmark's score on every protein-preserving sequence of the gene.
+    small_obj = codon_pair_objective(table, FLOOR)
+    rng = random.Random(f"check:{gene}")
+    probes = [seq, greedy_chain(inst, pair_w, FLOOR), exact_codon_pair(inst, pair_w, FLOOR)]
+    probes += ["".join(rng.choice(s) for s in syn) for _ in range(500)]  # the stop codon varies too
+    for s in probes:
+        assert small_obj.score(s) == full_obj.score(s), "restricted table changes a score"
+        assert mean_pair_weight(s, table, FLOOR) == mean_pair_weight(s, pair_w, FLOOR)
+    assert exact_codon_pair(inst, table, FLOOR) == exact_codon_pair(inst, pair_w, FLOOR)
+
+    optimum = full_obj.score(full_obj.optimum(inst))
+    parent = full_obj.score(seq)
+    greedy = full_obj.score(greedy_chain(inst, pair_w, FLOOR))
+    free_stop = Instance(key=gene, parent=inst.parent, immutable=frozenset({0}))  # stop may change
+    optimum_free_stop = full_obj.score(exact_codon_pair(free_stop, pair_w, FLOOR))
+    scorer[gene] = {
+        "codons": len(codons(seq)),
+        "parent_pair": parent,
+        "optimum_pair": optimum,
+        "optimum_pair_if_stop_may_change": optimum_free_stop,
+        "greedy_pair": greedy,
+        "greedy_gap_closed": (greedy - parent) / (optimum - parent),
+        "table_pairs_in_goal": len(table),
+        "table_chars_in_goal": len(text),
+        "goal_text_chars": len(goal_text),
+    }
+    print(gene, scorer[gene])
+
+(out / "scorer.json").write_text(
+    json.dumps(
+        {
+            "note": "ORACLE. Never copy into a goal file, a prompt or a run directory.",
+            "split_hash": split.split_hash,
+            "objective": "codon_pair, pair_weights_from(reference, ln 0.1), missing = ln 0.1",
+            "weights_sha256_16": _digest(dict(pair_w)),
+            "genes": scorer,
+        },
+        indent=1,
+    )
+)
+print("full table:", len(pair_w), "pairs,", len(json.dumps(dict(sorted(pair_w.items())), separators=(",", ":"))), "chars")

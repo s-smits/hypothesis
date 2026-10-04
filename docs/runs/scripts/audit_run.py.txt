@@ -1,0 +1,54 @@
+"""Recompute, from a finished run's bytes, whether the kept sequences meet the expression goal. Prints facts only."""
+import json
+import sys
+from pathlib import Path
+
+CODON = {}
+bases = "TCAG"
+aa = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG"
+i = 0
+for a in bases:
+    for b in bases:
+        for c in bases:
+            CODON[a + b + c] = aa[i]
+            i += 1
+
+
+def protein(s: str) -> str:
+    return "".join(CODON.get(s[k : k + 3], "?") for k in range(0, len(s) - len(s) % 3, 3))
+
+
+root = Path(sys.argv[1])
+hid = sys.argv[2]
+h = json.loads((root / "hypotheses" / f"{hid}.json").read_text())
+seqs = [x["sequence"] for x in h["inputs"]["seqs"]]
+print("state", h.get("state"), "rounds", len(h["attempts"]), "inputs", seqs)
+for a in h["attempts"]:
+    r = a["round"]
+    flow = json.loads((root / "workflows" / f"{hid}-r{r}.json").read_text())
+    v = flow["values"]
+    plan = a["plan"]
+    print(f"-- round {r}: held {a['held']}; verdict agrees={a['verdict'] and a['verdict'].get('agrees')} achieved={a['verdict'] and a['verdict'].get('achieved')}")
+    for k, s in plan["steps"].items():
+        print("   step", k, s["node"], json.dumps(s["config"])[:140], s["inputs"])
+    # find the score column used by the last filter
+    for src, t in v.items():
+        if src.endswith(".yes") or src.endswith(".no"):
+            cols = list(t["scores"])
+            print("   ", src, "n", len(t["items"]), "cols", [c.split("__")[-1] for c in cols][:5])
+    yes = [k for k in v if k.endswith(".yes")][-1]
+    t = v[yes]
+    col = next((c for c in t["scores"] if c.endswith("__expression")), None)
+    allscores = {}
+    for src, tt in v.items():
+        for c, m in tt["scores"].items():
+            if c == col:
+                allscores.update(m)
+    base_id = next(i["id"] for i in v["seqs"]["items"] if i["sequence"] == seqs[0])
+    base = allscores.get(base_id)
+    kept = [(i["sequence"], allscores.get(i["id"])) for i in t["items"]]
+    p0 = {protein(s) for s in seqs}
+    print("   baseline (first input) score:", base, "| kept", len(kept), "| lowest kept", min((s for _, s in kept if s is not None), default=None))
+    print("   all kept strictly above baseline:", all(s is not None and base is not None and s > base for _, s in kept))
+    print("   all kept proteins among input proteins:", all(protein(q) in p0 for q, _ in kept), "| input proteins", sorted(p0))
+    print("   kept includes an input sequence unchanged:", [q for q, _ in kept if q in seqs])

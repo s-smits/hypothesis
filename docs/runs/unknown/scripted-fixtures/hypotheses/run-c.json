@@ -1,0 +1,182 @@
+{
+  "id": "run-c",
+  "goal": "remove TCG",
+  "inputs": {
+    "seq": [
+      {
+        "kind": "dna",
+        "sequence": "ATGTCTTAA",
+        "id": "dfc2656f0476",
+        "display": "ATGTCTTAA"
+      }
+    ]
+  },
+  "hypothesis": null,
+  "criteria": [
+    {
+      "id": "no_tcg",
+      "claim": "no TCG remains"
+    }
+  ],
+  "state": "achieved",
+  "round": 1,
+  "attempts": [
+    {
+      "round": 1,
+      "plan": {
+        "hypothesis": "h",
+        "expected": "e",
+        "assertions": [
+          {
+            "criterion": "no_tcg",
+            "step": "small",
+            "branch": "yes",
+            "claim": "c"
+          }
+        ],
+        "inputs": {
+          "seq": "dna"
+        },
+        "steps": {
+          "counted": {
+            "node": "codon_count",
+            "config": {
+              "codons": [
+                "TCG"
+              ]
+            },
+            "inputs": {
+              "sequence": "seq"
+            },
+            "why": "w"
+          },
+          "small": {
+            "node": "at_most",
+            "config": {
+              "column": "codon_count__e5280feb__count",
+              "threshold": 0
+            },
+            "inputs": {
+              "items": "counted"
+            },
+            "why": "w"
+          }
+        },
+        "requests": {},
+        "addresses_critique": ""
+      },
+      "requests": [],
+      "dag": {
+        "inputs": {
+          "seq": "dna"
+        },
+        "steps": {
+          "counted": {
+            "config": {
+              "name": "codon_count",
+              "config_hash": "e5280feb",
+              "codons": [
+                "TCG"
+              ]
+            },
+            "inputs": {
+              "sequence": "seq"
+            }
+          },
+          "small": {
+            "config": {
+              "name": "at_most",
+              "config_hash": "6c3827b5",
+              "column": "codon_count__e5280feb__count",
+              "threshold": 0.0
+            },
+            "inputs": {
+              "items": "counted"
+            }
+          }
+        }
+      },
+      "workflow_id": "run-c-r1",
+      "outcome": {
+        "values": {
+          "seq": {
+            "items": [
+              {
+                "kind": "dna",
+                "sequence": "ATGTCTTAA",
+                "id": "dfc2656f0476",
+                "display": "ATGTCTTAA"
+              }
+            ],
+            "scores": {}
+          },
+          "counted": {
+            "items": [
+              {
+                "kind": "dna",
+                "sequence": "ATGTCTTAA",
+                "id": "dfc2656f0476",
+                "display": "ATGTCTTAA"
+              }
+            ],
+            "scores": {
+              "codon_count__e5280feb__count": {
+                "dfc2656f0476": 0.0
+              }
+            }
+          },
+          "small.yes": {
+            "items": [
+              {
+                "kind": "dna",
+                "sequence": "ATGTCTTAA",
+                "id": "dfc2656f0476",
+                "display": "ATGTCTTAA"
+              }
+            ],
+            "scores": {
+              "codon_count__e5280feb__count": {
+                "dfc2656f0476": 0.0
+              }
+            }
+          },
+          "small.no": {
+            "items": [],
+            "scores": {}
+          }
+        },
+        "skipped": []
+      },
+      "held": {
+        "small.yes": true
+      },
+      "produced": {
+        "seq": [
+          "ATGTCTTAA..TCTTAA (9)"
+        ],
+        "counted": [
+          "ATGTCTTAA..TCTTAA (9)"
+        ],
+        "small.yes": [
+          "ATGTCTTAA..TCTTAA (9)"
+        ],
+        "small.no": []
+      },
+      "verdict": {
+        "achieved": true,
+        "reason": "the opinion\n\nAcceptance: every criterion was covered by an assertion that held",
+        "agrees": true,
+        "covers_goal": true
+      },
+      "critique": null,
+      "error": null,
+      "started": "2026-10-03T17:21:51.503230Z"
+    }
+  ],
+  "usage": {
+    "plan": 10,
+    "total": 15,
+    "verify": 5
+  },
+  "stopped_because": "every criterion was covered by an assertion that held"
+}

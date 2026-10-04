@@ -1,0 +1,41 @@
+"""Write scorer.json and dev_genes.tsv from pack.json. No model, no network, development genes only.
+
+scorer.json is the ONLY file that holds the exact optimum (the benchmark's own `cai_objective(...).optimum`).
+Keep it out of any goal file, any prompt and any directory a run can read. dev_genes.tsv has no optimum.
+Usage: build_scorer.py <pack.json> <out dir>
+"""
+
+import json
+import sys
+from pathlib import Path
+
+from node_dag.benchmark import Instance, cai_objective
+from node_dag.dna import codons
+from node_dag.types import Dna
+
+pack = json.loads(Path(sys.argv[1]).read_text())
+out = Path(sys.argv[2])
+obj = cai_objective(pack["cai_weights"])
+scorer = {}
+for gene, seq in pack["dev"].items():
+    inst = Instance(key=gene, parent=Dna(sequence=seq))
+    scorer[gene] = {
+        "codons": len(codons(seq)),
+        "parent_cai": obj.score(seq),
+        "optimum_cai": obj.score(obj.optimum(inst)),
+    }
+(out / "scorer.json").write_text(
+    json.dumps(
+        {
+            "note": "ORACLE. Never copy into a goal file, a prompt or a run directory.",
+            "split_hash": pack["split_hash"],
+            "genes": scorer,
+        },
+        indent=1,
+    )
+)
+rows = ["gene\tcodons\tparent_cai"] + [
+    f"{g}\t{v['codons']}\t{v['parent_cai']:.4f}" for g, v in scorer.items()
+]
+(out / "dev_genes.tsv").write_text("\n".join(rows) + "\n")
+print("\n".join(rows))

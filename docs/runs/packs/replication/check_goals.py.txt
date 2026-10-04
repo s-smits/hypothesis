@@ -1,0 +1,44 @@
+"""Load every goal file with the repo's own loader, as temporal/run_hypothesis.py does, and check size and leaks.
+
+Does not import temporal.run_hypothesis (it loads a .env). Uses the same two calls: Hypothesis.model_validate_json
+and HypothesisInput(...). No model, no server. Prints no sequence.
+Usage: check_goals.py <goal file> [<goal file> ...]
+"""
+import json
+import re
+import sys
+from pathlib import Path
+
+from node_dag.agent import Hypothesis
+from node_dag.dna import codons
+from temporal.hypothesis.loop import BUILD_MODEL, VERIFY_MODEL, HypothesisInput
+
+LIMIT = 12_000
+BAD = re.compile(r"optim|oracle|held.?out|holdout|\bexact\b|gap.?closed|maximum|upper bound|ceiling", re.I)
+scorer = Path(__file__).with_name("scorer.json")
+oracle = json.loads(scorer.read_text())["genes"] if scorer.exists() else {}
+ok = True
+for name in sys.argv[1:]:
+    path = Path(name)
+    text = path.read_text()
+    hyp = Hypothesis.model_validate_json(text)  # the loader in run_hypothesis.py
+    inp = HypothesisInput(hypothesis=hyp, build_model=BUILD_MODEL, verify_model=VERIFY_MODEL, max_rounds=20)
+    items = hyp.inputs["seqs"]
+    gene = path.stem.removeprefix("goal_")
+    seq = items[0].sequence
+    problems = []
+    if len(text) >= LIMIT:
+        problems.append(f"file {len(text)} chars, over {LIMIT}")
+    if BAD.search(text):
+        problems.append(f"leak-word {BAD.search(text).group(0)!r}")
+    if len(items) != 1 or items[0].kind != "dna":
+        problems.append("inputs.seqs is not one dna entity")
+    if gene in oracle and oracle[gene]["codons"] != len(codons(seq)):
+        problems.append("codon count differs from scorer.json")
+    # the oracle number must not appear next to any key a reader would take as an answer
+    if gene in oracle and f"{oracle[gene]['optimum_cai']:.4f}" in re.sub(r'"[ACGT]{3}":[0-9.]+', "", text):
+        problems.append("optimum value appears outside the weight table")
+    ok &= not problems
+    print(f"{'OK  ' if not problems else 'FAIL'} {gene:<5} loads as Hypothesis, id {hyp.id[:19]}.., {len(hyp.criteria)} criteria, {len(codons(seq))} codons, "
+          f"goal text {len(hyp.goal)} chars, file {len(text)} chars, max_rounds {inp.max_rounds} {problems or ''}")
+sys.exit(0 if ok else 1)

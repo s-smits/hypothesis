@@ -1,0 +1,310 @@
+{
+  "id": "hypothesis-e11437d5-b625-4d27-8174-e375ba1e2d3e",
+  "goal": "Remove every TCG and TCA codon",
+  "criteria": [
+    {
+      "id": "no_tcg_tca",
+      "claim": "no TCG or TCA codon remains",
+      "source": "human"
+    }
+  ],
+  "inputs": {
+    "seq": {
+      "kind": "dna",
+      "sequence": "ATGTCGTCAGCTTAA"
+    }
+  },
+  "hypothesis": "Recode every TCG and TCA codon to a synonym, then prove none survived. recode_codons is deterministic and targeted, so unlike mutate_synonymous it can actually remove a named codon.",
+  "dag": {
+    "inputs": {
+      "seq": "dna"
+    },
+    "steps": {
+      "recoded": {
+        "config": {
+          "name": "recode_codons",
+          "targets": [
+            "TCG",
+            "TCA"
+          ]
+        },
+        "inputs": {
+          "sequence": "seq"
+        }
+      },
+      "clean": {
+        "config": {
+          "name": "codons_absent",
+          "codons": [
+            "TCG",
+            "TCA"
+          ]
+        },
+        "inputs": {
+          "sequence": "recoded"
+        }
+      },
+      "protein": {
+        "config": {
+          "name": "dna_to_protein"
+        },
+        "inputs": {
+          "sequence": "clean.yes"
+        }
+      }
+    }
+  },
+  "workflow_id": "hypothesis-e11437d5-b625-4d27-8174-e375ba1e2d3e-r1",
+  "outcome": {
+    "values": {
+      "seq": {
+        "kind": "dna",
+        "sequence": "ATGTCGTCAGCTTAA"
+      },
+      "recoded": {
+        "kind": "dna",
+        "sequence": "ATGTCTTCTGCTTAA"
+      },
+      "clean.yes": {
+        "kind": "dna",
+        "sequence": "ATGTCTTCTGCTTAA"
+      },
+      "protein": {
+        "kind": "amino_acid_sequence",
+        "sequence": "MSSA*"
+      }
+    },
+    "skipped": []
+  },
+  "verdict": {
+    "agrees": true,
+    "covers_goal": true,
+    "reason": "The recoded sequence contains no TCG or TCA codon, and dna_to_protein gives MSSA*, the same protein as the input.\n\nAcceptance: every criterion was covered by an assertion that held",
+    "score": 1.0,
+    "prediction_held": true,
+    "achieved": true
+  },
+  "state": "achieved",
+  "round": 1,
+  "attempts": [
+    {
+      "round": 1,
+      "plan": {
+        "hypothesis": "Recode every TCG and TCA codon to a synonym, then prove none survived. recode_codons is deterministic and targeted, so unlike mutate_synonymous it can actually remove a named codon.",
+        "expected": "clean takes its yes branch: no TCG or TCA codon remains, and the protein is still MSSA*.",
+        "assertions": [
+          {
+            "criterion": "no_tcg_tca",
+            "step": "clean",
+            "branch": "yes",
+            "claim": "no TCG or TCA codon remains in the recoded sequence"
+          }
+        ],
+        "inputs": {
+          "seq": "dna"
+        },
+        "steps": {
+          "recoded": {
+            "node": "recode_codons",
+            "config": {
+              "targets": [
+                "TCG",
+                "TCA"
+              ]
+            },
+            "inputs": {
+              "sequence": "seq"
+            },
+            "why": "swap each target codon for a synonym of the same amino acid"
+          },
+          "clean": {
+            "node": "codons_absent",
+            "config": {
+              "codons": [
+                "TCG",
+                "TCA"
+              ]
+            },
+            "inputs": {
+              "sequence": "recoded"
+            },
+            "why": "a decision, so the branch it takes is recorded evidence"
+          },
+          "protein": {
+            "node": "dna_to_protein",
+            "config": {},
+            "inputs": {
+              "sequence": "clean.yes"
+            },
+            "why": "show which protein survived the recoding"
+          },
+          "gc": {
+            "node": "gc_in_range",
+            "config": {
+              "low": 0.3,
+              "high": 0.7
+            },
+            "inputs": {
+              "sequence": "recoded"
+            },
+            "why": "keep the GC content inside a viable window"
+          }
+        },
+        "requests": {
+          "gc_in_range": {
+            "name": "gc_in_range",
+            "node": "decision",
+            "purpose": "Yes when the GC fraction of a sequence falls within a range.",
+            "category": "filter",
+            "inputs": {
+              "sequence": "dna"
+            },
+            "output": null,
+            "forwards": "sequence",
+            "config_fields": [
+              {
+                "name": "low",
+                "type": "float",
+                "description": "Lowest GC fraction allowed",
+                "required": true,
+                "default": null
+              },
+              {
+                "name": "high",
+                "type": "float",
+                "description": "Highest GC fraction allowed",
+                "required": true,
+                "default": null
+              }
+            ],
+            "why_needed": "The goal asks for a viable GC window, and nothing here measures base composition at all.",
+            "why_not_composable": "codons_absent only tests whole codons, dna_atom_score counts atoms rather than bases, and at_least needs a score no existing node produces for GC.",
+            "example": "ATGGCC with low=0.4 high=0.8 -> yes, forwarding the DNA on <step>.yes"
+          }
+        },
+        "reasons": {
+          "recode_codons": "targets named codons; mutate_synonymous picks at random",
+          "codons_absent": "settles the criterion with a branch, not an opinion",
+          "dna_to_protein": "shows the protein is unchanged"
+        },
+        "addresses_critique": ""
+      },
+      "fingerprint": "540d785664ddc6b386a005685a00008989b5fbfc13c84ae4e71b0d1572464fa4",
+      "requests": [
+        {
+          "name": "gc_in_range",
+          "node": "decision",
+          "purpose": "Yes when the GC fraction of a sequence falls within a range.",
+          "category": "filter",
+          "inputs": {
+            "sequence": "dna"
+          },
+          "output": null,
+          "forwards": "sequence",
+          "config_fields": [
+            {
+              "name": "low",
+              "type": "float",
+              "description": "Lowest GC fraction allowed",
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "high",
+              "type": "float",
+              "description": "Highest GC fraction allowed",
+              "required": true,
+              "default": null
+            }
+          ],
+          "why_needed": "The goal asks for a viable GC window, and nothing here measures base composition at all.",
+          "why_not_composable": "codons_absent only tests whole codons, dna_atom_score counts atoms rather than bases, and at_least needs a score no existing node produces for GC.",
+          "example": "ATGGCC with low=0.4 high=0.8 -> yes, forwarding the DNA on <step>.yes"
+        }
+      ],
+      "resumes": [],
+      "workflow_id": "hypothesis-e11437d5-b625-4d27-8174-e375ba1e2d3e-r1",
+      "dag": {
+        "inputs": {
+          "seq": "dna"
+        },
+        "steps": {
+          "recoded": {
+            "config": {
+              "name": "recode_codons",
+              "targets": [
+                "TCG",
+                "TCA"
+              ]
+            },
+            "inputs": {
+              "sequence": "seq"
+            }
+          },
+          "clean": {
+            "config": {
+              "name": "codons_absent",
+              "codons": [
+                "TCG",
+                "TCA"
+              ]
+            },
+            "inputs": {
+              "sequence": "recoded"
+            }
+          },
+          "protein": {
+            "config": {
+              "name": "dna_to_protein"
+            },
+            "inputs": {
+              "sequence": "clean.yes"
+            }
+          }
+        }
+      },
+      "outcome": {
+        "values": {
+          "seq": {
+            "kind": "dna",
+            "sequence": "ATGTCGTCAGCTTAA"
+          },
+          "recoded": {
+            "kind": "dna",
+            "sequence": "ATGTCTTCTGCTTAA"
+          },
+          "clean.yes": {
+            "kind": "dna",
+            "sequence": "ATGTCTTCTGCTTAA"
+          },
+          "protein": {
+            "kind": "amino_acid_sequence",
+            "sequence": "MSSA*"
+          }
+        },
+        "skipped": []
+      },
+      "verdict": {
+        "agrees": true,
+        "covers_goal": true,
+        "reason": "The recoded sequence contains no TCG or TCA codon, and dna_to_protein gives MSSA*, the same protein as the input.\n\nAcceptance: every criterion was covered by an assertion that held",
+        "score": 1.0,
+        "prediction_held": true,
+        "achieved": true
+      },
+      "critique": null,
+      "error": null,
+      "trajectories": {},
+      "usage": {},
+      "started": "2036-09-30T15:55:29.873000Z",
+      "finished": "2036-09-30T15:55:32.896000Z"
+    }
+  ],
+  "pending": [],
+  "critique": null,
+  "best_score": 0.0,
+  "usage": {
+    "total": 1200
+  },
+  "stopped_because": "The recoded sequence contains no TCG or TCA codon, and dna_to_protein gives MSSA*, the same protein as the input.\n\nAcceptance: every criterion was covered by an assertion that held"
+}

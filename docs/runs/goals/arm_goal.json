@@ -1,0 +1,41 @@
+{
+ "goal": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the ones that score higher than the first sequence.",
+ "inputs": {
+  "seqs": [
+   {
+    "kind": "dna",
+    "sequence": "ATGGCTCTGAAATAA"
+   },
+   {
+    "kind": "dna",
+    "sequence": "ATGGCGTTAAAGTAG"
+   },
+   {
+    "kind": "dna",
+    "sequence": "ATGGCCCTGAAATGA"
+   }
+  ]
+ },
+ "criteria": [
+  {
+   "id": "protein_preserved",
+   "claim": "Every kept output DNA sequence translates to exactly the same protein (amino acid sequence) as the corresponding input sequence, i.e. only synonymous codon changes were made.",
+   "source": "human"
+  },
+  {
+   "id": "higher_initiation_rate",
+   "claim": "Every kept output sequence has a predicted translation initiation rate strictly higher than that of the first input sequence, under the same scoring method.",
+   "source": "human"
+  },
+  {
+   "id": "only_improved_kept",
+   "claim": "Any sequence whose translation initiation rate score is not higher than the first sequence's score is excluded from the output, so the output contains only sequences that outscore the first sequence.",
+   "source": "human"
+  },
+  {
+   "id": "valid_dna_output",
+   "claim": "Every output sequence is a valid DNA sequence (only A, C, G, T characters) with the same length as its input, with the reading frame, start codon and stop codon preserved.",
+   "source": "human"
+  }
+ ]
+}

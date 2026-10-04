@@ -1,0 +1,892 @@
+{
+  "dependencies": {
+    "biopython": "1.88",
+    "pydantic": "2.13.5",
+    "temporalio": "1.33.0",
+    "viennarna": "2.7.2"
+  },
+  "errors": [],
+  "kind": "attempt",
+  "manifest": {
+    "commit": "dc1916a635d265bb05c81a36ef0e598e284447f7",
+    "constraint_check_version": 1,
+    "instance_set_sha256_16": "21f627295e91c680",
+    "instances": [
+      {
+        "codons": 9,
+        "immutable": [
+          0,
+          8
+        ],
+        "key": "ymdG",
+        "sequence_sha256_16": "6cde054921da45d6"
+      },
+      {
+        "codons": 73,
+        "immutable": [
+          0,
+          72
+        ],
+        "key": "arfA",
+        "sequence_sha256_16": "926d16b089c85d4c"
+      },
+      {
+        "codons": 110,
+        "immutable": [
+          0,
+          109
+        ],
+        "key": "tusE",
+        "sequence_sha256_16": "33f199b87979b652"
+      },
+      {
+        "codons": 143,
+        "immutable": [
+          0,
+          142
+        ],
+        "key": "uspD",
+        "sequence_sha256_16": "f6b30b4fca24bddc"
+      },
+      {
+        "codons": 178,
+        "immutable": [
+          0,
+          177
+        ],
+        "key": "rplF",
+        "sequence_sha256_16": "2056df2e69745266"
+      },
+      {
+        "codons": 273,
+        "immutable": [
+          0,
+          272
+        ],
+        "key": "aroE",
+        "sequence_sha256_16": "8a8243e94cc88731"
+      },
+      {
+        "codons": 306,
+        "immutable": [
+          0,
+          305
+        ],
+        "key": "osmF",
+        "sequence_sha256_16": "65aecac2fe2fbff1"
+      },
+      {
+        "codons": 338,
+        "immutable": [
+          0,
+          337
+        ],
+        "key": "ydcT",
+        "sequence_sha256_16": "5e9d97055792c843"
+      },
+      {
+        "codons": 487,
+        "immutable": [
+          0,
+          486
+        ],
+        "key": "clsA",
+        "sequence_sha256_16": "f11f202af75ac199"
+      }
+    ],
+    "notes": "weights from NC_000913.3, 3876 reference genes, comparison genes excluded; pair floor ln(0.1); scored the development side",
+    "objective": "codon_pair",
+    "seed": 11,
+    "split_hash": "2d16522d73205e93",
+    "weights_sha256_16": "9f1013dcb015a6c2"
+  },
+  "recorded_at": "2026-10-03T23:48:43.682594+00:00",
+  "selection": "none: fixed strategies, no selection was made",
+  "split": {
+    "dev_keys": [
+      "arfA",
+      "aroE",
+      "clsA",
+      "osmF",
+      "rplF",
+      "tusE",
+      "uspD",
+      "ydcT",
+      "ymdG"
+    ],
+    "holdout_fraction_asked": 0.3,
+    "holdout_keys": [
+      "gadW",
+      "sgcE",
+      "yacH",
+      "ybaT",
+      "ycaD"
+    ],
+    "n_dev": 9,
+    "n_holdout": 5,
+    "salt": "",
+    "split_hash": "2d16522d73205e93"
+  },
+  "strategies": {
+    "best_of_8": {
+      "evaluations": 72,
+      "mean_gap_closed": -0.23339355814315488,
+      "n_instances": 9,
+      "passed": 9,
+      "per_instance": [
+        {
+          "evaluations": 8,
+          "fraction_of_optimum": 0.56075460299971,
+          "gap_closed": 0.22000622092677766,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "ymdG",
+          "optimum": 0.3354270773190946,
+          "parent_score": 0.14653480190026524,
+          "passed": true,
+          "score": 0.18809227757742195
+        },
+        {
+          "evaluations": 8,
+          "fraction_of_optimum": 0.05176981285199762,
+          "gap_closed": 0.05593445176869417,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "arfA",
+          "optimum": 0.3770257674137766,
+          "parent_score": -0.0016632067407930532,
+          "passed": true,
+          "score": 0.019518553419391994
+        },
+        {
+          "evaluations": 8,
+          "fraction_of_optimum": 0.0066027969996858464,
+          "gap_closed": -0.1947246792117002,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "tusE",
+          "optimum": 0.3706345990835937,
+          "parent_score": 0.062457007650795045,
+          "passed": true,
+          "score": 0.002447225018808919
+        },
+        {
+          "evaluations": 8,
+          "fraction_of_optimum": -0.07560107637880216,
+          "gap_closed": -0.35805447944178154,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "uspD",
+          "optimum": 0.36545074014198076,
+          "parent_score": 0.0760078529746583,
+          "passed": true,
+          "score": -0.02762846931816367
+        },
+        {
+          "evaluations": 8,
+          "fraction_of_optimum": -0.1876619683304087,
+          "gap_closed": -0.19905503091773577,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "rplF",
+          "optimum": 0.3973378243892406,
+          "parent_score": 0.003775385269943935,
+          "passed": true,
+          "score": -0.07456519821700716
+        },
+        {
+          "evaluations": 8,
+          "fraction_of_optimum": -0.022400540776450702,
+          "gap_closed": -0.11078404042100017,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "aroE",
+          "optimum": 0.43914291997179694,
+          "parent_score": 0.03494197494638395,
+          "passed": true,
+          "score": -0.009837038885517865
+        },
+        {
+          "evaluations": 8,
+          "fraction_of_optimum": -0.1007281793434468,
+          "gap_closed": -0.6626133586452969,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "osmF",
+          "optimum": 0.4090981100530958,
+          "parent_score": 0.13825593528643815,
+          "passed": true,
+          "score": -0.04120770779849337
+        },
+        {
+          "evaluations": 8,
+          "fraction_of_optimum": -0.10043636809018887,
+          "gap_closed": -0.46183287582705024,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "ydcT",
+          "optimum": 0.4344731445323297,
+          "parent_score": 0.10741109995258671,
+          "passed": true,
+          "score": -0.0436369046695509
+        },
+        {
+          "evaluations": 8,
+          "fraction_of_optimum": -0.1276404051653438,
+          "gap_closed": -0.3894182315193008,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "clsA",
+          "optimum": 0.41617535117977705,
+          "parent_score": 0.07841086027409261,
+          "passed": true,
+          "score": -0.05312079044441599
+        }
+      ]
+    },
+    "exact_dp": {
+      "evaluations": 9,
+      "mean_gap_closed": 1.0,
+      "n_instances": 9,
+      "passed": 9,
+      "per_instance": [
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 1.0,
+          "gap_closed": 1.0,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "ymdG",
+          "optimum": 0.3354270773190946,
+          "parent_score": 0.14653480190026524,
+          "passed": true,
+          "score": 0.3354270773190946
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 1.0,
+          "gap_closed": 1.0,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "arfA",
+          "optimum": 0.3770257674137766,
+          "parent_score": -0.0016632067407930532,
+          "passed": true,
+          "score": 0.3770257674137766
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 1.0,
+          "gap_closed": 1.0,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "tusE",
+          "optimum": 0.3706345990835937,
+          "parent_score": 0.062457007650795045,
+          "passed": true,
+          "score": 0.3706345990835937
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 1.0,
+          "gap_closed": 1.0,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "uspD",
+          "optimum": 0.36545074014198076,
+          "parent_score": 0.0760078529746583,
+          "passed": true,
+          "score": 0.36545074014198076
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 1.0,
+          "gap_closed": 1.0,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "rplF",
+          "optimum": 0.3973378243892406,
+          "parent_score": 0.003775385269943935,
+          "passed": true,
+          "score": 0.3973378243892406
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 1.0,
+          "gap_closed": 1.0,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "aroE",
+          "optimum": 0.43914291997179694,
+          "parent_score": 0.03494197494638395,
+          "passed": true,
+          "score": 0.43914291997179694
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 1.0,
+          "gap_closed": 1.0,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "osmF",
+          "optimum": 0.4090981100530958,
+          "parent_score": 0.13825593528643815,
+          "passed": true,
+          "score": 0.4090981100530958
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 1.0,
+          "gap_closed": 1.0,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "ydcT",
+          "optimum": 0.4344731445323297,
+          "parent_score": 0.10741109995258671,
+          "passed": true,
+          "score": 0.4344731445323297
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 1.0,
+          "gap_closed": 1.0,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "clsA",
+          "optimum": 0.41617535117977705,
+          "parent_score": 0.07841086027409261,
+          "passed": true,
+          "score": 0.41617535117977705
+        }
+      ]
+    },
+    "greedy": {
+      "evaluations": 9,
+      "mean_gap_closed": 0.4865117869483413,
+      "n_instances": 9,
+      "passed": 9,
+      "per_instance": [
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 0.9698300625035386,
+          "gap_closed": 0.9464254748644474,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "ymdG",
+          "optimum": 0.3354270773190946,
+          "parent_score": 0.14653480190026524,
+          "passed": true,
+          "score": 0.3253072633617568
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 0.558090325983353,
+          "gap_closed": 0.5600311988336572,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "arfA",
+          "optimum": 0.3770257674137766,
+          "parent_score": -0.0016632067407930532,
+          "passed": true,
+          "score": 0.21041443344007837
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 0.46997144691375964,
+          "gap_closed": 0.36255287296314254,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "tusE",
+          "optimum": 0.3706345990835937,
+          "parent_score": 0.062457007650795045,
+          "passed": true,
+          "score": 0.17418767880761774
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 0.37791011643105626,
+          "gap_closed": 0.21454898888675908,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "uspD",
+          "optimum": 0.36545074014198076,
+          "parent_score": 0.0760078529746583,
+          "passed": true,
+          "score": 0.13810753175687163
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 0.63156837329415,
+          "gap_closed": 0.6280340641269454,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "rplF",
+          "optimum": 0.3973378243892406,
+          "parent_score": 0.003775385269943935,
+          "passed": true,
+          "score": 0.25094600339774936
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 0.5920874410783694,
+          "gap_closed": 0.5568246080999387,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "aroE",
+          "optimum": 0.43914291997179694,
+          "parent_score": 0.03494197494638395,
+          "passed": true,
+          "score": 0.26001100775378444
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 0.517924758042991,
+          "gap_closed": 0.2718413572114037,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "osmF",
+          "optimum": 0.4090981100530958,
+          "parent_score": 0.13825593528643815,
+          "passed": true,
+          "score": 0.21188203966509456
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 0.5512226626619863,
+          "gap_closed": 0.40383880007038464,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "ydcT",
+          "optimum": 0.4344731445323297,
+          "parent_score": 0.10741109995258671,
+          "passed": true,
+          "score": 0.23949144358423677
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 0.5410519277245598,
+          "gap_closed": 0.4345087174783933,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "clsA",
+          "optimum": 0.41617535117977705,
+          "parent_score": 0.07841086027409261,
+          "passed": true,
+          "score": 0.225172476027264
+        }
+      ]
+    },
+    "original": {
+      "evaluations": 9,
+      "mean_gap_closed": 0.0,
+      "n_instances": 9,
+      "passed": 9,
+      "per_instance": [
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 0.43686038429409635,
+          "gap_closed": 0.0,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "ymdG",
+          "optimum": 0.3354270773190946,
+          "parent_score": 0.14653480190026524,
+          "passed": true,
+          "score": 0.14653480190026524
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": -0.00441138745556275,
+          "gap_closed": 0.0,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "arfA",
+          "optimum": 0.3770257674137766,
+          "parent_score": -0.0016632067407930532,
+          "passed": true,
+          "score": -0.0016632067407930532
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 0.168513700030224,
+          "gap_closed": 0.0,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "tusE",
+          "optimum": 0.3706345990835937,
+          "parent_score": 0.062457007650795045,
+          "passed": true,
+          "score": 0.062457007650795045
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 0.2079838528856956,
+          "gap_closed": 0.0,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "uspD",
+          "optimum": 0.36545074014198076,
+          "parent_score": 0.0760078529746583,
+          "passed": true,
+          "score": 0.0760078529746583
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 0.009501701167632827,
+          "gap_closed": 0.0,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "rplF",
+          "optimum": 0.3973378243892406,
+          "parent_score": 0.003775385269943935,
+          "passed": true,
+          "score": 0.003775385269943935
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 0.07956857177300736,
+          "gap_closed": 0.0,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "aroE",
+          "optimum": 0.43914291997179694,
+          "parent_score": 0.03494197494638395,
+          "passed": true,
+          "score": 0.03494197494638395
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 0.33795300415466173,
+          "gap_closed": 0.0,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "osmF",
+          "optimum": 0.4090981100530958,
+          "parent_score": 0.13825593528643815,
+          "passed": true,
+          "score": 0.13825593528643815
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 0.24722149413447606,
+          "gap_closed": 0.0,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "ydcT",
+          "optimum": 0.4344731445323297,
+          "parent_score": 0.10741109995258671,
+          "passed": true,
+          "score": 0.10741109995258671
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 0.1884082275699724,
+          "gap_closed": 0.0,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "clsA",
+          "optimum": 0.41617535117977705,
+          "parent_score": 0.07841086027409261,
+          "passed": true,
+          "score": 0.07841086027409261
+        }
+      ]
+    },
+    "random": {
+      "evaluations": 9,
+      "mean_gap_closed": -0.43318683225965704,
+      "n_instances": 9,
+      "passed": 9,
+      "per_instance": [
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": 0.3737629334292469,
+          "gap_closed": -0.11204583926448851,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "ymdG",
+          "optimum": 0.3354270773190946,
+          "parent_score": 0.14653480190026524,
+          "passed": true,
+          "score": 0.1253702083703836
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": -0.2595920431248288,
+          "gap_closed": -0.25405989901777754,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "arfA",
+          "optimum": 0.3770257674137766,
+          "parent_score": -0.0016632067407930532,
+          "passed": true,
+          "score": -0.09787288927364877
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": -0.399591439294763,
+          "gap_closed": -0.6832405288525346,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "tusE",
+          "optimum": 0.3706345990835937,
+          "parent_score": 0.062457007650795045,
+          "passed": true,
+          "score": -0.14810241290025064
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": -0.16496075255208592,
+          "gap_closed": -0.47088005313603515,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "uspD",
+          "optimum": 0.36545074014198076,
+          "parent_score": 0.0760078529746583,
+          "passed": true,
+          "score": -0.06028502911453794
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": -0.2250112184171662,
+          "gap_closed": -0.23676256674166,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "rplF",
+          "optimum": 0.3973378243892406,
+          "parent_score": 0.003775385269943935,
+          "passed": true,
+          "score": -0.08940546798904904
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": -0.1259651035689603,
+          "gap_closed": -0.2233014530347826,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "aroE",
+          "optimum": 0.43914291997179694,
+          "parent_score": 0.03494197494638395,
+          "passed": true,
+          "score": -0.055316683395823046
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": -0.20945000585459905,
+          "gap_closed": -0.826834066832833,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "osmF",
+          "optimum": 0.4090981100530958,
+          "parent_score": 0.13825593528643815,
+          "passed": true,
+          "score": -0.08568560154572633
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": -0.28133354173717007,
+          "gap_closed": -0.7021388519375008,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "ydcT",
+          "optimum": 0.4344731445323297,
+          "parent_score": 0.10741109995258671,
+          "passed": true,
+          "score": -0.12223186854096571
+        },
+        {
+          "evaluations": 1,
+          "fraction_of_optimum": -0.1276404051653438,
+          "gap_closed": -0.3894182315193008,
+          "gates": {
+            "length_unchanged": 1.0,
+            "protein_unchanged": 1.0,
+            "targets_remaining": 0.0,
+            "targets_unreachable": 0.0
+          },
+          "instance": "clsA",
+          "optimum": 0.41617535117977705,
+          "parent_score": 0.07841086027409261,
+          "passed": true,
+          "score": -0.05312079044441599
+        }
+      ]
+    }
+  }
+}

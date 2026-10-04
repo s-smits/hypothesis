@@ -1,0 +1,822 @@
+{
+  "id": "hypothesis-ce59ac5b-aa99-45e3-b92d-02d40a067a94",
+  "goal": "Lower the atom count of the DNA sequences without changing their proteins. Keep the ones with fewer atoms than the first sequence.",
+  "inputs": {
+    "seqs": [
+      {
+        "kind": "dna",
+        "sequence": "ATGGCTCTGAAATAA",
+        "id": "1e142be77490",
+        "display": "ATG GCT CTG AAA TAA"
+      },
+      {
+        "kind": "dna",
+        "sequence": "ATGGCGTTAAAGTAG",
+        "id": "b4fd7183a224",
+        "display": "ATG GCG TTA AAG TAG"
+      },
+      {
+        "kind": "dna",
+        "sequence": "ATGGCCCTGAAATGA",
+        "id": "f9932d4787c6",
+        "display": "ATG GCC CTG AAA TGA"
+      }
+    ]
+  },
+  "hypothesis": "Atom counts per nucleotide: C=31, A=T=33, G=34. Recoding all Ala codons to GCC and all Leu codons to CTC (by targeting every other synonym) deterministically lowers atoms while preserving protein. Result: 489, 491, 490 atoms vs first sequence 494.",
+  "dag": {
+    "inputs": {
+      "seqs": "dna"
+    },
+    "steps": {
+      "recode": {
+        "config": {
+          "name": "recode_codons",
+          "config_hash": "dd925cd9",
+          "targets": [
+            "GCT",
+            "GCA",
+            "GCG",
+            "TTA",
+            "TTG",
+            "CTT",
+            "CTA",
+            "CTG"
+          ]
+        },
+        "inputs": {
+          "sequence": "seqs"
+        }
+      },
+      "score": {
+        "config": {
+          "name": "dna_atom_score",
+          "config_hash": "3745d4af",
+          "reference": {
+            "kind": "dna",
+            "sequence": "ATGGCTCTGAAATAA",
+            "id": "1e142be77490",
+            "display": "ATG GCT CTG AAA TAA"
+          }
+        },
+        "inputs": {
+          "sequence": "recode"
+        }
+      },
+      "same_protein": {
+        "config": {
+          "name": "at_most",
+          "config_hash": "2c25cae6",
+          "column": "dna_atom_score__3745d4af__amino_acid_changes",
+          "threshold": 0.0
+        },
+        "inputs": {
+          "items": "score"
+        }
+      },
+      "fewer_atoms": {
+        "config": {
+          "name": "at_most",
+          "config_hash": "7075fa0b",
+          "column": "dna_atom_score__3745d4af__atom_count",
+          "threshold": 493.0
+        },
+        "inputs": {
+          "items": "same_protein.yes"
+        }
+      }
+    }
+  },
+  "workflow_id": "hypothesis-ce59ac5b-aa99-45e3-b92d-02d40a067a94-r2",
+  "outcome": {
+    "values": {
+      "seqs": {
+        "items": [
+          {
+            "kind": "dna",
+            "sequence": "ATGGCTCTGAAATAA",
+            "id": "1e142be77490",
+            "display": "ATG GCT CTG AAA TAA"
+          },
+          {
+            "kind": "dna",
+            "sequence": "ATGGCGTTAAAGTAG",
+            "id": "b4fd7183a224",
+            "display": "ATG GCG TTA AAG TAG"
+          },
+          {
+            "kind": "dna",
+            "sequence": "ATGGCCCTGAAATGA",
+            "id": "f9932d4787c6",
+            "display": "ATG GCC CTG AAA TGA"
+          }
+        ],
+        "scores": {}
+      },
+      "recode": {
+        "items": [
+          {
+            "kind": "dna",
+            "sequence": "ATGGCCCTCAAATAA",
+            "id": "83bb49832420",
+            "display": "ATG GCC CTC AAA TAA"
+          },
+          {
+            "kind": "dna",
+            "sequence": "ATGGCCCTCAAGTAG",
+            "id": "38e16ea536ec",
+            "display": "ATG GCC CTC AAG TAG"
+          },
+          {
+            "kind": "dna",
+            "sequence": "ATGGCCCTCAAATGA",
+            "id": "603999b914a5",
+            "display": "ATG GCC CTC AAA TGA"
+          }
+        ],
+        "scores": {}
+      },
+      "score": {
+        "items": [
+          {
+            "kind": "dna",
+            "sequence": "ATGGCCCTCAAATAA",
+            "id": "83bb49832420",
+            "display": "ATG GCC CTC AAA TAA"
+          },
+          {
+            "kind": "dna",
+            "sequence": "ATGGCCCTCAAGTAG",
+            "id": "38e16ea536ec",
+            "display": "ATG GCC CTC AAG TAG"
+          },
+          {
+            "kind": "dna",
+            "sequence": "ATGGCCCTCAAATGA",
+            "id": "603999b914a5",
+            "display": "ATG GCC CTC AAA TGA"
+          }
+        ],
+        "scores": {
+          "dna_atom_score__3745d4af__atom_count": {
+            "83bb49832420": 489.0,
+            "38e16ea536ec": 491.0,
+            "603999b914a5": 490.0
+          },
+          "dna_atom_score__3745d4af__amino_acid_changes": {
+            "83bb49832420": 0.0,
+            "38e16ea536ec": 0.0,
+            "603999b914a5": 0.0
+          }
+        }
+      },
+      "same_protein.yes": {
+        "items": [
+          {
+            "kind": "dna",
+            "sequence": "ATGGCCCTCAAATAA",
+            "id": "83bb49832420",
+            "display": "ATG GCC CTC AAA TAA"
+          },
+          {
+            "kind": "dna",
+            "sequence": "ATGGCCCTCAAGTAG",
+            "id": "38e16ea536ec",
+            "display": "ATG GCC CTC AAG TAG"
+          },
+          {
+            "kind": "dna",
+            "sequence": "ATGGCCCTCAAATGA",
+            "id": "603999b914a5",
+            "display": "ATG GCC CTC AAA TGA"
+          }
+        ],
+        "scores": {
+          "dna_atom_score__3745d4af__atom_count": {
+            "83bb49832420": 489.0,
+            "38e16ea536ec": 491.0,
+            "603999b914a5": 490.0
+          },
+          "dna_atom_score__3745d4af__amino_acid_changes": {
+            "83bb49832420": 0.0,
+            "38e16ea536ec": 0.0,
+            "603999b914a5": 0.0
+          }
+        }
+      },
+      "same_protein.no": {
+        "items": [],
+        "scores": {}
+      },
+      "fewer_atoms.yes": {
+        "items": [
+          {
+            "kind": "dna",
+            "sequence": "ATGGCCCTCAAATAA",
+            "id": "83bb49832420",
+            "display": "ATG GCC CTC AAA TAA"
+          },
+          {
+            "kind": "dna",
+            "sequence": "ATGGCCCTCAAGTAG",
+            "id": "38e16ea536ec",
+            "display": "ATG GCC CTC AAG TAG"
+          },
+          {
+            "kind": "dna",
+            "sequence": "ATGGCCCTCAAATGA",
+            "id": "603999b914a5",
+            "display": "ATG GCC CTC AAA TGA"
+          }
+        ],
+        "scores": {
+          "dna_atom_score__3745d4af__atom_count": {
+            "83bb49832420": 489.0,
+            "38e16ea536ec": 491.0,
+            "603999b914a5": 490.0
+          },
+          "dna_atom_score__3745d4af__amino_acid_changes": {
+            "83bb49832420": 0.0,
+            "38e16ea536ec": 0.0,
+            "603999b914a5": 0.0
+          }
+        }
+      },
+      "fewer_atoms.no": {
+        "items": [],
+        "scores": {}
+      }
+    },
+    "skipped": []
+  },
+  "verdict": {
+    "achieved": true,
+    "reason": "The outcome fully satisfies all criteria. First sequence (ATGGCTCTGAAATAA) has 494 atoms as the reference baseline. All three recoded sequences (489, 491, 490 atoms respectively) have strictly lower atom counts than 494. All preserved their proteins (0 amino acid changes each). All kept sequences are valid DNA using only A,C,G,T with lengths that are multiples of 3 (15 nucleotides = 5 codons). The recoding strategically substituted synonymous codons for Ala (GCT→GCC) and Leu (TTA→CTC, TTG→CTC, CTT→CTC, CTA→CTC, CTG→CTC) to reduce atom counts while maintaining the exact amino acid sequence. All three sequences qualified (atom count ≤493) so all entered fewer_atoms.yes with no rejections in fewer_atoms.no, correctly implementing the filtering criterion that no unqualified sequences are kept.\n\nAcceptance: every criterion was covered by an assertion that held",
+    "agrees": true,
+    "covers_goal": true,
+    "score": 1.0
+  },
+  "criteria": [
+    {
+      "id": "protein_preserved",
+      "claim": "Every kept sequence translates to exactly the same protein as the input sequence it was derived from.",
+      "source": "derived"
+    },
+    {
+      "id": "fewer_atoms_than_first",
+      "claim": "Every kept sequence has a strictly lower total atom count than the first sequence in the input list.",
+      "source": "derived"
+    },
+    {
+      "id": "valid_dna_output",
+      "claim": "Every kept sequence is a valid DNA sequence, using only A, C, G and T, with a length that is a multiple of three so it can be translated in codons.",
+      "source": "derived"
+    },
+    {
+      "id": "no_unqualified_kept",
+      "claim": "No sequence is kept unless its atom count is below that of the first input sequence. Sequences that fail this are dropped.",
+      "source": "derived"
+    }
+  ],
+  "state": "achieved",
+  "round": 2,
+  "attempts": [
+    {
+      "round": 1,
+      "plan": {
+        "hypothesis": "Synonymous codon swaps can lower atom count (C has 31 atoms vs 33-34 for others) while keeping the protein; scoring against the first sequence and filtering keeps only valid, smaller variants.",
+        "expected": "Kept sequences are synonymous variants (0 amino acid changes) with atom count ≤ 493, below the first sequence's 494.",
+        "assertions": [
+          {
+            "criterion": "protein_preserved",
+            "step": "same_protein",
+            "branch": "yes",
+            "claim": "Every synonymous variant has 0 amino acid changes and passes."
+          },
+          {
+            "criterion": "fewer_atoms_than_first",
+            "step": "fewer_atoms",
+            "branch": "yes",
+            "claim": "Every kept sequence has atom count at most 493, below 494."
+          },
+          {
+            "criterion": "valid_dna_output",
+            "step": "same_protein",
+            "branch": "yes",
+            "claim": "Variants from synonymous codon swaps are in-frame ACGT sequences, so all pass."
+          },
+          {
+            "criterion": "no_unqualified_kept",
+            "step": "fewer_atoms",
+            "branch": "yes",
+            "claim": "Only sequences with atom count below 494 reach the yes branch; others go to no."
+          }
+        ],
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "mutate": {
+            "node": "mutate_synonymous__d00f2f8f",
+            "config": {},
+            "inputs": {
+              "sequence": "seqs"
+            },
+            "why": "Generate synonymous variants (protein unchanged, valid codon DNA)."
+          },
+          "score": {
+            "node": "dna_atom_score__3745d4af",
+            "config": {},
+            "inputs": {
+              "sequence": "mutate"
+            },
+            "why": "Score atom count and amino acid changes versus the first sequence."
+          },
+          "same_protein": {
+            "node": "at_most__2c25cae6",
+            "config": {},
+            "inputs": {
+              "items": "score"
+            },
+            "why": "Keep only sequences with 0 amino acid changes."
+          },
+          "fewer_atoms": {
+            "node": "at_most__7075fa0b",
+            "config": {},
+            "inputs": {
+              "items": "same_protein.yes"
+            },
+            "why": "Keep only those with atom count < 494, the first sequence's count."
+          }
+        },
+        "requests": {},
+        "addresses_critique": ""
+      },
+      "requests": [],
+      "dag": {
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "mutate": {
+            "config": {
+              "name": "mutate_synonymous",
+              "config_hash": "d00f2f8f",
+              "seed": 1,
+              "count": 3
+            },
+            "inputs": {
+              "sequence": "seqs"
+            }
+          },
+          "score": {
+            "config": {
+              "name": "dna_atom_score",
+              "config_hash": "3745d4af",
+              "reference": {
+                "kind": "dna",
+                "sequence": "ATGGCTCTGAAATAA",
+                "id": "1e142be77490",
+                "display": "ATG GCT CTG AAA TAA"
+              }
+            },
+            "inputs": {
+              "sequence": "mutate"
+            }
+          },
+          "same_protein": {
+            "config": {
+              "name": "at_most",
+              "config_hash": "2c25cae6",
+              "column": "dna_atom_score__3745d4af__amino_acid_changes",
+              "threshold": 0.0
+            },
+            "inputs": {
+              "items": "score"
+            }
+          },
+          "fewer_atoms": {
+            "config": {
+              "name": "at_most",
+              "config_hash": "7075fa0b",
+              "column": "dna_atom_score__3745d4af__atom_count",
+              "threshold": 493.0
+            },
+            "inputs": {
+              "items": "same_protein.yes"
+            }
+          }
+        }
+      },
+      "outcome": null,
+      "held": {
+        "same_protein.yes": true,
+        "fewer_atoms.yes": false
+      },
+      "produced": {
+        "seqs": [
+          "ATG GCT CTG ..AA TAA (19)",
+          "ATG GCG TTA ..AG TAG (19)",
+          "ATG GCC CTG ..AA TGA (19)"
+        ],
+        "mutate": [
+          "ATG GCA CTG ..AG TAG (19)",
+          "ATG GCA TTG ..AA TAG (19)",
+          "ATG GCT CTA ..AG TGA (19)"
+        ],
+        "score": [
+          "ATG GCA CTG ..AG TAG (19)",
+          "ATG GCA TTG ..AA TAG (19)",
+          "ATG GCT CTA ..AG TGA (19)"
+        ],
+        "same_protein.yes": [
+          "ATG GCA CTG ..AG TAG (19)",
+          "ATG GCA TTG ..AA TAG (19)",
+          "ATG GCT CTA ..AG TGA (19)"
+        ],
+        "same_protein.no": [],
+        "fewer_atoms.yes": [],
+        "fewer_atoms.no": [
+          "ATG GCA CTG ..AG TAG (19)",
+          "ATG GCA TTG ..AA TAG (19)",
+          "ATG GCT CTA ..AG TGA (19)"
+        ]
+      },
+      "verdict": {
+        "achieved": false,
+        "reason": "The test design correctly covers all four criteria and properly checks for: (1) protein preservation via amino acid change count, (2) atom count below threshold, (3) valid DNA output (checked during mutation step), and (4) proper filtering logic. However, the outcome contradicts the expected result. The first sequence has 494 atoms, so the threshold should be 493. All three generated variants have atom counts of 496, 497, and 495 respectively—all ABOVE 493. Therefore, no sequences should be kept, and the `fewer_atoms.yes` set is correctly empty. But this means the mutation process failed to actually lower atom counts below the original, which contradicts the goal and the expected outcome statement that says \"Kept sequences... with atom count ≤ 493\". The agreement criterion requires that \"every kept sequence has a strictly lower total atom count than the first sequence,\" and since zero sequences meet this condition, the outcome (empty result set) is technically correct but represents a failed optimization attempt.\n\nAcceptance: these assertions did not hold: ['fewer_atoms.yes']",
+        "agrees": false,
+        "covers_goal": true,
+        "score": 0.0
+      },
+      "critique": {
+        "diagnosis": "The mutate step used mutate_synonymous (seed 1, count 3), which makes random synonymous swaps and does not target atom count. It produced variants with 496, 497 and 495 atoms against the first sequence's 494, so none could beat the 493 threshold. same_protein passed all three (0 amino acid changes). fewer_atoms then sent all three to its 'no' branch, leaving fewer_atoms.yes empty and the assertion false.",
+        "root_cause": "wrong_node",
+        "evidence": [
+          "score: atom_count is 496.0 (e36a52f20c7a), 497.0 (41c74bb4f2fe) and 495.0 (c71ffed3d857), all above the 493 threshold",
+          "same_protein.yes holds all 3 items and same_protein.no is empty, so the swaps preserved the protein",
+          "fewer_atoms.yes is empty and fewer_atoms.no holds all 3 items, so the filter worked and the candidates were the problem",
+          "The mutate output includes stop-codon swaps (TAA->TAG, AAA->AAG, GCT kept, CTG->CTA, TGA kept), which are random and not chosen to lower atoms",
+          "held: same_protein.yes true, fewer_atoms.yes false"
+        ],
+        "keep": [
+          "score",
+          "same_protein",
+          "fewer_atoms"
+        ],
+        "fix": "Replace the random mutate step with a node that picks the lowest-atom synonymous codon for each amino acid, including the stop codon, so the candidates actually have lower atom counts. If no such node exists, the plan needs a deterministic atom-minimizing recoding step, not another random mutate_synonymous draw with seed 1 and count 3. Keep the downstream chain unchanged: score against the first sequence, then same_protein (amino_acid_changes <= 0), then fewer_atoms (atom_count <= 493) on same_protein.yes. Also check that the first sequence itself is excluded or does not trivially pass, since it equals the reference."
+      },
+      "error": null,
+      "started": "2026-10-03T16:21:21.192110Z"
+    },
+    {
+      "round": 2,
+      "plan": {
+        "hypothesis": "Atom counts per nucleotide: C=31, A=T=33, G=34. Recoding all Ala codons to GCC and all Leu codons to CTC (by targeting every other synonym) deterministically lowers atoms while preserving protein. Result: 489, 491, 490 atoms vs first sequence 494.",
+        "expected": "All three recoded sequences preserve the protein and have atom counts below 494 (≤493), so all are kept in fewer_atoms.yes.",
+        "assertions": [
+          {
+            "criterion": "protein_preserved",
+            "step": "same_protein",
+            "branch": "yes",
+            "claim": "All recoded sequences have 0 amino acid changes and pass."
+          },
+          {
+            "criterion": "fewer_atoms_than_first",
+            "step": "fewer_atoms",
+            "branch": "yes",
+            "claim": "All kept sequences have atom count ≤493 < 494."
+          },
+          {
+            "criterion": "valid_dna_output",
+            "step": "same_protein",
+            "branch": "yes",
+            "claim": "Recoding only substitutes in-frame codons with ACGT codons, so outputs are valid DNA with length a multiple of 3 and the same protein."
+          },
+          {
+            "criterion": "no_unqualified_kept",
+            "step": "fewer_atoms",
+            "branch": "yes",
+            "claim": "Only sequences with atom count below 494 enter the yes branch; all three qualify so none go to no."
+          }
+        ],
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "recode": {
+            "node": "recode_codons__dd925cd9",
+            "config": {},
+            "inputs": {
+              "sequence": "seqs"
+            },
+            "why": "Deterministically swap Ala/Leu codons to the lowest-atom synonyms GCC and CTC, keeping protein and valid in-frame DNA."
+          },
+          "score": {
+            "node": "dna_atom_score__3745d4af",
+            "config": {},
+            "inputs": {
+              "sequence": "recode"
+            },
+            "why": "Score atom count and amino acid changes versus the first sequence."
+          },
+          "same_protein": {
+            "node": "at_most__2c25cae6",
+            "config": {},
+            "inputs": {
+              "items": "score"
+            },
+            "why": "Keep only sequences with 0 amino acid changes."
+          },
+          "fewer_atoms": {
+            "node": "at_most__7075fa0b",
+            "config": {},
+            "inputs": {
+              "items": "same_protein.yes"
+            },
+            "why": "Keep only sequences with atom count ≤493, strictly below the first sequence's 494."
+          }
+        },
+        "requests": {},
+        "addresses_critique": "Replaced random mutate_synonymous with deterministic recode_codons that targets every non-lowest-atom Ala and Leu codon, forcing GCC and CTC, so atom counts fall to 489/491/490. Scoring and both filters are unchanged."
+      },
+      "requests": [],
+      "dag": {
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "recode": {
+            "config": {
+              "name": "recode_codons",
+              "config_hash": "dd925cd9",
+              "targets": [
+                "GCT",
+                "GCA",
+                "GCG",
+                "TTA",
+                "TTG",
+                "CTT",
+                "CTA",
+                "CTG"
+              ]
+            },
+            "inputs": {
+              "sequence": "seqs"
+            }
+          },
+          "score": {
+            "config": {
+              "name": "dna_atom_score",
+              "config_hash": "3745d4af",
+              "reference": {
+                "kind": "dna",
+                "sequence": "ATGGCTCTGAAATAA",
+                "id": "1e142be77490",
+                "display": "ATG GCT CTG AAA TAA"
+              }
+            },
+            "inputs": {
+              "sequence": "recode"
+            }
+          },
+          "same_protein": {
+            "config": {
+              "name": "at_most",
+              "config_hash": "2c25cae6",
+              "column": "dna_atom_score__3745d4af__amino_acid_changes",
+              "threshold": 0.0
+            },
+            "inputs": {
+              "items": "score"
+            }
+          },
+          "fewer_atoms": {
+            "config": {
+              "name": "at_most",
+              "config_hash": "7075fa0b",
+              "column": "dna_atom_score__3745d4af__atom_count",
+              "threshold": 493.0
+            },
+            "inputs": {
+              "items": "same_protein.yes"
+            }
+          }
+        }
+      },
+      "outcome": {
+        "values": {
+          "seqs": {
+            "items": [
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTCTGAAATAA",
+                "id": "1e142be77490",
+                "display": "ATG GCT CTG AAA TAA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCGTTAAAGTAG",
+                "id": "b4fd7183a224",
+                "display": "ATG GCG TTA AAG TAG"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCCCTGAAATGA",
+                "id": "f9932d4787c6",
+                "display": "ATG GCC CTG AAA TGA"
+              }
+            ],
+            "scores": {}
+          },
+          "recode": {
+            "items": [
+              {
+                "kind": "dna",
+                "sequence": "ATGGCCCTCAAATAA",
+                "id": "83bb49832420",
+                "display": "ATG GCC CTC AAA TAA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCCCTCAAGTAG",
+                "id": "38e16ea536ec",
+                "display": "ATG GCC CTC AAG TAG"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCCCTCAAATGA",
+                "id": "603999b914a5",
+                "display": "ATG GCC CTC AAA TGA"
+              }
+            ],
+            "scores": {}
+          },
+          "score": {
+            "items": [
+              {
+                "kind": "dna",
+                "sequence": "ATGGCCCTCAAATAA",
+                "id": "83bb49832420",
+                "display": "ATG GCC CTC AAA TAA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCCCTCAAGTAG",
+                "id": "38e16ea536ec",
+                "display": "ATG GCC CTC AAG TAG"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCCCTCAAATGA",
+                "id": "603999b914a5",
+                "display": "ATG GCC CTC AAA TGA"
+              }
+            ],
+            "scores": {
+              "dna_atom_score__3745d4af__atom_count": {
+                "83bb49832420": 489.0,
+                "38e16ea536ec": 491.0,
+                "603999b914a5": 490.0
+              },
+              "dna_atom_score__3745d4af__amino_acid_changes": {
+                "83bb49832420": 0.0,
+                "38e16ea536ec": 0.0,
+                "603999b914a5": 0.0
+              }
+            }
+          },
+          "same_protein.yes": {
+            "items": [
+              {
+                "kind": "dna",
+                "sequence": "ATGGCCCTCAAATAA",
+                "id": "83bb49832420",
+                "display": "ATG GCC CTC AAA TAA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCCCTCAAGTAG",
+                "id": "38e16ea536ec",
+                "display": "ATG GCC CTC AAG TAG"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCCCTCAAATGA",
+                "id": "603999b914a5",
+                "display": "ATG GCC CTC AAA TGA"
+              }
+            ],
+            "scores": {
+              "dna_atom_score__3745d4af__atom_count": {
+                "83bb49832420": 489.0,
+                "38e16ea536ec": 491.0,
+                "603999b914a5": 490.0
+              },
+              "dna_atom_score__3745d4af__amino_acid_changes": {
+                "83bb49832420": 0.0,
+                "38e16ea536ec": 0.0,
+                "603999b914a5": 0.0
+              }
+            }
+          },
+          "same_protein.no": {
+            "items": [],
+            "scores": {}
+          },
+          "fewer_atoms.yes": {
+            "items": [
+              {
+                "kind": "dna",
+                "sequence": "ATGGCCCTCAAATAA",
+                "id": "83bb49832420",
+                "display": "ATG GCC CTC AAA TAA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCCCTCAAGTAG",
+                "id": "38e16ea536ec",
+                "display": "ATG GCC CTC AAG TAG"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCCCTCAAATGA",
+                "id": "603999b914a5",
+                "display": "ATG GCC CTC AAA TGA"
+              }
+            ],
+            "scores": {
+              "dna_atom_score__3745d4af__atom_count": {
+                "83bb49832420": 489.0,
+                "38e16ea536ec": 491.0,
+                "603999b914a5": 490.0
+              },
+              "dna_atom_score__3745d4af__amino_acid_changes": {
+                "83bb49832420": 0.0,
+                "38e16ea536ec": 0.0,
+                "603999b914a5": 0.0
+              }
+            }
+          },
+          "fewer_atoms.no": {
+            "items": [],
+            "scores": {}
+          }
+        },
+        "skipped": []
+      },
+      "held": {
+        "same_protein.yes": true,
+        "fewer_atoms.yes": true
+      },
+      "produced": {
+        "seqs": [
+          "ATG GCT CTG ..AA TAA (19)",
+          "ATG GCG TTA ..AG TAG (19)",
+          "ATG GCC CTG ..AA TGA (19)"
+        ],
+        "recode": [
+          "ATG GCC CTC ..AA TAA (19)",
+          "ATG GCC CTC ..AG TAG (19)",
+          "ATG GCC CTC ..AA TGA (19)"
+        ],
+        "score": [
+          "ATG GCC CTC ..AA TAA (19)",
+          "ATG GCC CTC ..AG TAG (19)",
+          "ATG GCC CTC ..AA TGA (19)"
+        ],
+        "same_protein.yes": [
+          "ATG GCC CTC ..AA TAA (19)",
+          "ATG GCC CTC ..AG TAG (19)",
+          "ATG GCC CTC ..AA TGA (19)"
+        ],
+        "same_protein.no": [],
+        "fewer_atoms.yes": [
+          "ATG GCC CTC ..AA TAA (19)",
+          "ATG GCC CTC ..AG TAG (19)",
+          "ATG GCC CTC ..AA TGA (19)"
+        ],
+        "fewer_atoms.no": []
+      },
+      "verdict": {
+        "achieved": true,
+        "reason": "The outcome fully satisfies all criteria. First sequence (ATGGCTCTGAAATAA) has 494 atoms as the reference baseline. All three recoded sequences (489, 491, 490 atoms respectively) have strictly lower atom counts than 494. All preserved their proteins (0 amino acid changes each). All kept sequences are valid DNA using only A,C,G,T with lengths that are multiples of 3 (15 nucleotides = 5 codons). The recoding strategically substituted synonymous codons for Ala (GCT→GCC) and Leu (TTA→CTC, TTG→CTC, CTT→CTC, CTA→CTC, CTG→CTC) to reduce atom counts while maintaining the exact amino acid sequence. All three sequences qualified (atom count ≤493) so all entered fewer_atoms.yes with no rejections in fewer_atoms.no, correctly implementing the filtering criterion that no unqualified sequences are kept.\n\nAcceptance: every criterion was covered by an assertion that held",
+        "agrees": true,
+        "covers_goal": true,
+        "score": 1.0
+      },
+      "critique": null,
+      "error": null,
+      "started": "2026-10-03T16:22:01.635014Z"
+    }
+  ],
+  "pending": [],
+  "usage": {
+    "criteria": 1166,
+    "total": 89491,
+    "plan": 77244,
+    "verify": 6072,
+    "critique": 5009
+  },
+  "stopped_because": "every criterion was covered by an assertion that held"
+}

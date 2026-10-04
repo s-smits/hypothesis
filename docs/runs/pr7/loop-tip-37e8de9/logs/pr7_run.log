@@ -1,0 +1,641 @@
+{
+  "id": "hypothesis-3bec2a48-73c6-4cd4-8163-8ace498ca1fc",
+  "goal": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the ones that score higher than the first sequence.",
+  "inputs": {
+    "seqs": [
+      {
+        "kind": "dna",
+        "sequence": "ATGGCTCTGAAATAA",
+        "id": "1e142be77490",
+        "display": "ATGGCTCTGAAATAA"
+      },
+      {
+        "kind": "dna",
+        "sequence": "ATGGCGTTAAAGTAG",
+        "id": "b4fd7183a224",
+        "display": "ATGGCGTTAAAGTAG"
+      },
+      {
+        "kind": "dna",
+        "sequence": "ATGGCCCTGAAATGA",
+        "id": "f9932d4787c6",
+        "display": "ATGGCCCTGAAATGA"
+      }
+    ]
+  },
+  "input_sources": {},
+  "hypothesis": null,
+  "observations": [],
+  "criteria": [
+    {
+      "id": "protein_preserved",
+      "claim": "Every output DNA sequence translates to exactly the same protein sequence as its corresponding input sequence, with no amino acid changes, insertions, deletions, or premature stop codons.",
+      "source": "derived"
+    },
+    {
+      "id": "tir_higher_than_first",
+      "claim": "Every retained output sequence has a predicted translation initiation rate strictly greater than that of the first input sequence, as scored by the same translation initiation rate model.",
+      "source": "derived"
+    },
+    {
+      "id": "only_improved_kept",
+      "claim": "Sequences whose translation initiation rate score is not higher than the first sequence's score are excluded from the output, so the output contains only sequences that pass the comparison.",
+      "source": "derived"
+    },
+    {
+      "id": "valid_dna_output",
+      "claim": "Each output is a valid DNA sequence made only of A, C, G, and T, and it is a modified version of one of the input sequences.",
+      "source": "derived"
+    }
+  ],
+  "state": "abandoned",
+  "round": 3,
+  "attempts": [
+    {
+      "round": 1,
+      "plan": {
+        "hypothesis": "Synonymous codon changes after the start codon alter mRNA folding around the RBS/start codon, so some variants have a higher OSTIR translation initiation rate than the first input sequence while encoding the same protein (M-A-L-K-stop for all three inputs).",
+        "expected": "A pool of 90 synonymous variants is generated, all verified protein-preserving, then only those whose OSTIR expression is at least the cutoff survive. The cutoff of 500 is an estimate of the first sequence's baseline score under the chosen UTR, because I could not run OSTIR here. It should be recalibrated to the actual baseline score of ATGGCTCTGAAATAA before relying on the result.",
+        "assertions": [
+          {
+            "criterion": "protein_preserved",
+            "step": "protein_gate",
+            "branch": "yes",
+            "claim": "Every variant that passes has protein_unchanged = 1 and the same length as the reference, so it encodes the same protein."
+          },
+          {
+            "criterion": "tir_higher_than_first",
+            "step": "tir_gate",
+            "branch": "yes",
+            "claim": "Retained variants have an OSTIR expression at or above the cutoff set to the first sequence's baseline."
+          },
+          {
+            "criterion": "only_improved_kept",
+            "step": "tir_gate",
+            "branch": "yes",
+            "claim": "Variants below the cutoff go to the no branch, so only variants at or above the cutoff are kept."
+          },
+          {
+            "criterion": "valid_dna_output",
+            "step": "mutate",
+            "branch": "produced",
+            "claim": "mutate_synonymous outputs DNA made only of A, C, G and T, each derived from an input sequence."
+          }
+        ],
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "mutate": {
+            "node": "mutate_synonymous__ba71f6d0",
+            "config": {},
+            "inputs": {
+              "sequence": "seqs"
+            },
+            "why": "Generate synonymous candidate variants (2 codon swaps, 30 per input) that keep the protein."
+          },
+          "check": {
+            "node": "constraint_check__c174c7c7",
+            "config": {},
+            "inputs": {
+              "sequence": "mutate"
+            },
+            "why": "Check protein and length against the reference. All three inputs translate to MALK*, so one reference serves them all."
+          },
+          "protein_gate": {
+            "node": "at_least__cd25bef6",
+            "config": {},
+            "inputs": {
+              "items": "check"
+            },
+            "why": "Keep only variants with protein_unchanged = 1."
+          },
+          "score": {
+            "node": "ostir_expression__25ae47b0",
+            "config": {},
+            "inputs": {
+              "sequence": "protein_gate.yes"
+            },
+            "why": "Predict translation initiation rate with a fixed 35-nt UTR that has an SD motif."
+          },
+          "tir_gate": {
+            "node": "at_least__a788e3f1",
+            "config": {},
+            "inputs": {
+              "items": "score"
+            },
+            "why": "Keep only variants scoring at or above the cutoff set for the first sequence's baseline."
+          }
+        },
+        "requests": {},
+        "observations": [],
+        "addresses_critique": ""
+      },
+      "requests": [],
+      "dag": {
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "mutate": {
+            "config": {
+              "name": "mutate_synonymous",
+              "config_hash": "ba71f6d0",
+              "seed": 7,
+              "count": 2,
+              "variants_per_sequence": 30
+            },
+            "inputs": {
+              "sequence": "seqs"
+            }
+          },
+          "check": {
+            "config": {
+              "name": "constraint_check",
+              "config_hash": "c174c7c7",
+              "reference": {
+                "kind": "dna",
+                "sequence": "ATGGCTCTGAAATAA",
+                "id": "1e142be77490",
+                "display": "ATGGCTCTGAAATAA"
+              },
+              "targeted_codons": []
+            },
+            "inputs": {
+              "sequence": "mutate"
+            }
+          },
+          "protein_gate": {
+            "config": {
+              "name": "at_least",
+              "config_hash": "cd25bef6",
+              "column": "constraint_check__c174c7c7__protein_unchanged",
+              "threshold": 1.0
+            },
+            "inputs": {
+              "items": "check"
+            }
+          },
+          "score": {
+            "config": {
+              "name": "ostir_expression",
+              "config_hash": "25ae47b0",
+              "utr": "AAAAAAAAAAAAAAAAAAAAAAAAGGAGAAAAAAA",
+              "anti_sd": "ACCTCCTTA"
+            },
+            "inputs": {
+              "sequence": "protein_gate.yes"
+            }
+          },
+          "tir_gate": {
+            "config": {
+              "name": "at_least",
+              "config_hash": "a788e3f1",
+              "column": "ostir_expression__25ae47b0__expression",
+              "threshold": 500.0
+            },
+            "inputs": {
+              "items": "score"
+            }
+          }
+        }
+      },
+      "workflow_id": "hypothesis-3bec2a48-73c6-4cd4-8163-8ace498ca1fc-r1",
+      "outcome": null,
+      "held": {
+        "protein_gate.yes": true,
+        "tir_gate.yes": true,
+        "mutate.produced": true
+      },
+      "produced": {
+        "seqs": [
+          "ATGGCTCTGAAA..AAATAA (15)",
+          "ATGGCGTTAAAG..AAGTAG (15)",
+          "ATGGCCCTGAAA..AAATGA (15)"
+        ],
+        "mutate": [
+          "ATGGCTCTTAAA..AAATGA (15)",
+          "ATGGCGCTGAAG..AAGTAA (15)",
+          "ATGGCTTTAAAA..AAATAG (15)"
+        ],
+        "check": [
+          "ATGGCTCTTAAA..AAATGA (15)",
+          "ATGGCGCTGAAG..AAGTAA (15)",
+          "ATGGCTTTAAAA..AAATAG (15)"
+        ],
+        "protein_gate.yes": [
+          "ATGGCTCTTAAA..AAATGA (15)",
+          "ATGGCGCTGAAG..AAGTAA (15)",
+          "ATGGCTTTAAAA..AAATAG (15)"
+        ],
+        "protein_gate.no": [],
+        "score": [
+          "ATGGCTCTTAAA..AAATGA (15)",
+          "ATGGCGCTGAAG..AAGTAA (15)",
+          "ATGGCTTTAAAA..AAATAG (15)"
+        ],
+        "tir_gate.yes": [
+          "ATGGCTCTTAAA..AAATGA (15)",
+          "ATGGCGCTGAAG..AAGTAA (15)",
+          "ATGGCTTTAAAA..AAATAG (15)"
+        ],
+        "tir_gate.no": []
+      },
+      "verdict": {
+        "achieved": false,
+        "reason": "Critical failure on criterion tir_higher_than_first: The threshold is set to 500, but the first sequence ATGGCTCTGAAATAA has an OSTIR expression score of only 121,719.261 (far above 500). The assertion claims retained variants have scores \"at or above the cutoff set to the first sequence's baseline,\" but the cutoff of 500 does not match the actual baseline. Many variants with scores below ~150,000 are being retained (e.g., 78389.47, 99654.05, 116946.29) even though they fall below the first sequence's score of 121,719. The assertion for tir_higher_than_first is effectively not testing the requirement that variants score strictly higher than the first sequence. The expected description itself acknowledges the cutoff is \"an estimate\" and \"should be recalibrated to the actual baseline score\" before relying on results. The outcome does not meet the stated goal because the filtering is based on an incorrect threshold, not the actual translation initiation rate of the first sequence. Additionally, covers_goal is false because criterion tir_higher_than_first is not genuinely tested—the assertion step uses a fixed threshold rather than dynamically comparing to the first sequence's actual score.\n\nAcceptance: the verifier judged the assertions not to cover the goal",
+        "agrees": false,
+        "covers_goal": false
+      },
+      "critique": {
+        "diagnosis": "The tir_gate step is configured with threshold 500.0, a guessed cutoff that was never calibrated against the first sequence. The score step shows that ATGGCTCTGAAATAA (id 1e142be77490) actually scores 121719.261 under the same OSTIR UTR. Every one of the 50 protein-preserving variants scores above 500 (minimum 78389.47), so tir_gate.yes passed all of them and tir_gate.no was empty. That output includes variants scoring below the baseline (406b0e247222 at 78389.47, 6c8eed4ab179 and e84a83ee4941 at 99654.05, several at about 116946) and the first sequence itself. The pipeline therefore does not enforce 'strictly higher than the first sequence'. The mutate, check, protein_gate and score steps worked as intended.",
+        "root_cause": "wrong_config",
+        "evidence": [
+          "tir_gate config: column ostir_expression__25ae47b0__expression, threshold 500.0, while the first sequence's own score is 121719.261",
+          "tir_gate.no items is empty, so no variant was rejected even though many score below 121719.261 (406b0e247222: 78389.47, 6c8eed4ab179: 99654.05, e84a83ee4941: 99654.05, 7a618bf99f6b: 116946.29)",
+          "Variants equal to the baseline (1e142be77490, 4758c60e07dc, b299d707df38 at 121719.261) also passed. at_least is inclusive, so these would still pass even with a threshold equal to the baseline",
+          "The plan's own expected text admits the 500 cutoff was an uncalibrated estimate"
+        ],
+        "keep": [
+          "mutate",
+          "check",
+          "protein_gate",
+          "score"
+        ],
+        "fix": "Keep mutate, check, protein_gate and score unchanged, since their scores are valid and already contain the baseline. Change only the tir_gate config: use the at_least node on column ostir_expression__25ae47b0__expression with a threshold just above the first sequence's measured score, for example 121719.262. at_least is inclusive, so this excludes the first sequence and every variant tied with it. Do not reuse the 500 threshold. If a node that compares each score against the first input's score at run time exists, use it instead of a hard-coded number."
+      },
+      "error": null,
+      "started": "2026-10-03T20:41:02.112059Z"
+    },
+    {
+      "round": 2,
+      "plan": {
+        "hypothesis": "Synonymous codon changes after the start codon alter mRNA folding around the RBS/start codon, so some variants have a higher OSTIR translation initiation rate than the first input (measured 121719.261) while encoding the same protein M-A-L-K-stop.",
+        "expected": "Pool of synonymous variants is generated, protein-preserving ones are kept, scored with OSTIR, and only those scoring strictly above the first sequence's baseline of 121719.261 (threshold 121719.262, just above it, so the first sequence and ties are excluded) pass tir_gate.yes. Variants at or below baseline go to tir_gate.no.",
+        "assertions": [
+          {
+            "criterion": "protein_preserved",
+            "step": "protein_gate",
+            "branch": "yes",
+            "claim": "All variants passing protein_gate have protein_unchanged = 1, i.e. identical protein."
+          },
+          {
+            "criterion": "tir_higher_than_first",
+            "step": "tir_gate",
+            "branch": "yes",
+            "claim": "Retained variants have OSTIR expression at least 121719.262, strictly above the first sequence's 121719.261."
+          },
+          {
+            "criterion": "only_improved_kept",
+            "step": "tir_gate",
+            "branch": "yes",
+            "claim": "Variants scoring at or below the first sequence's baseline are routed to tir_gate.no and excluded from the output."
+          },
+          {
+            "criterion": "valid_dna_output",
+            "step": "mutate",
+            "branch": "produced",
+            "claim": "mutate_synonymous produces valid ACGT DNA variants derived from the inputs."
+          }
+        ],
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "mutate": {
+            "node": "mutate_synonymous__ba71f6d0",
+            "config": {},
+            "inputs": {
+              "sequence": "seqs"
+            },
+            "why": "Generate synonymous DNA variants of each input to explore TIR."
+          },
+          "check": {
+            "node": "constraint_check__c174c7c7",
+            "config": {},
+            "inputs": {
+              "sequence": "mutate"
+            },
+            "why": "Verify the protein and length are unchanged."
+          },
+          "protein_gate": {
+            "node": "at_least__cd25bef6",
+            "config": {},
+            "inputs": {
+              "items": "check"
+            },
+            "why": "Keep only protein-preserving variants."
+          },
+          "score": {
+            "node": "ostir_expression__25ae47b0",
+            "config": {},
+            "inputs": {
+              "sequence": "protein_gate.yes"
+            },
+            "why": "Predict translation initiation rate with OSTIR."
+          },
+          "tir_gate": {
+            "node": "at_least__9ecccde3",
+            "config": {},
+            "inputs": {
+              "items": "score"
+            },
+            "why": "Keep only variants strictly above the first sequence's measured OSTIR score 121719.261 (threshold 121719.262)."
+          }
+        },
+        "requests": {},
+        "observations": [],
+        "addresses_critique": "Replaced the uncalibrated 500 threshold in tir_gate with a new at_least node (at_least__9ecccde3) at 121719.262, just above the first sequence's measured OSTIR score of 121719.261, so the baseline, ties and lower variants are excluded. mutate, check, protein_gate and score are unchanged."
+      },
+      "requests": [],
+      "dag": {
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "mutate": {
+            "config": {
+              "name": "mutate_synonymous",
+              "config_hash": "ba71f6d0",
+              "seed": 7,
+              "count": 2,
+              "variants_per_sequence": 30
+            },
+            "inputs": {
+              "sequence": "seqs"
+            }
+          },
+          "check": {
+            "config": {
+              "name": "constraint_check",
+              "config_hash": "c174c7c7",
+              "reference": {
+                "kind": "dna",
+                "sequence": "ATGGCTCTGAAATAA",
+                "id": "1e142be77490",
+                "display": "ATGGCTCTGAAATAA"
+              },
+              "targeted_codons": []
+            },
+            "inputs": {
+              "sequence": "mutate"
+            }
+          },
+          "protein_gate": {
+            "config": {
+              "name": "at_least",
+              "config_hash": "cd25bef6",
+              "column": "constraint_check__c174c7c7__protein_unchanged",
+              "threshold": 1.0
+            },
+            "inputs": {
+              "items": "check"
+            }
+          },
+          "score": {
+            "config": {
+              "name": "ostir_expression",
+              "config_hash": "25ae47b0",
+              "utr": "AAAAAAAAAAAAAAAAAAAAAAAAGGAGAAAAAAA",
+              "anti_sd": "ACCTCCTTA"
+            },
+            "inputs": {
+              "sequence": "protein_gate.yes"
+            }
+          },
+          "tir_gate": {
+            "config": {
+              "name": "at_least",
+              "config_hash": "9ecccde3",
+              "column": "ostir_expression__25ae47b0__expression",
+              "threshold": 121719.262
+            },
+            "inputs": {
+              "items": "score"
+            }
+          }
+        }
+      },
+      "workflow_id": "hypothesis-3bec2a48-73c6-4cd4-8163-8ace498ca1fc-r2",
+      "outcome": null,
+      "held": {
+        "protein_gate.yes": true,
+        "tir_gate.yes": false,
+        "mutate.produced": true
+      },
+      "produced": {
+        "seqs": [
+          "ATGGCTCTGAAA..AAATAA (15)",
+          "ATGGCGTTAAAG..AAGTAG (15)",
+          "ATGGCCCTGAAA..AAATGA (15)"
+        ],
+        "mutate": [
+          "ATGGCTCTTAAA..AAATGA (15)",
+          "ATGGCGCTGAAG..AAGTAA (15)",
+          "ATGGCTTTAAAA..AAATAG (15)"
+        ],
+        "check": [
+          "ATGGCTCTTAAA..AAATGA (15)",
+          "ATGGCGCTGAAG..AAGTAA (15)",
+          "ATGGCTTTAAAA..AAATAG (15)"
+        ],
+        "protein_gate.yes": [
+          "ATGGCTCTTAAA..AAATGA (15)",
+          "ATGGCGCTGAAG..AAGTAA (15)",
+          "ATGGCTTTAAAA..AAATAG (15)"
+        ],
+        "protein_gate.no": [],
+        "score": [
+          "ATGGCTCTTAAA..AAATGA (15)",
+          "ATGGCGCTGAAG..AAGTAA (15)",
+          "ATGGCTTTAAAA..AAATAG (15)"
+        ],
+        "tir_gate.yes": [
+          "ATGGCGCTGAAG..AAGTAA (15)",
+          "ATGGCTTTAAAA..AAATAG (15)",
+          "ATGGCGCTGAAA..AAATGA (15)"
+        ],
+        "tir_gate.no": [
+          "ATGGCTCTTAAA..AAATGA (15)",
+          "ATGGCTCTAAAA..AAATGA (15)",
+          "ATGGCCTTGAAA..AAATAA (15)"
+        ]
+      },
+      "verdict": {
+        "achieved": false,
+        "reason": "CRITICAL FAILURE: The tir_gate.yes branch is empty (held: false). The outcome shows tir_gate.yes contains 39 sequences, contradicting the held status. However, examination of the OSTIR scores reveals the fundamental problem: the threshold of 121719.262 is set correctly (just above the first sequence's 121719.261), but many sequences passing this filter have the SAME score as the first sequence (121719.261), which violates the \"strictly greater than\" requirement in criterion tir_higher_than_first.\n\nChecking tir_gate.yes scores: sequences with IDs 615baf86a071, a27e05e36964, 7990d24a1bf8, 4758c60e07dc, and 1e142be77490 all have score 121719.261—equal to, not greater than, the baseline. These should be in tir_gate.no but appear in tir_gate.yes.\n\nAdditionally, the first input sequence \"ATGGCTCTGAAATAA\" (ID: 1e142be77490) itself appears in tir_gate.yes with score 121719.261, violating the goal to exclude the first sequence (\"the ones that score higher\").\n\nCriteria coverage issues:\n- criterion \"protein_preserved\": The assertion at protein_gate.yes is held=true and checks protein_unchanged=1, which is satisfied for all 52 variants.\n- criterion \"tir_higher_than_first\": The assertion at tir_gate.yes checks OSTIR >= 121719.262, but the data shows 5+ variants with 121719.261 in tir_gate.yes, and the first sequence itself is included. This assertion is NOT adequately testing the criterion.\n- criterion \"only_improved_kept\": Partially tested; variants ≤ baseline are routed to tir_gate.no, but floating-point precision and the presence of sequences with exactly 121719.261 in tir_gate.yes undermines this.\n- criterion \"valid_dna_output\": The mutate.produced assertion shows variants were generated, but does not verify they are valid ACGT DNA or properly derived—only that mutate produced output.\n\nThe threshold mechanism has a systematic flaw: sequences scoring exactly 121719.261 pass the threshold 121719.262 filter in the tir_gate configuration, but do not meet the \"strictly greater than\" semantic of the goal.\n\nAcceptance: these assertions did not hold: ['tir_gate.yes']",
+        "agrees": false,
+        "covers_goal": false
+      },
+      "critique": {
+        "diagnosis": "The tir_gate threshold of 121719.262 was calibrated correctly this round, and the gate behaved as configured. The verdict's central claim is wrong. The tied scores of 121719.261 (615baf86a071, a27e05e36964, 7990d24a1bf8, 4758c60e07dc, b299d707df38, and the first sequence 1e142be77490) all sit in tir_gate.no, not tir_gate.yes. Every one of the 39 tir_gate.yes items scores at least 137239, so the strictly-higher requirement is met. The real defect is that the pool fed into scoring still contains unmodified input sequences. mutate emits input 3 (ATGGCCCTGAAATGA, id f9932d4787c6) unchanged. It scores 161053.215, passes tir_gate.yes, and is kept. That output is not a modified version of an input, so it fails valid_dna_output and does not meet the goal of raising the rate. Nothing between mutate and tir_gate removes identity copies of the inputs. The first sequence was also copied through unchanged, but it was correctly rejected on its tie. Separately, the cutoff is a hard-coded number rather than a run-time comparison to the first input's score.",
+        "root_cause": "wrong_wiring",
+        "evidence": [
+          "tir_gate.yes contains f9932d4787c6 = ATGGCCCTGAAATGA, identical to input 3, with expression 161053.215, so an unmodified input is retained as an 'improved' output",
+          "mutate output contains both 1e142be77490 (input 1) and f9932d4787c6 (input 3) unchanged, and no step between mutate and tir_gate filters out identity copies",
+          "The tied sequences (121719.261: 615baf86a071, a27e05e36964, 7990d24a1bf8, 4758c60e07dc, b299d707df38, 1e142be77490) are all in tir_gate.no, so the verdict's claim that they passed is contradicted by the outcome",
+          "Minimum score in tir_gate.yes is 137239.1178 (f2272f4209c6), above 121719.262, so the threshold config itself is correct",
+          "The criterion that fails is valid_dna_output (output must be a modified version of an input). The assertion for it was placed on mutate.produced and only checks that output exists, so it could not catch this"
+        ],
+        "keep": [
+          "mutate",
+          "check",
+          "protein_gate",
+          "score",
+          "tir_gate"
+        ],
+        "fix": "Keep the existing steps and their configs, including tir_gate at threshold 121719.262 on column ostir_expression__25ae47b0__expression. Do not just rerun the same chain unchanged, because round 1 and round 2 already ran this wiring. Insert a new step between protein_gate.yes and score, or between mutate and check, that drops any sequence identical to one of the original inputs (for example a distance-from-input or identity filter, then keep only sequences with at least 1 changed nucleotide). Feed only the survivors into score and then tir_gate. Also move the valid_dna_output assertion onto the new filter's output branch, and assert that no tir_gate.yes sequence equals any input sequence. If no available node can compare a sequence to its source input or drop identity copies, report missing_tool: a node that removes unchanged inputs from a variant pool, ideally one that also compares each score to the first input's score at run time."
+      },
+      "error": null,
+      "started": "2026-10-03T20:41:44.827341Z"
+    },
+    {
+      "round": 3,
+      "plan": {
+        "hypothesis": "Synonymous codon changes alter mRNA folding around the RBS and start codon, so some protein-preserving variants have a higher OSTIR translation initiation rate than the first input (measured 121719.261). Unchanged copies of the inputs must be removed first so that every output is a modified sequence.",
+        "expected": "The pool of synonymous variants is checked for protein preservation. Unchanged copies of inputs are then dropped. The rest are scored with OSTIR, and only variants strictly above 121719.261 are kept. The result contains no unmodified inputs, such as input 3, which scored 161053 in round 2 and was wrongly kept.",
+        "assertions": [
+          {
+            "criterion": "protein_preserved",
+            "step": "protein_gate",
+            "branch": "yes",
+            "claim": "All variants passing the gate encode the same protein as their source."
+          },
+          {
+            "criterion": "tir_higher_than_first",
+            "step": "tir_gate",
+            "branch": "yes",
+            "claim": "All retained variants have an OSTIR TIR above 121719.261, the first input's score."
+          },
+          {
+            "criterion": "only_improved_kept",
+            "step": "tir_gate",
+            "branch": "yes",
+            "claim": "Only variants scoring above the first sequence pass; the rest go to the no branch."
+          },
+          {
+            "criterion": "valid_dna_output",
+            "step": "changed_gate",
+            "branch": "yes",
+            "claim": "Every output is a DNA sequence that differs from its source input by at least one nucleotide, so it is a modified version of an input."
+          }
+        ],
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "mutate": {
+            "node": "mutate_synonymous__ba71f6d0",
+            "config": {},
+            "inputs": {
+              "sequence": "seqs"
+            },
+            "why": "Generate pools of synonymous variants for each input."
+          },
+          "check": {
+            "node": "constraint_check__c174c7c7",
+            "config": {},
+            "inputs": {
+              "sequence": "mutate"
+            },
+            "why": "Verify that the protein and length are unchanged."
+          },
+          "protein_gate": {
+            "node": "at_least__cd25bef6",
+            "config": {},
+            "inputs": {
+              "items": "check"
+            },
+            "why": "Keep only protein-preserving variants."
+          },
+          "distance": {
+            "node": "source_edit_distance",
+            "config": {},
+            "inputs": {
+              "sequence": "protein_gate.yes"
+            },
+            "why": "Count nucleotide differences between each variant and the input it came from."
+          },
+          "changed_gate": {
+            "node": "at_least",
+            "config": {
+              "column": "source_edit_distance__ffca59bb__edit_distance",
+              "threshold": 1.0
+            },
+            "inputs": {
+              "items": "distance"
+            },
+            "why": "Drop unchanged copies of the inputs, so every output is a modified sequence."
+          },
+          "score": {
+            "node": "ostir_expression__25ae47b0",
+            "config": {},
+            "inputs": {
+              "sequence": "changed_gate.yes"
+            },
+            "why": "Score the translation initiation rate of the modified variants."
+          },
+          "tir_gate": {
+            "node": "at_least__9ecccde3",
+            "config": {},
+            "inputs": {
+              "items": "score"
+            },
+            "why": "Keep only variants strictly above the first sequence's baseline of 121719.261."
+          }
+        },
+        "requests": {
+          "source_edit_distance": {
+            "name": "source_edit_distance",
+            "node": "score",
+            "purpose": "Score each variant by the number of nucleotide positions at which it differs from the input sequence it was derived from.",
+            "port": "sequence",
+            "kind": "dna",
+            "output": [
+              "edit_distance"
+            ],
+            "config_fields": [],
+            "why_needed": "Unchanged copies of the inputs, such as input 3, pass through mutate_synonymous and get kept as improved. They must be removed so that every output is a modified sequence.",
+            "why_not_composable": "constraint_check only checks the protein and length against one reference. mutate_synonymous cannot be told to always change something. at_least, at_most and top_k need a score column that records the difference from the source. codon_count, motif_count and gc_content do not compare a variant to its source.",
+            "example": "Input ATGGCCCTGAAATGA with variant ATGGCCCTGAAATGA gives 0. Variant ATGGCGCTGAAATGA gives 1."
+          }
+        },
+        "observations": [],
+        "addresses_critique": "Rounds 1 and 2 never removed identity copies. mutate emitted input 3 unchanged, and it passed tir_gate. This round adds a source_edit_distance scorer and a changed_gate filter (at least 1 nucleotide changed) between protein_gate.yes and the OSTIR score. valid_dna_output is now asserted on changed_gate.yes. The tir_gate threshold of 121719.262 stays."
+      },
+      "requests": [
+        {
+          "name": "source_edit_distance",
+          "node": "score",
+          "purpose": "Score each variant by the number of nucleotide positions at which it differs from the input sequence it was derived from.",
+          "port": "sequence",
+          "kind": "dna",
+          "output": [
+            "edit_distance"
+          ],
+          "config_fields": [],
+          "why_needed": "Unchanged copies of the inputs, such as input 3, pass through mutate_synonymous and get kept as improved. They must be removed so that every output is a modified sequence.",
+          "why_not_composable": "constraint_check only checks the protein and length against one reference. mutate_synonymous cannot be told to always change something. at_least, at_most and top_k need a score column that records the difference from the source. codon_count, motif_count and gc_content do not compare a variant to its source.",
+          "example": "Input ATGGCCCTGAAATGA with variant ATGGCCCTGAAATGA gives 0. Variant ATGGCGCTGAAATGA gives 1."
+        }
+      ],
+      "dag": null,
+      "workflow_id": null,
+      "outcome": null,
+      "held": {},
+      "produced": {},
+      "verdict": null,
+      "critique": null,
+      "error": null,
+      "started": "2026-10-03T20:42:33.290677Z"
+    }
+  ],
+  "usage": {
+    "criteria": 917,
+    "total": 313544,
+    "plan": 189580,
+    "verify": 51002,
+    "critique": 72045
+  },
+  "stopped_because": "abandoned while blocked on a tool"
+}

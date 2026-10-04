@@ -1,0 +1,4630 @@
+{
+ "about": "One row per recorded run. 'outcome' is derived from the saved Hypothesis state: achieved, not achieved, abandoned; anything else (blocked, building, running, failed) is 'no result'. n_cell = runs in the same folder with the same goal. source = the file the copy was taken from ($TMP = /private/tmp/claude-501/-Users-air-Developer-hypothesis).",
+ "tips": {
+  "#8": "f1885a0",
+  "#7": "dc1916a (older heads 2687572 c1ed566 89962aa 37e8de9)",
+  "#9": "10b1c73",
+  "main": "9cbc217",
+  "#11": "236e3b6",
+  "#12": "84dd787"
+ },
+ "runs": [
+  {
+   "hypothesis_id": "hypothesis-26acc0f5-a73c-4f1d-8b61-6fe156ec9d46",
+   "short": "26acc0f5",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "live",
+   "models": {
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-haiku-4-5-20251001",
+    "critique": "claude-sonnet-5-5"
+   },
+   "commit": "c1ed566867a13c1693c524106c50c2c1dd7a6f67",
+   "commit_short": "c1ed566",
+   "commit_basis": "superloop.md pass 1 (arm A worktree c1ed566); run_arm.sh",
+   "fork_pr": "7",
+   "lineage_pr": "7",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "7-old-2687572": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "7-old-c1ed566": {
+     "in_tip": true,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "9": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": true,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 3,
+   "workflows": 3,
+   "trajectories": 9,
+   "tokens": 460705,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 3",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/arm-A-c1ed566",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/evidence/arm-A/hypotheses/hypothesis-26acc0f5-a73c-4f1d-8b61-6fe156ec9d46.json",
+   "source_sha256": "dd0a6b386a5389a17df1f43c0ab6e6146245639fdce3f2ea281a7e79309b8bf0",
+   "hypothesis_mtime": "2026-10-03T22:56:57+0100",
+   "caveats": [],
+   "n_cell": 3,
+   "logs": [
+    "pr7/arm-A-c1ed566/logs/run_A2.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-45b928e8-b88c-4023-9bb7-f37c739ed855",
+   "short": "45b928e8",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "live",
+   "models": {
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-haiku-4-5-20251001",
+    "critique": "claude-sonnet-5-5"
+   },
+   "commit": "c1ed566867a13c1693c524106c50c2c1dd7a6f67",
+   "commit_short": "c1ed566",
+   "commit_basis": "superloop.md pass 1 (arm A worktree c1ed566); run_arm.sh",
+   "fork_pr": "7",
+   "lineage_pr": "7",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "7-old-2687572": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "7-old-c1ed566": {
+     "in_tip": true,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "9": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": true,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 3,
+   "workflows": 3,
+   "trajectories": 8,
+   "tokens": 369784,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/arm-A-c1ed566",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/evidence/arm-A/hypotheses/hypothesis-45b928e8-b88c-4023-9bb7-f37c739ed855.json",
+   "source_sha256": "d40d7c9cfa61cd2c0ae9d9d126e63232344685af830e68aceda710c58e884039",
+   "hypothesis_mtime": "2026-10-03T22:56:57+0100",
+   "caveats": [
+    "ostir 'achieved' is the verifier's judgement of 'higher than the first sequence', not a lift over the best input",
+    "notes/superloop.md 22:50 BST: false accept (kept 104, 27 at or below baseline 88211.25)"
+   ],
+   "n_cell": 3,
+   "logs": [
+    "pr7/arm-A-c1ed566/logs/run_A3.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-6dc8b1bd-6996-40f5-ad46-164a977d5f18",
+   "short": "6dc8b1bd",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "live",
+   "models": {
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-haiku-4-5-20251001",
+    "critique": "claude-sonnet-5-5"
+   },
+   "commit": "c1ed566867a13c1693c524106c50c2c1dd7a6f67",
+   "commit_short": "c1ed566",
+   "commit_basis": "superloop.md pass 1 (arm A worktree c1ed566); run_arm.sh",
+   "fork_pr": "7",
+   "lineage_pr": "7",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "7-old-2687572": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "7-old-c1ed566": {
+     "in_tip": true,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "9": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": true,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 3,
+   "workflows": 3,
+   "trajectories": 9,
+   "tokens": 358751,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 3",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/arm-A-c1ed566",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/evidence/arm-A/hypotheses/hypothesis-6dc8b1bd-6996-40f5-ad46-164a977d5f18.json",
+   "source_sha256": "e722beb9075f72617477763606d8396e0d78a8188bc61b8bd677d0aab21c23e8",
+   "hypothesis_mtime": "2026-10-03T22:56:57+0100",
+   "caveats": [],
+   "n_cell": 3,
+   "logs": [
+    "pr7/arm-A-c1ed566/logs/run_A1.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-2adaf0fd-6658-4b6e-8df8-7768701db955",
+   "short": "2adaf0fd",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "live",
+   "models": {
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-haiku-4-5-20251001"
+   },
+   "commit": "88a44b99dcb76e68cce25d37e4b2e5e8f13d3f5f",
+   "commit_short": "88a44b9",
+   "commit_basis": "superloop.md pass 1 (arm B worktree 88a44b9, cut from c1ed566); run_arm.sh",
+   "fork_pr": "7",
+   "lineage_pr": "7 (+ local per-filter-facts commit, never pushed)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 2,
+   "tokens": 83625,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/arm-B-88a44b9",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/evidence/arm-B/hypotheses/hypothesis-2adaf0fd-6658-4b6e-8df8-7768701db955.json",
+   "source_sha256": "c1961aa3169be367ce413ea6490013e36ccf7ff3e23d701f4a971bcb04622b50",
+   "hypothesis_mtime": "2026-10-03T22:56:57+0100",
+   "caveats": [
+    "ostir 'achieved' is the verifier's judgement of 'higher than the first sequence', not a lift over the best input",
+    "notes/superloop.md 22:50 BST: false accept (threshold 40.001 under baseline 41.6249; 2 of 49 kept only tie it)"
+   ],
+   "n_cell": 3,
+   "logs": [
+    "pr7/arm-B-88a44b9/logs/run_B3.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-ad7f1624-bcc3-4cfb-bc20-60e8dd4e7171",
+   "short": "ad7f1624",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "live",
+   "models": {
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-haiku-4-5-20251001",
+    "critique": "claude-sonnet-5-5"
+   },
+   "commit": "88a44b99dcb76e68cce25d37e4b2e5e8f13d3f5f",
+   "commit_short": "88a44b9",
+   "commit_basis": "superloop.md pass 1 (arm B worktree 88a44b9, cut from c1ed566); run_arm.sh",
+   "fork_pr": "7",
+   "lineage_pr": "7 (+ local per-filter-facts commit, never pushed)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 2,
+   "workflows": 2,
+   "trajectories": 5,
+   "tokens": 230394,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/arm-B-88a44b9",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/evidence/arm-B/hypotheses/hypothesis-ad7f1624-bcc3-4cfb-bc20-60e8dd4e7171.json",
+   "source_sha256": "f83eb13b38659455de1eb2e9022e8df5ec7e45c0aaf3aa5ed7f94a591e6be373",
+   "hypothesis_mtime": "2026-10-03T22:56:57+0100",
+   "caveats": [
+    "ostir 'achieved' is the verifier's judgement of 'higher than the first sequence', not a lift over the best input"
+   ],
+   "n_cell": 3,
+   "logs": [
+    "pr7/arm-B-88a44b9/logs/run_B1.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-f065baab-3a23-49ad-bd83-154e96e06c19",
+   "short": "f065baab",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "live",
+   "models": {
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-haiku-4-5-20251001",
+    "critique": "claude-sonnet-5-5"
+   },
+   "commit": "88a44b99dcb76e68cce25d37e4b2e5e8f13d3f5f",
+   "commit_short": "88a44b9",
+   "commit_basis": "superloop.md pass 1 (arm B worktree 88a44b9, cut from c1ed566); run_arm.sh",
+   "fork_pr": "7",
+   "lineage_pr": "7 (+ local per-filter-facts commit, never pushed)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 2,
+   "workflows": 2,
+   "trajectories": 5,
+   "tokens": 240931,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/arm-B-88a44b9",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/evidence/arm-B/hypotheses/hypothesis-f065baab-3a23-49ad-bd83-154e96e06c19.json",
+   "source_sha256": "51a1a33e931ea68a018c586374124e9be616877da1e8704d46aa1e1a5640d9f4",
+   "hypothesis_mtime": "2026-10-03T22:56:57+0100",
+   "caveats": [
+    "ostir 'achieved' is the verifier's judgement of 'higher than the first sequence', not a lift over the best input",
+    "notes/superloop.md 22:50 BST: false accept (threshold 40.001 under baseline 41.6249; 2 of 49 kept only tie it)"
+   ],
+   "n_cell": 3,
+   "logs": [
+    "pr7/arm-B-88a44b9/logs/run_B2.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-a9d91571-1ae9-4bac-8d61-a2a80bda2922",
+   "short": "a9d91571",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "live",
+   "models": {
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-sonnet-5-5",
+    "critique": "claude-sonnet-5-5"
+   },
+   "commit": "dc1916a635d265bb05c81a36ef0e598e284447f7",
+   "commit_short": "dc1916a",
+   "commit_basis": "superloop.md pass 2 (arm C = dc1916a); run_armC.sh",
+   "fork_pr": "7",
+   "lineage_pr": "7 (includes #8 benchmark harness)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": true,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": true,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 3,
+   "workflows": 2,
+   "trajectories": 7,
+   "tokens": 403297,
+   "state": "abandoned",
+   "outcome": "abandoned",
+   "stopped_because": "abandoned while blocked on a tool",
+   "ledger_state": "abandoned",
+   "in_ledger": true,
+   "folder": "pr7/arm-C-dc1916a",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/evidence/arm-C/hypotheses/hypothesis-a9d91571-1ae9-4bac-8d61-a2a80bda2922.json",
+   "source_sha256": "f15e93e8335fbbaac8693806cddc10585d88f4379d654c1c13e026b69ccfdc8f",
+   "hypothesis_mtime": "2026-10-04T01:13:40+0100",
+   "caveats": [],
+   "n_cell": 2,
+   "logs": [
+    "pr7/arm-C-dc1916a/logs/run_C2.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-e5917e38-b6e8-4040-917c-c72d137c3be8",
+   "short": "e5917e38",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "live",
+   "models": {
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-sonnet-5-5",
+    "critique": "claude-sonnet-5-5"
+   },
+   "commit": "dc1916a635d265bb05c81a36ef0e598e284447f7",
+   "commit_short": "dc1916a",
+   "commit_basis": "superloop.md pass 2 (arm C = dc1916a); run_armC.sh",
+   "fork_pr": "7",
+   "lineage_pr": "7 (includes #8 benchmark harness)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": true,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": true,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 3,
+   "workflows": 3,
+   "trajectories": 9,
+   "tokens": 431892,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 3",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/arm-C-dc1916a",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/evidence/arm-C/hypotheses/hypothesis-e5917e38-b6e8-4040-917c-c72d137c3be8.json",
+   "source_sha256": "b23d16ab78b054286111521cac81519337901751713c8f680dc830a27755e8e9",
+   "hypothesis_mtime": "2026-10-04T01:13:40+0100",
+   "caveats": [],
+   "n_cell": 2,
+   "logs": [
+    "pr7/arm-C-dc1916a/logs/run_C1.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-6148f02d-1907-487f-b1a0-d4d4c6d5bc12",
+   "short": "6148f02d",
+   "goal_title": "Raise the codon adaptation index of the DNA sequence without changing its protein. Score it with thi",
+   "goal_key": "arfA-cai",
+   "kind": "live",
+   "models": {
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-sonnet-5-5",
+    "critique": "claude-sonnet-5-5"
+   },
+   "commit": "74803ee22af0fa1148b82aa0a339c17a5df5e7da",
+   "commit_short": "74803ee",
+   "commit_basis": "superloop.md pass 2 (change E 74803ee, arm E); run_armE.sh; benchmark ledger manifest.commit",
+   "fork_pr": "7",
+   "lineage_pr": "11 (beats_reference filter; rebuilt later as #11 commits)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 3,
+   "workflows": 3,
+   "trajectories": 8,
+   "tokens": 569667,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/arm-E-74803ee",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/evidence/arm-E/hypotheses/hypothesis-6148f02d-1907-487f-b1a0-d4d4c6d5bc12.json",
+   "source_sha256": "c5c71820cda56f7faf7bcd8d94c6c9f5180ec34e9a2078c183871b7ad7a14f85",
+   "hypothesis_mtime": "2026-10-04T01:13:40+0100",
+   "caveats": [
+    "benchmark ledger benchmark-ledger/20261004T010815770703Z-attempt-a85da005fefebd11.json: loop mean_gap_closed 0.05069169372732716"
+   ],
+   "n_cell": 1,
+   "logs": [
+    "pr7/arm-E-74803ee/logs/run_EarfA.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-88c26e22-d2d9-42c0-9f83-fc53110e2018",
+   "short": "88c26e22",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "live",
+   "models": {
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-sonnet-5-5",
+    "critique": "claude-sonnet-5-5"
+   },
+   "commit": "74803ee22af0fa1148b82aa0a339c17a5df5e7da",
+   "commit_short": "74803ee",
+   "commit_basis": "superloop.md pass 2 (change E 74803ee, arm E); run_armE.sh; benchmark ledger manifest.commit",
+   "fork_pr": "7",
+   "lineage_pr": "11 (beats_reference filter; rebuilt later as #11 commits)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 3,
+   "workflows": 2,
+   "trajectories": 7,
+   "tokens": 437695,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 3",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/arm-E-74803ee",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/evidence/arm-E/hypotheses/hypothesis-88c26e22-d2d9-42c0-9f83-fc53110e2018.json",
+   "source_sha256": "e58c8d852c164362a2d70cca9e30ce48a65ca39f4f87987f100bba65b70592b8",
+   "hypothesis_mtime": "2026-10-04T01:13:40+0100",
+   "caveats": [],
+   "n_cell": 1,
+   "logs": [
+    "pr7/arm-E-74803ee/logs/run_Eostir.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-14535b56-c361-464f-9989-7a8b91737630",
+   "short": "14535b56",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "live",
+   "models": {
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-sonnet-5-5",
+    "critique": "claude-sonnet-5-5"
+   },
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "superloop.md pass 2 (arm F bb7cf40); run_armF.sh; benchmark ledger manifest.commit",
+   "fork_pr": "7",
+   "lineage_pr": "11 (integration of local patches; rebuilt later as #9/#11/#12 commits)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 2,
+   "workflows": 2,
+   "trajectories": 5,
+   "tokens": 189150,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/arm-F-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/evidence/arm-F/hypotheses/hypothesis-14535b56-c361-464f-9989-7a8b91737630.json",
+   "source_sha256": "96bfbfea5447471b392353e8fc46717a4261917e079b07e54a18b81868f66953",
+   "hypothesis_mtime": "2026-10-04T04:48:16+0100",
+   "caveats": [
+    "ostir 'achieved' is the verifier's judgement of 'higher than the first sequence', not a lift over the best input",
+    "notes/superloop.md (02:40, 03:05 audit): every kept sequence scores the same as input 3 (max(kept)=max(inputs)); 12 of 22 kept differ from their source in the last codon (F2)"
+   ],
+   "n_cell": 1,
+   "logs": [
+    "pr7/arm-F-bb7cf40/logs/run_Fostir.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-5fec1ed4-0068-4950-bfc6-ccb048db0ddd",
+   "short": "5fec1ed4",
+   "goal_title": "Raise the codon adaptation index of the DNA sequence without changing its protein. Score it with thi",
+   "goal_key": "arfA-cai",
+   "kind": "live",
+   "models": {
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-sonnet-5-5"
+   },
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "superloop.md pass 2 (arm F bb7cf40); run_armF.sh; benchmark ledger manifest.commit",
+   "fork_pr": "7",
+   "lineage_pr": "11 (integration of local patches; rebuilt later as #9/#11/#12 commits)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 2,
+   "tokens": 102853,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/arm-F-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/evidence/arm-F/hypotheses/hypothesis-5fec1ed4-0068-4950-bfc6-ccb048db0ddd.json",
+   "source_sha256": "440d5d8eadbfdb430ea4a93f3d97ea142783b099ce89cd556b7cbeddc7c3829e",
+   "hypothesis_mtime": "2026-10-04T04:48:16+0100",
+   "caveats": [
+    "benchmark ledger benchmark-ledger/20261004T010815871640Z-attempt-c3ba696700829fe9.json: loop mean_gap_closed 1.0"
+   ],
+   "n_cell": 1,
+   "logs": [
+    "pr7/arm-F-bb7cf40/logs/run_FarfA.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-894a1eba-fc95-45d0-96cb-aaa05ea1da8a",
+   "short": "894a1eba",
+   "goal_title": "Raise the codon adaptation index of the DNA sequence without changing its protein. Score it with thi",
+   "goal_key": "arfA-cai",
+   "kind": "live",
+   "models": {
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-sonnet-5-5"
+   },
+   "commit": "07f1f87e884a0b0c75c4c79d14558131d5c27ab4",
+   "commit_short": "07f1f87",
+   "commit_basis": "superloop.md pass 2 (arm F2 07f1f87); run_armF2.sh; benchmark ledger manifest.commit",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompt tightening on F; rebuilt later as #11 commits)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 2,
+   "tokens": 144385,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/arm-F2-07f1f87",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/evidence/arm-F2/hypotheses/hypothesis-894a1eba-fc95-45d0-96cb-aaa05ea1da8a.json",
+   "source_sha256": "19e961948c57b0506965deb50131cc7d0829d439fb0ee8c2c2393107a6df81dd",
+   "hypothesis_mtime": "2026-10-04T04:48:16+0100",
+   "caveats": [
+    "benchmark ledger benchmark-ledger/20261004T012551221119Z-attempt-5c6ab310164a3ee3.json: loop mean_gap_closed 1.0",
+    "tokens are a lower bound: two 600 s API stalls, cancelled attempts' tokens are not counted (notes/superloop.md 03:05)"
+   ],
+   "n_cell": 1,
+   "logs": [
+    "pr7/arm-F2-07f1f87/logs/run_F2arfA.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-ce899c7c-fb2e-422c-a410-e963c8028d7a",
+   "short": "ce899c7c",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "live",
+   "models": {
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-sonnet-5-5",
+    "critique": "claude-sonnet-5-5"
+   },
+   "commit": "07f1f87e884a0b0c75c4c79d14558131d5c27ab4",
+   "commit_short": "07f1f87",
+   "commit_basis": "superloop.md pass 2 (arm F2 07f1f87); run_armF2.sh; benchmark ledger manifest.commit",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompt tightening on F; rebuilt later as #11 commits)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 2,
+   "workflows": 2,
+   "trajectories": 5,
+   "tokens": 232256,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/arm-F2-07f1f87",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/evidence/arm-F2/hypotheses/hypothesis-ce899c7c-fb2e-422c-a410-e963c8028d7a.json",
+   "source_sha256": "4e9e5c63b66205d867e873e97395d128d9ab2a232d8e4e1438759f232722d1ba",
+   "hypothesis_mtime": "2026-10-04T04:48:16+0100",
+   "caveats": [
+    "ostir 'achieved' is the verifier's judgement of 'higher than the first sequence', not a lift over the best input",
+    "notes/superloop.md (02:40, 03:05 audit): every kept sequence scores the same as input 3 (max(kept)=max(inputs)); 12 of 22 kept differ from their source in the last codon (F2)"
+   ],
+   "n_cell": 1,
+   "logs": [
+    "pr7/arm-F2-07f1f87/logs/run_F2ostir.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-3bec2a48-73c6-4cd4-8163-8ace498ca1fc",
+   "short": "3bec2a48",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "live",
+   "models": {
+    "criteria": "claude-sonnet-5-5",
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-haiku-4-5-20251001",
+    "critique": "claude-sonnet-5-5"
+   },
+   "commit": "37e8de948f01edfeac520d741583b309b2c4adc7",
+   "commit_short": "37e8de9",
+   "commit_basis": "reflog of worktree loop-tip: HEAD 37e8de9 from 21:40:21 to 21:52:42 BST; run started 21:41:02 BST",
+   "fork_pr": "7",
+   "lineage_pr": "7",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "7-old-2687572": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "7-old-c1ed566": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "7": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "9": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": true,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 3,
+   "workflows": 2,
+   "trajectories": 8,
+   "tokens": 313544,
+   "state": "abandoned",
+   "outcome": "abandoned",
+   "stopped_because": "abandoned while blocked on a tool",
+   "ledger_state": "abandoned",
+   "in_ledger": true,
+   "folder": "pr7/loop-tip-37e8de9",
+   "source": "$TMP/95f44646-4f13-48e9-a640-91afd80574df/scratchpad/loop-tip/results/hypotheses/hypothesis-3bec2a48-73c6-4cd4-8163-8ace498ca1fc.json",
+   "source_sha256": "090f671905b56259825199b5a855b05af4efdf23b2168e9a41d9144619713b23",
+   "hypothesis_mtime": "2026-10-03T21:52:31+0100",
+   "caveats": [],
+   "n_cell": 1,
+   "logs": [
+    "pr7/loop-tip-37e8de9/logs/pr7_run.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-bead95ef-b0ab-4559-b8df-2facb0ffdd91",
+   "short": "bead95ef",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "live",
+   "models": {
+    "criteria": "claude-sonnet-5-5",
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-haiku-4-5-20251001",
+    "critique": "claude-sonnet-5-5"
+   },
+   "commit": "89962aa1105cbec88f27de37f4a511fc08e0e43b",
+   "commit_short": "89962aa",
+   "commit_basis": "reflog of worktree loop-tip: HEAD 89962aa from 21:52:42 BST; run started 21:52:55 BST",
+   "fork_pr": "7",
+   "lineage_pr": "7",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "7-old-2687572": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "7-old-c1ed566": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "7": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "9": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": true,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 3,
+   "workflows": 3,
+   "trajectories": 10,
+   "tokens": 297109,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 3",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/loop-tip-89962aa",
+   "source": "$TMP/95f44646-4f13-48e9-a640-91afd80574df/scratchpad/loop-tip/results/hypotheses/hypothesis-bead95ef-b0ab-4559-b8df-2facb0ffdd91.json",
+   "source_sha256": "6bc02a1ae331532b7addb8986d1dd40e66a56995371cb9b5ceacf3744d56cee4",
+   "hypothesis_mtime": "2026-10-03T21:55:05+0100",
+   "caveats": [
+    "notes/superloop.md: r2 and r3 held 2/2 and kept 25 sequences; Haiku vetoed saying 41.625 < 41.6249"
+   ],
+   "n_cell": 1,
+   "logs": [
+    "pr7/loop-tip-89962aa/logs/pr7_run2.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-h1-lenient-0",
+   "short": "h1-lenient-0",
+   "goal_title": "Raise the translation initiation rate of the DNA sequence without changing its protein. Keep the one",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 15,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-lenient/hypotheses/hypothesis-h1-lenient-0.json",
+   "source_sha256": "fa80230be81cadd571ca69965f13d5e7fcbef3b1e3fc13e3787867bd73475994",
+   "hypothesis_mtime": "2026-10-04T01:49:33+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h1-lenient-1",
+   "short": "h1-lenient-1",
+   "goal_title": "Raise the translation initiation rate of the DNA sequence without changing its protein. Keep the one",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 15,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-lenient/hypotheses/hypothesis-h1-lenient-1.json",
+   "source_sha256": "35aca31c24205e5ff8afc8048b08e770e0d5778cbc23d0e19fea441b3fcea9f2",
+   "hypothesis_mtime": "2026-10-04T01:49:33+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h1-lenient-2",
+   "short": "h1-lenient-2",
+   "goal_title": "Raise the translation initiation rate of the DNA sequence without changing its protein. Keep the one",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 15,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-lenient/hypotheses/hypothesis-h1-lenient-2.json",
+   "source_sha256": "0a113ee969de35bb826dbd33576207c78dea7c5070c568e0192e8d35b0863a96",
+   "hypothesis_mtime": "2026-10-04T01:49:34+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h1-lenient-3",
+   "short": "h1-lenient-3",
+   "goal_title": "Raise the translation initiation rate of the DNA sequence without changing its protein. Keep the one",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 15,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-lenient/hypotheses/hypothesis-h1-lenient-3.json",
+   "source_sha256": "57bf3f75ac480b6a2431983e5bc29887066fa739008c08337aaa804ce65b78a1",
+   "hypothesis_mtime": "2026-10-04T01:49:34+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h2-lenient-0",
+   "short": "h2-lenient-0",
+   "goal_title": "Raise the number of in-frame ATG (methionine) codons in the DNA sequence without changing its protei",
+   "goal_key": "other",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 15,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-lenient/hypotheses/hypothesis-h2-lenient-0.json",
+   "source_sha256": "ce76a42a4ab9ac729f7246ee53f34c62e8fb28644761df4b982578478bca79d1",
+   "hypothesis_mtime": "2026-10-04T01:49:34+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 14,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h2-lenient-1",
+   "short": "h2-lenient-1",
+   "goal_title": "Raise the number of in-frame ATG (methionine) codons in the DNA sequence without changing its protei",
+   "goal_key": "other",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 15,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-lenient/hypotheses/hypothesis-h2-lenient-1.json",
+   "source_sha256": "6e13983d3cdb69615892304ccafac70b6c81b6bb96105f6c00af81b7d9e8390b",
+   "hypothesis_mtime": "2026-10-04T01:49:35+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 14,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h2-lenient-2",
+   "short": "h2-lenient-2",
+   "goal_title": "Raise the number of in-frame ATG (methionine) codons in the DNA sequence without changing its protei",
+   "goal_key": "other",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-lenient/hypotheses/hypothesis-h2-lenient-2.json",
+   "source_sha256": "396dc1b14b43bf9da6690e618e506aa06f2d81d8dac3f3b89320182b41164bc6",
+   "hypothesis_mtime": "2026-10-04T01:49:35+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 14,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h3-lenient-0",
+   "short": "h3-lenient-0",
+   "goal_title": "Raise the translation initiation rate of the DNA sequence without changing its protein, by a substan",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 15,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-lenient/hypotheses/hypothesis-h3-lenient-0.json",
+   "source_sha256": "75de7346e160419c0daba027fd9a3cd86be3288efeaee2492dcfc7e1a3af2461",
+   "hypothesis_mtime": "2026-10-04T01:49:35+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h3-lenient-1",
+   "short": "h3-lenient-1",
+   "goal_title": "Raise the translation initiation rate of the DNA sequence without changing its protein, by a substan",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 15,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-lenient/hypotheses/hypothesis-h3-lenient-1.json",
+   "source_sha256": "01843288aadec9adb11d89ad33a283a31196b5033bc373a426c8b2697feca339",
+   "hypothesis_mtime": "2026-10-04T01:49:36+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h4-lenient-0",
+   "short": "h4-lenient-0",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 15,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-lenient/hypotheses/hypothesis-h4-lenient-0.json",
+   "source_sha256": "d666727cdb4d00be747195166d89e94440f4349987d07a2e63496e78c2c1f15d",
+   "hypothesis_mtime": "2026-10-04T01:49:36+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h4-lenient-1",
+   "short": "h4-lenient-1",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 15,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-lenient/hypotheses/hypothesis-h4-lenient-1.json",
+   "source_sha256": "c789a35eb0f420da7fe30b21084143f046bc808b20de410cba5470b0778550ae",
+   "hypothesis_mtime": "2026-10-04T01:49:37+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h5-lenient-0",
+   "short": "h5-lenient-0",
+   "goal_title": "Find the synonymous variant of the DNA sequence with the lowest GC content, without changing its pro",
+   "goal_key": "other",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 15,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-lenient/hypotheses/hypothesis-h5-lenient-0.json",
+   "source_sha256": "b13238b69bd3631c21e3281bcfe1be667f4a06a97b792432cf6383e83fcfd43b",
+   "hypothesis_mtime": "2026-10-04T01:49:37+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 14,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h5-lenient-1",
+   "short": "h5-lenient-1",
+   "goal_title": "Find the synonymous variant of the DNA sequence with the lowest GC content, without changing its pro",
+   "goal_key": "other",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 15,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-lenient/hypotheses/hypothesis-h5-lenient-1.json",
+   "source_sha256": "7880e9bc599c806827ea6037b3c67eb70eb0d181134d17bf4c19485c2889da61",
+   "hypothesis_mtime": "2026-10-04T01:49:37+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 14,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h5-lenient-2",
+   "short": "h5-lenient-2",
+   "goal_title": "Find the synonymous variant of the DNA sequence with the lowest GC content, without changing its pro",
+   "goal_key": "other",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 15,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-lenient/hypotheses/hypothesis-h5-lenient-2.json",
+   "source_sha256": "44ee307fac537b0e0c08ef70ff757f5e5719c7a78d5a90c9aac578e02470e141",
+   "hypothesis_mtime": "2026-10-04T01:49:38+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 14,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h6-lenient-0",
+   "short": "h6-lenient-0",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 15,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-lenient/hypotheses/hypothesis-h6-lenient-0.json",
+   "source_sha256": "31bdd1559000f39f59e95d17d84548546b733546b0eb90ceb73ccafb89873971",
+   "hypothesis_mtime": "2026-10-04T01:49:38+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h6-lenient-1",
+   "short": "h6-lenient-1",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 15,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-lenient/hypotheses/hypothesis-h6-lenient-1.json",
+   "source_sha256": "49b87601f82b53815e71c8c12bc79063836d4fc839b3551d59424d0d27a3d370",
+   "hypothesis_mtime": "2026-10-04T01:49:38+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h6-lenient-2",
+   "short": "h6-lenient-2",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-lenient/hypotheses/hypothesis-h6-lenient-2.json",
+   "source_sha256": "2cc78864fce604b74a966601fdd4f699e595d47f390580f51d98b79c6334fd10",
+   "hypothesis_mtime": "2026-10-04T01:49:39+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h7-lenient-0",
+   "short": "h7-lenient-0",
+   "goal_title": "Translate the DNA sequences into proteins. Keep only the proteins that are at least 8 amino acids lo",
+   "goal_key": "other",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 15,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-lenient/hypotheses/hypothesis-h7-lenient-0.json",
+   "source_sha256": "640b2abe19e86d23770bb6da0fb1068af9e2cea74b18872a0a0ac5003ddebc33",
+   "hypothesis_mtime": "2026-10-04T01:49:39+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 14,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h8-lenient-0",
+   "short": "h8-lenient-0",
+   "goal_title": "Raise the translation initiation rate of the DNA sequence without changing its protein, its length, ",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 15,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-lenient/hypotheses/hypothesis-h8-lenient-0.json",
+   "source_sha256": "14243866d9f11485c7d6fd00a8511b677262a184d982311df2a1098a64bc1675",
+   "hypothesis_mtime": "2026-10-04T01:49:39+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h8-lenient-1",
+   "short": "h8-lenient-1",
+   "goal_title": "Raise the translation initiation rate of the DNA sequence without changing its protein, its length, ",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 15,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-lenient/hypotheses/hypothesis-h8-lenient-1.json",
+   "source_sha256": "1a1e364379b1613a4f05b659ebbf7b166df8e60668b5afdb877c49c59f4d6244",
+   "hypothesis_mtime": "2026-10-04T01:49:40+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h1-veto-0",
+   "short": "h1-veto-0",
+   "goal_title": "Raise the translation initiation rate of the DNA sequence without changing its protein. Keep the one",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-veto/hypotheses/hypothesis-h1-veto-0.json",
+   "source_sha256": "dab4e43bc7fe8c4056dee470874275dd04d567ba4abb04dbaa67165639b5499f",
+   "hypothesis_mtime": "2026-10-04T01:51:20+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h1-veto-1",
+   "short": "h1-veto-1",
+   "goal_title": "Raise the translation initiation rate of the DNA sequence without changing its protein. Keep the one",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-veto/hypotheses/hypothesis-h1-veto-1.json",
+   "source_sha256": "f97ca8ecdcb1bc2711f7ff8684aeb02f4516fc7daeaccb87f71b8e576ccc77aa",
+   "hypothesis_mtime": "2026-10-04T01:51:20+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h1-veto-2",
+   "short": "h1-veto-2",
+   "goal_title": "Raise the translation initiation rate of the DNA sequence without changing its protein. Keep the one",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-veto/hypotheses/hypothesis-h1-veto-2.json",
+   "source_sha256": "c6397fa3d90d952ee376e4de87271751a6cdf0a8e71b9b68a2372f03d3c2e10c",
+   "hypothesis_mtime": "2026-10-04T01:51:20+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h1-veto-3",
+   "short": "h1-veto-3",
+   "goal_title": "Raise the translation initiation rate of the DNA sequence without changing its protein. Keep the one",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-veto/hypotheses/hypothesis-h1-veto-3.json",
+   "source_sha256": "ae24878c28d96f2d0ceadef0986713055f22ac3369b26ff5dfd56e1d3dda77c0",
+   "hypothesis_mtime": "2026-10-04T01:51:20+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h2-veto-0",
+   "short": "h2-veto-0",
+   "goal_title": "Raise the number of in-frame ATG (methionine) codons in the DNA sequence without changing its protei",
+   "goal_key": "other",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-veto/hypotheses/hypothesis-h2-veto-0.json",
+   "source_sha256": "cf6335a824998c9fc735f9ffd21b5c8e15f0de76b8da4e39dd8c26568b598b8a",
+   "hypothesis_mtime": "2026-10-04T01:51:20+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 14,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h2-veto-1",
+   "short": "h2-veto-1",
+   "goal_title": "Raise the number of in-frame ATG (methionine) codons in the DNA sequence without changing its protei",
+   "goal_key": "other",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-veto/hypotheses/hypothesis-h2-veto-1.json",
+   "source_sha256": "be5f41ba1f5649e825de169b7401beda933604e41d8715c39a7e673482ff186b",
+   "hypothesis_mtime": "2026-10-04T01:51:21+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 14,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h2-veto-2",
+   "short": "h2-veto-2",
+   "goal_title": "Raise the number of in-frame ATG (methionine) codons in the DNA sequence without changing its protei",
+   "goal_key": "other",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-veto/hypotheses/hypothesis-h2-veto-2.json",
+   "source_sha256": "99e3d7f5986ad3b4b96b531f33d69a119496740ca29e9d9a872485a1693f7a99",
+   "hypothesis_mtime": "2026-10-04T01:51:21+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 14,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h3-veto-0",
+   "short": "h3-veto-0",
+   "goal_title": "Raise the translation initiation rate of the DNA sequence without changing its protein, by a substan",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-veto/hypotheses/hypothesis-h3-veto-0.json",
+   "source_sha256": "ed56306896a1f42b523cdcb6515434b4dbacc14a70f7b2389760a002d5697d9f",
+   "hypothesis_mtime": "2026-10-04T01:51:21+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h3-veto-1",
+   "short": "h3-veto-1",
+   "goal_title": "Raise the translation initiation rate of the DNA sequence without changing its protein, by a substan",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-veto/hypotheses/hypothesis-h3-veto-1.json",
+   "source_sha256": "4e509a4237effdfb210eaae8b73b51a4682a2c8704e646ba1f585c3989258860",
+   "hypothesis_mtime": "2026-10-04T01:51:21+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h4-veto-0",
+   "short": "h4-veto-0",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-veto/hypotheses/hypothesis-h4-veto-0.json",
+   "source_sha256": "a3d29beba1d927c18cbcb4bc7ae732ffdbd6c1da081d4c39a89696f9bcb1d69b",
+   "hypothesis_mtime": "2026-10-04T01:51:22+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h4-veto-1",
+   "short": "h4-veto-1",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-veto/hypotheses/hypothesis-h4-veto-1.json",
+   "source_sha256": "05eae21ef611f1b2380c128b47411563e121358d7e25a0fef4fdf349720d53ea",
+   "hypothesis_mtime": "2026-10-04T01:51:22+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h5-veto-0",
+   "short": "h5-veto-0",
+   "goal_title": "Find the synonymous variant of the DNA sequence with the lowest GC content, without changing its pro",
+   "goal_key": "other",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-veto/hypotheses/hypothesis-h5-veto-0.json",
+   "source_sha256": "8e3d3aab9eaa60d6cb16bf01a4055477c484ce97f34960bd971a8e3fc31e6a48",
+   "hypothesis_mtime": "2026-10-04T01:51:22+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 14,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h5-veto-1",
+   "short": "h5-veto-1",
+   "goal_title": "Find the synonymous variant of the DNA sequence with the lowest GC content, without changing its pro",
+   "goal_key": "other",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-veto/hypotheses/hypothesis-h5-veto-1.json",
+   "source_sha256": "650055f62fa919c5c435e33921dc67ccf5b16aefb278ed238ae637e76f233b54",
+   "hypothesis_mtime": "2026-10-04T01:51:22+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 14,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h5-veto-2",
+   "short": "h5-veto-2",
+   "goal_title": "Find the synonymous variant of the DNA sequence with the lowest GC content, without changing its pro",
+   "goal_key": "other",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-veto/hypotheses/hypothesis-h5-veto-2.json",
+   "source_sha256": "043fc09848906fc01ab1842a269a542cb0d5fa071e0b5c05b0c91e8c21f8899f",
+   "hypothesis_mtime": "2026-10-04T01:51:22+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 14,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h6-veto-0",
+   "short": "h6-veto-0",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-veto/hypotheses/hypothesis-h6-veto-0.json",
+   "source_sha256": "50eabf53fea45ef80a41cdb3db2cac7af49060c7d812476fc49d24fd1b9d72dc",
+   "hypothesis_mtime": "2026-10-04T01:51:23+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h6-veto-1",
+   "short": "h6-veto-1",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-veto/hypotheses/hypothesis-h6-veto-1.json",
+   "source_sha256": "153978a61bb53e9aaa65675f256d6fb52289460830e8ba5609745f9aed2ce9b0",
+   "hypothesis_mtime": "2026-10-04T01:51:23+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h6-veto-2",
+   "short": "h6-veto-2",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-veto/hypotheses/hypothesis-h6-veto-2.json",
+   "source_sha256": "491caa58069389e0b619e3b5663c485d06c1d09459c8bffeb858064f35668932",
+   "hypothesis_mtime": "2026-10-04T01:51:23+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h7-veto-0",
+   "short": "h7-veto-0",
+   "goal_title": "Translate the DNA sequences into proteins. Keep only the proteins that are at least 8 amino acids lo",
+   "goal_key": "other",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-veto/hypotheses/hypothesis-h7-veto-0.json",
+   "source_sha256": "11ac16191d429942d1973c0a7bd3785397c4fe81f57ef574a0d2ae561b358709",
+   "hypothesis_mtime": "2026-10-04T01:51:23+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 14,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h8-veto-0",
+   "short": "h8-veto-0",
+   "goal_title": "Raise the translation initiation rate of the DNA sequence without changing its protein, its length, ",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-veto/hypotheses/hypothesis-h8-veto-0.json",
+   "source_sha256": "99b2f9df8b10e7bc3d625a744d30bcf2b799597dc2cea1f655763cfab0c13c71",
+   "hypothesis_mtime": "2026-10-04T01:51:23+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-h8-veto-1",
+   "short": "h8-veto-1",
+   "goal_title": "Raise the translation initiation rate of the DNA sequence without changing its protein, its length, ",
+   "goal_key": "ostir",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": "bb7cf40a9f379a941c2defb6d52d899ac37db9d0",
+   "commit_short": "bb7cf40",
+   "commit_basis": "subagents/hostile-probe/probe.md:3 'Code under test ... at bb7cf40'",
+   "fork_pr": "7",
+   "lineage_pr": "11 (prompts of 4db5b8d)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-2687572": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7-old-c1ed566": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "7": {
+     "in_tip": false,
+     "tip_in_commit": true
+    },
+    "9": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": false,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "pr7/hostile-probe-bb7cf40",
+   "source": "/Users/air/Developer/hypothesis/notes/pr7-overnight/subagents/hostile-probe/work/results-veto/hypotheses/hypothesis-h8-veto-1.json",
+   "source_sha256": "6a3d42ad178fcc38c87fdd789c79ec0f95653a89bc587dd4b5aa74d0261cbed2",
+   "hypothesis_mtime": "2026-10-04T01:51:24+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 26,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-9afcd59e-e120-4f65-8eda-80c6ae6c23eb",
+   "short": "9afcd59e",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "live",
+   "models": {
+    "criteria": "claude-sonnet-5-5",
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-haiku-4-5-20251001",
+    "critique": "claude-sonnet-5-5"
+   },
+   "commit": "be3805f5a725a9d8f190987829b02701888624ae",
+   "commit_short": "be3805f",
+   "commit_basis": "handovers/oracle-20261003-loop-review.md table: 'be3805f the code every model call of this run executed'; reflog of hypothesis-loop-compact: be3805f HEAD from 19:45:43 BST, runs started 20:04 and 20:07 BST",
+   "fork_pr": "pre-7",
+   "lineage_pr": "7 (development commits of hypothesis-loop-compact)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "7-old-2687572": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "7-old-c1ed566": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "7": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "9": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": true,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 2,
+   "workflows": 1,
+   "trajectories": 5,
+   "tokens": 170098,
+   "state": "abandoned",
+   "outcome": "abandoned",
+   "stopped_because": "abandoned while blocked on a tool",
+   "ledger_state": "abandoned",
+   "in_ledger": true,
+   "folder": "pre-pr7/compact-be3805f",
+   "source": "/Users/air/Developer/hypothesis-loop-compact/results/hypotheses/hypothesis-9afcd59e-e120-4f65-8eda-80c6ae6c23eb.json",
+   "source_sha256": "533bc5899a8e881935351a08321b2ea36c5388e2ec1c993bd291dd6274809472",
+   "hypothesis_mtime": "2026-10-03T20:07:43+0100",
+   "caveats": [],
+   "n_cell": 2,
+   "logs": [
+    "pre-pr7/compact-be3805f/logs/run_5.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-d10361e4-df7c-4044-a8fc-8949934a6c0a",
+   "short": "d10361e4",
+   "goal_title": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the",
+   "goal_key": "ostir",
+   "kind": "live",
+   "models": "not in a ledger line",
+   "commit": "be3805f5a725a9d8f190987829b02701888624ae",
+   "commit_short": "be3805f",
+   "commit_basis": "handovers/oracle-20261003-loop-review.md table: 'be3805f the code every model call of this run executed'; reflog of hypothesis-loop-compact: be3805f HEAD from 19:45:43 BST, runs started 20:04 and 20:07 BST",
+   "fork_pr": "pre-7",
+   "lineage_pr": "7 (development commits of hypothesis-loop-compact)",
+   "ancestry": {
+    "8": {
+     "in_tip": false,
+     "tip_in_commit": false
+    },
+    "7-old-2687572": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "7-old-c1ed566": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "7": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "9": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "main": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "11": {
+     "in_tip": true,
+     "tip_in_commit": false
+    },
+    "12": {
+     "in_tip": true,
+     "tip_in_commit": false
+    }
+   },
+   "rounds": 5,
+   "workflows": 3,
+   "trajectories": 12,
+   "tokens": 445053,
+   "state": "blocked",
+   "outcome": "no result",
+   "stopped_because": null,
+   "ledger_state": null,
+   "in_ledger": false,
+   "folder": "pre-pr7/compact-be3805f",
+   "source": "/Users/air/Developer/hypothesis-loop-compact/results/hypotheses/hypothesis-d10361e4-df7c-4044-a8fc-8949934a6c0a.json",
+   "source_sha256": "78ba32d4e5d4aa784e11a778c65ef0707487627195ebfdceb1cb1867e254a850",
+   "hypothesis_mtime": "2026-10-03T20:11:16+0100",
+   "caveats": [
+    "blocked in round 5 on a node nobody wrote, 445,053 of its 500,000 tokens; no ledger line; run left open",
+    "saved state 'blocked' counted as no result (not achieved, not abandoned)"
+   ],
+   "n_cell": 2,
+   "logs": [
+    "pre-pr7/compact-be3805f/logs/oracle-20261003-loop-review.md"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-f8529510-c4ff-4997-86f8-7f955075a99f",
+   "short": "f8529510",
+   "goal_title": "Lower the atom count of the DNA sequences without changing their proteins. Keep the ones with fewer ",
+   "goal_key": "atom-count",
+   "kind": "live",
+   "models": {
+    "criteria": "claude-sonnet-5-5",
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-haiku-4-5-20251001",
+    "critique": "claude-sonnet-5-5"
+   },
+   "commit": null,
+   "commit_short": null,
+   "commit_basis": "no commit recorded: oracle REVIEW.md says 'The ledger records no commit'; reflog of the compact worktree shows HEAD 810fd84 from 18:25:11 to 19:30:25 BST (runs started 18:39-19:24 BST) but the worker's checkout is not recorded",
+   "fork_pr": "unknown",
+   "lineage_pr": "7 (earlier development of hypothesis-loop-compact)",
+   "ancestry": null,
+   "rounds": 3,
+   "workflows": 3,
+   "trajectories": 9,
+   "tokens": 221358,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "unknown/compact-atom-count",
+   "source": "/Users/air/Developer/hypothesis-loop-compact/results/hypotheses/hypothesis-f8529510-c4ff-4997-86f8-7f955075a99f.json",
+   "source_sha256": "e43cc9c88ea9f5e8b264f424836cdfbabc1eb418c40a48070a1b04582b1e900f",
+   "hypothesis_mtime": "2026-10-03T18:42:06+0100",
+   "caveats": [
+    "goal uses dna_atom_score, a node since removed: the saved files no longer load into the current code (oracle REVIEW.md)"
+   ],
+   "n_cell": 5,
+   "logs": [
+    "unknown/compact-atom-count/logs/run_3.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-f1bbba3e-b0a7-411c-a57f-f4d0cf1330e8",
+   "short": "f1bbba3e",
+   "goal_title": "Lower the atom count of the DNA sequences without changing their proteins. Keep the ones with fewer ",
+   "goal_key": "atom-count",
+   "kind": "live",
+   "models": {
+    "criteria": "claude-sonnet-5-5",
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-haiku-4-5-20251001",
+    "critique": "claude-sonnet-5-5"
+   },
+   "commit": null,
+   "commit_short": null,
+   "commit_basis": "no commit recorded: oracle REVIEW.md says 'The ledger records no commit'; reflog of the compact worktree shows HEAD 810fd84 from 18:25:11 to 19:30:25 BST (runs started 18:39-19:24 BST) but the worker's checkout is not recorded",
+   "fork_pr": "unknown",
+   "lineage_pr": "7 (earlier development of hypothesis-loop-compact)",
+   "ancestry": null,
+   "rounds": 3,
+   "workflows": 3,
+   "trajectories": 9,
+   "tokens": 222822,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "unknown/compact-atom-count",
+   "source": "/Users/air/Developer/hypothesis-loop-compact/results/hypotheses/hypothesis-f1bbba3e-b0a7-411c-a57f-f4d0cf1330e8.json",
+   "source_sha256": "4448f8ca1d50c3ebb695d68f90325156420cbef771ac23334a5f5d51bf5cbdb3",
+   "hypothesis_mtime": "2026-10-03T18:42:15+0100",
+   "caveats": [
+    "goal uses dna_atom_score, a node since removed: the saved files no longer load into the current code (oracle REVIEW.md)"
+   ],
+   "n_cell": 5,
+   "logs": [
+    "unknown/compact-atom-count/logs/run_1.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-6b82eb8e-bbb7-4999-b86a-bcf238f5bbaa",
+   "short": "6b82eb8e",
+   "goal_title": "Lower the atom count of the DNA sequences without changing their proteins. Keep the ones with fewer ",
+   "goal_key": "atom-count",
+   "kind": "live",
+   "models": {
+    "criteria": "claude-sonnet-5-5",
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-haiku-4-5-20251001",
+    "critique": "claude-sonnet-5-5"
+   },
+   "commit": null,
+   "commit_short": null,
+   "commit_basis": "no commit recorded: oracle REVIEW.md says 'The ledger records no commit'; reflog of the compact worktree shows HEAD 810fd84 from 18:25:11 to 19:30:25 BST (runs started 18:39-19:24 BST) but the worker's checkout is not recorded",
+   "fork_pr": "unknown",
+   "lineage_pr": "7 (earlier development of hypothesis-loop-compact)",
+   "ancestry": null,
+   "rounds": 3,
+   "workflows": 3,
+   "trajectories": 10,
+   "tokens": 238310,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 3",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "unknown/compact-atom-count",
+   "source": "/Users/air/Developer/hypothesis-loop-compact/results/hypotheses/hypothesis-6b82eb8e-bbb7-4999-b86a-bcf238f5bbaa.json",
+   "source_sha256": "c84ef0bb1b12606dedf27be710dbfd9691f58c2f7d7f945a8a60d8814f40dfa8",
+   "hypothesis_mtime": "2026-10-03T18:42:25+0100",
+   "caveats": [
+    "goal uses dna_atom_score, a node since removed: the saved files no longer load into the current code (oracle REVIEW.md)"
+   ],
+   "n_cell": 5,
+   "logs": [
+    "unknown/compact-atom-count/logs/run_2.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-bbe2cc75-57c5-4521-af1f-f93fcf1206d0",
+   "short": "bbe2cc75",
+   "goal_title": "Lower the atom count of the DNA sequences without changing their proteins. Keep the ones with fewer ",
+   "goal_key": "atom-count",
+   "kind": "live",
+   "models": {
+    "criteria": "claude-sonnet-5-5",
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-haiku-4-5-20251001",
+    "critique": "claude-sonnet-5-5"
+   },
+   "commit": null,
+   "commit_short": null,
+   "commit_basis": "no commit recorded: oracle REVIEW.md says 'The ledger records no commit'; reflog of the compact worktree shows HEAD 810fd84 from 18:25:11 to 19:30:25 BST (runs started 18:39-19:24 BST) but the worker's checkout is not recorded",
+   "fork_pr": "unknown",
+   "lineage_pr": "7 (earlier development of hypothesis-loop-compact)",
+   "ancestry": null,
+   "rounds": 3,
+   "workflows": 3,
+   "trajectories": 10,
+   "tokens": 183363,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 3",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "unknown/compact-atom-count",
+   "source": "/Users/air/Developer/hypothesis-loop-compact/results/hypotheses/hypothesis-bbe2cc75-57c5-4521-af1f-f93fcf1206d0.json",
+   "source_sha256": "74c80e1c8c457e3902a32e0e90f9470d9f0a884c2e9c64205426d250037ee681",
+   "hypothesis_mtime": "2026-10-03T18:47:19+0100",
+   "caveats": [
+    "goal uses dna_atom_score, a node since removed: the saved files no longer load into the current code (oracle REVIEW.md)"
+   ],
+   "n_cell": 5,
+   "logs": [
+    "unknown/compact-atom-count/logs/run_4.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-5bf5f3e1-e464-4ae3-9d26-940f8e7ef7fc",
+   "short": "5bf5f3e1",
+   "goal_title": "Lower the atom count of the DNA sequences without changing their proteins. Keep the ones with fewer ",
+   "goal_key": "atom-count",
+   "kind": "live",
+   "models": {
+    "criteria": "claude-sonnet-5-5",
+    "plan": "claude-sonnet-5-5",
+    "verify": "claude-haiku-4-5-20251001",
+    "critique": "claude-sonnet-5-5"
+   },
+   "commit": null,
+   "commit_short": null,
+   "commit_basis": "no commit recorded: oracle REVIEW.md says 'The ledger records no commit'; reflog of the compact worktree shows HEAD 810fd84 from 18:25:11 to 19:30:25 BST (runs started 18:39-19:24 BST) but the worker's checkout is not recorded",
+   "fork_pr": "unknown",
+   "lineage_pr": "7 (earlier development of hypothesis-loop-compact)",
+   "ancestry": null,
+   "rounds": 3,
+   "workflows": 3,
+   "trajectories": 10,
+   "tokens": 201149,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 3",
+   "ledger_state": "not achieved",
+   "in_ledger": true,
+   "folder": "unknown/compact-atom-count",
+   "source": "/Users/air/Developer/hypothesis-loop-compact/results/hypotheses/hypothesis-5bf5f3e1-e464-4ae3-9d26-940f8e7ef7fc.json",
+   "source_sha256": "0ae38155820d201cfb750da3be2b7be430749cb7f8dd2f770481a784444ba341",
+   "hypothesis_mtime": "2026-10-03T19:26:50+0100",
+   "caveats": [
+    "goal uses dna_atom_score, a node since removed: the saved files no longer load into the current code (oracle REVIEW.md)"
+   ],
+   "n_cell": 5,
+   "logs": [
+    "unknown/compact-atom-count/logs/e2e.log"
+   ]
+  },
+  {
+   "hypothesis_id": "hypothesis-5544e680-2711-4c2b-a2da-ff1674e01cc1",
+   "short": "5544e680",
+   "goal_title": "remove TCG",
+   "goal_key": "remove-tcg",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": null,
+   "commit_short": null,
+   "commit_basis": "no commit recorded; saved with 15 and 18 tokens and in no ledger line (oracle REVIEW.md: 'how they were produced was not established')",
+   "fork_pr": "unknown",
+   "lineage_pr": "unknown",
+   "ancestry": null,
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 15,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": null,
+   "in_ledger": false,
+   "folder": "unknown/compact-remove-tcg",
+   "source": "/Users/air/Developer/hypothesis-loop-compact/results/hypotheses/hypothesis-5544e680-2711-4c2b-a2da-ff1674e01cc1.json",
+   "source_sha256": "ff70ca1f1236a9fd6aba21c6375cfbba02f8916e4459150b8eb238dbc413fe3c",
+   "hypothesis_mtime": "2026-10-03T16:55:11+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 2,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-89ffa657-6008-4f4b-a0ed-6ff1351605c9",
+   "short": "89ffa657",
+   "goal_title": "remove TCG",
+   "goal_key": "remove-tcg",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": null,
+   "commit_short": null,
+   "commit_basis": "no commit recorded; saved with 15 and 18 tokens and in no ledger line (oracle REVIEW.md: 'how they were produced was not established')",
+   "fork_pr": "unknown",
+   "lineage_pr": "unknown",
+   "ancestry": null,
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 18,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": "out of rounds after 1",
+   "ledger_state": null,
+   "in_ledger": false,
+   "folder": "unknown/compact-remove-tcg",
+   "source": "/Users/air/Developer/hypothesis-loop-compact/results/hypotheses/hypothesis-89ffa657-6008-4f4b-a0ed-6ff1351605c9.json",
+   "source_sha256": "9d9078312ecd646d8b768e7ff500de96cb1b0503a6baec782fc7ddb11d666ca4",
+   "hypothesis_mtime": "2026-10-03T16:33:11+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 2,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-ce59ac5b-aa99-45e3-b92d-02d40a067a94",
+   "short": "ce59ac5b",
+   "goal_title": "Lower the atom count of the DNA sequences without changing their proteins. Keep the ones with fewer ",
+   "goal_key": "atom-count",
+   "kind": "live",
+   "models": "not in a ledger line",
+   "commit": null,
+   "commit_short": null,
+   "commit_basis": "no commit recorded; run saved 17:22 BST on Oct 3 by scratchpad e2e.py (before the commits of the compact worktree reflog)",
+   "fork_pr": "unknown",
+   "lineage_pr": "unknown",
+   "ancestry": null,
+   "rounds": 2,
+   "workflows": 2,
+   "trajectories": 6,
+   "tokens": 89491,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": null,
+   "in_ledger": false,
+   "folder": "unknown/e2e-atom-count-ce59ac5b",
+   "source": "$TMP/95f44646-4f13-48e9-a640-91afd80574df/scratchpad/results/hypotheses/hypothesis-ce59ac5b-aa99-45e3-b92d-02d40a067a94.json",
+   "source_sha256": "d111f4e3e8fcc34bfee8f6c7693b494ae00392e96c235ec31a5b71d73c327ca0",
+   "hypothesis_mtime": "2026-10-03T17:22:36+0100",
+   "caveats": [],
+   "n_cell": 1,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "recode-acg-mock",
+   "short": "recode-acg-mock",
+   "goal_title": "Recode the gene to eliminate the ACG codon while maintaining the ORFs of both trpA and trpB",
+   "goal_key": "recode-acg-mock",
+   "kind": "live",
+   "models": "not in a ledger line",
+   "commit": null,
+   "commit_short": null,
+   "commit_basis": "no commit recorded; synthetic gene examples/recode_acg_mock.json, run saved 17:32 BST on Oct 3 by scratchpad e2e.py",
+   "fork_pr": "unknown",
+   "lineage_pr": "unknown",
+   "ancestry": null,
+   "rounds": 1,
+   "workflows": 0,
+   "trajectories": 2,
+   "tokens": 74854,
+   "state": "blocked",
+   "outcome": "no result",
+   "stopped_because": null,
+   "ledger_state": null,
+   "in_ledger": false,
+   "folder": "unknown/e2e-recode-acg-mock",
+   "source": "$TMP/95f44646-4f13-48e9-a640-91afd80574df/scratchpad/results_acg/hypotheses/recode-acg-mock.json",
+   "source_sha256": "5127d9d4c8b54e5a6a947537ef8b80667e1d83f2f9ad77b39f35f49df617b4fa",
+   "hypothesis_mtime": "2026-10-03T17:32:40+0100",
+   "caveats": [
+    "saved state 'blocked' counted as no result (not achieved, not abandoned)"
+   ],
+   "n_cell": 1,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-synthetic-tusE",
+   "short": "synthetic-tusE",
+   "goal_title": "None",
+   "goal_key": "other",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": null,
+   "commit_short": null,
+   "commit_basis": "no commit recorded; scripted/test runs with fake token counts",
+   "fork_pr": "unknown",
+   "lineage_pr": "unknown",
+   "ancestry": null,
+   "rounds": 6,
+   "workflows": 5,
+   "trajectories": 0,
+   "tokens": 1234,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": null,
+   "ledger_state": null,
+   "in_ledger": false,
+   "folder": "unknown/scripted-fixtures",
+   "source": "$TMP/95f44646-4f13-48e9-a640-91afd80574df/scratchpad/codonpair-test/tusE/hypotheses/hypothesis-synthetic-tusE.json",
+   "source_sha256": "10394791181243647a9482c39f12449360f4aef1c660fa0898bfdf4b19a41d35",
+   "hypothesis_mtime": "2026-10-04T02:35:22+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 3,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-synthetic-uspD",
+   "short": "synthetic-uspD",
+   "goal_title": "None",
+   "goal_key": "other",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": null,
+   "commit_short": null,
+   "commit_basis": "no commit recorded; scripted/test runs with fake token counts",
+   "fork_pr": "unknown",
+   "lineage_pr": "unknown",
+   "ancestry": null,
+   "rounds": 6,
+   "workflows": 5,
+   "trajectories": 0,
+   "tokens": 1234,
+   "state": "not achieved",
+   "outcome": "not achieved",
+   "stopped_because": null,
+   "ledger_state": null,
+   "in_ledger": false,
+   "folder": "unknown/scripted-fixtures",
+   "source": "$TMP/95f44646-4f13-48e9-a640-91afd80574df/scratchpad/codonpair-test/uspD/hypotheses/hypothesis-synthetic-uspD.json",
+   "source_sha256": "e223261e712cb7cdec069b1a90bf1b702338d0ba81e5ae3cfb3a5dedb30270c8",
+   "hypothesis_mtime": "2026-10-04T02:35:22+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 3,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "run-b",
+   "short": "run-b",
+   "goal_title": "remove TCG",
+   "goal_key": "remove-tcg",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": null,
+   "commit_short": null,
+   "commit_basis": "no commit recorded; scripted/test runs with fake token counts",
+   "fork_pr": "unknown",
+   "lineage_pr": "unknown",
+   "ancestry": null,
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 15,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "unknown/scripted-fixtures",
+   "source": "$TMP/95f44646-4f13-48e9-a640-91afd80574df/scratchpad/results_three/hypotheses/run-b.json",
+   "source_sha256": "d80f38c56a4d36e64823c3937e24ccac38d0e06237fb0d2817c3c36f526f65f9",
+   "hypothesis_mtime": "2026-10-03T18:21:52+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 6,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "run-c",
+   "short": "run-c",
+   "goal_title": "remove TCG",
+   "goal_key": "remove-tcg",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": null,
+   "commit_short": null,
+   "commit_basis": "no commit recorded; scripted/test runs with fake token counts",
+   "fork_pr": "unknown",
+   "lineage_pr": "unknown",
+   "ancestry": null,
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 15,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": "achieved",
+   "in_ledger": true,
+   "folder": "unknown/scripted-fixtures",
+   "source": "$TMP/95f44646-4f13-48e9-a640-91afd80574df/scratchpad/results_three/hypotheses/run-c.json",
+   "source_sha256": "f942bd7ee83de766088784f80ceccaa58e035c4ae76009e8e47e3e97c335d268",
+   "hypothesis_mtime": "2026-10-03T18:21:52+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 6,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "h1",
+   "short": "h1",
+   "goal_title": "None",
+   "goal_key": "other",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": null,
+   "commit_short": null,
+   "commit_basis": "no commit recorded; scripted/test runs with fake token counts",
+   "fork_pr": "unknown",
+   "lineage_pr": "unknown",
+   "ancestry": null,
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": null,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": null,
+   "ledger_state": null,
+   "in_ledger": false,
+   "folder": "unknown/scripted-fixtures",
+   "source": "$TMP/95f44646-4f13-48e9-a640-91afd80574df/scratchpad/fake-run/hypotheses/h1.json",
+   "source_sha256": "43264c74e5b2efdd33b750686c1f9cd95cf14f466253589bcfab6f52843e5be3",
+   "hypothesis_mtime": "2026-10-04T00:50:12+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 3,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-c68a7c3a-901a-4f13-901c-819d41cefc66",
+   "short": "c68a7c3a",
+   "goal_title": "Remove every TCG and TCA codon without changing the protein",
+   "goal_key": "remove-tcg",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": null,
+   "commit_short": null,
+   "commit_basis": "no commit recorded; scripted/test runs with fake token counts",
+   "fork_pr": "unknown",
+   "lineage_pr": "unknown",
+   "ancestry": null,
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 1200,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "The recoded sequence contains no TCG or TCA codon, and dna_to_protein gives MSSA*, the same protein as the input.\n\nAcceptance: every criterion was covered by an assertion that held",
+   "ledger_state": null,
+   "in_ledger": false,
+   "folder": "unknown/scripted-fixtures",
+   "source": "$TMP/c9ac2fc2-47de-4dff-aeec-8aaed508c155/scratchpad/hl/results-demo/hypotheses/hypothesis-c68a7c3a-901a-4f13-901c-819d41cefc66.json",
+   "source_sha256": "6d24bc077ebd66abccc258a7c84952f9c61e8c2795b25167ec8d439f5e2197a1",
+   "hypothesis_mtime": "2026-10-03T16:18:05+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 6,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-dcf3412d-f442-4e2d-92d6-756b909fabc0",
+   "short": "dcf3412d",
+   "goal_title": "Remove every TCG and TCA codon",
+   "goal_key": "remove-tcg",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": null,
+   "commit_short": null,
+   "commit_basis": "no commit recorded; scripted/test runs with fake token counts",
+   "fork_pr": "unknown",
+   "lineage_pr": "unknown",
+   "ancestry": null,
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 1200,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "The recoded sequence contains no TCG or TCA codon, and dna_to_protein gives MSSA*, the same protein as the input.\n\nAcceptance: every criterion was covered by an assertion that held",
+   "ledger_state": null,
+   "in_ledger": false,
+   "folder": "unknown/scripted-fixtures",
+   "source": "$TMP/c9ac2fc2-47de-4dff-aeec-8aaed508c155/scratchpad/s1/tmpb9_9zzsh/hypotheses/hypothesis-dcf3412d-f442-4e2d-92d6-756b909fabc0.json",
+   "source_sha256": "f5acbbbfe929c6d5d6bae7745e1a90c00e2d527af551884cbcd4f4c46a2fc4bb",
+   "hypothesis_mtime": "2026-10-03T16:55:38+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 6,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "hypothesis-e11437d5-b625-4d27-8174-e375ba1e2d3e",
+   "short": "e11437d5",
+   "goal_title": "Remove every TCG and TCA codon",
+   "goal_key": "remove-tcg",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": null,
+   "commit_short": null,
+   "commit_basis": "no commit recorded; scripted/test runs with fake token counts",
+   "fork_pr": "unknown",
+   "lineage_pr": "unknown",
+   "ancestry": null,
+   "rounds": 1,
+   "workflows": 1,
+   "trajectories": 0,
+   "tokens": 1200,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "The recoded sequence contains no TCG or TCA codon, and dna_to_protein gives MSSA*, the same protein as the input.\n\nAcceptance: every criterion was covered by an assertion that held",
+   "ledger_state": null,
+   "in_ledger": false,
+   "folder": "unknown/scripted-fixtures",
+   "source": "$TMP/c9ac2fc2-47de-4dff-aeec-8aaed508c155/scratchpad/s1/tmpb9_9zzsh/hypotheses/hypothesis-e11437d5-b625-4d27-8174-e375ba1e2d3e.json",
+   "source_sha256": "af2bbd4afc87696cba9dcb7215f05e7fa12223645ac1aa9f4580e7f33b1fed21",
+   "hypothesis_mtime": "2026-10-03T16:55:35+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 6,
+   "logs": []
+  },
+  {
+   "hypothesis_id": "two-rounds",
+   "short": "two-rounds",
+   "goal_title": "remove TCG",
+   "goal_key": "remove-tcg",
+   "kind": "scripted",
+   "models": "scripted",
+   "commit": null,
+   "commit_short": null,
+   "commit_basis": "no commit recorded; scripted/test runs with fake token counts",
+   "fork_pr": "unknown",
+   "lineage_pr": "unknown",
+   "ancestry": null,
+   "rounds": 2,
+   "workflows": 2,
+   "trajectories": 0,
+   "tokens": 33,
+   "state": "achieved",
+   "outcome": "achieved",
+   "stopped_because": "every criterion was covered by an assertion that held",
+   "ledger_state": null,
+   "in_ledger": false,
+   "folder": "unknown/scripted-fixtures",
+   "source": "$TMP/03accd08-5f0a-465a-a469-5d3e8c67f00e/scratchpad/uiresults/hypotheses/two-rounds.json",
+   "source_sha256": "14685af2dbe74a2962cdfecffc725fa79ec7d08e714e0b0fb7427ff3f11ba7d5",
+   "hypothesis_mtime": "2026-10-03T18:07:12+0100",
+   "caveats": [
+    "scripted: no live model call; token counts are not model usage"
+   ],
+   "n_cell": 6,
+   "logs": []
+  }
+ ],
+ "benchmark_ledger": [
+  {
+   "file": "benchmark-ledger/20261003T234843682564Z-attempt-bc316a2df9e0dcc0.json",
+   "source": "$TMP/95f44646-4f13-48e9-a640-91afd80574df/scratchpad/bench-results/ledger/20261003T234843682564Z-attempt-bc316a2df9e0dcc0.json",
+   "recorded_at": "2026-10-03T23:48:43.682594+00:00",
+   "objective": "codon_pair",
+   "commit": "dc1916a635d265bb05c81a36ef0e598e284447f7",
+   "commit_short": "dc1916a",
+   "strategies": [
+    "best_of_8",
+    "exact_dp",
+    "greedy",
+    "original",
+    "random"
+   ],
+   "instances": [
+    "ymdG",
+    "arfA",
+    "tusE",
+    "uspD",
+    "rplF",
+    "aroE",
+    "osmF",
+    "ydcT",
+    "clsA"
+   ],
+   "split_hash": "2d16522d73205e93",
+   "hypothesis_id": null,
+   "loop_mean_gap_closed": null,
+   "loop_gap_closed_per_instance": null,
+   "holdout_used": false,
+   "note": "weights from NC_000913.3, 3876 reference genes, comparison genes excluded; pair floor ln(0.1); scored the development side"
+  },
+  {
+   "file": "benchmark-ledger/20261003T234843691233Z-attempt-cf10b73c20114d34.json",
+   "source": "$TMP/95f44646-4f13-48e9-a640-91afd80574df/scratchpad/bench-results/ledger/20261003T234843691233Z-attempt-cf10b73c20114d34.json",
+   "recorded_at": "2026-10-03T23:48:43.691263+00:00",
+   "objective": "cai",
+   "commit": "dc1916a635d265bb05c81a36ef0e598e284447f7",
+   "commit_short": "dc1916a",
+   "strategies": [
+    "best_of_8",
+    "greedy_exact",
+    "original",
+    "random"
+   ],
+   "instances": [
+    "ymdG",
+    "arfA",
+    "tusE",
+    "uspD",
+    "rplF",
+    "aroE",
+    "osmF",
+    "ydcT",
+    "clsA"
+   ],
+   "split_hash": "2d16522d73205e93",
+   "hypothesis_id": null,
+   "loop_mean_gap_closed": null,
+   "loop_gap_closed_per_instance": null,
+   "holdout_used": false,
+   "note": "weights from NC_000913.3, 3876 reference genes, comparison genes excluded; pair floor ln(0.1); scored the development side"
+  },
+  {
+   "file": "benchmark-ledger/20261004T010815770703Z-attempt-a85da005fefebd11.json",
+   "source": "$TMP/95f44646-4f13-48e9-a640-91afd80574df/scratchpad/bench-results/ledger/20261004T010815770703Z-attempt-a85da005fefebd11.json",
+   "recorded_at": "2026-10-04T01:08:15.770884+00:00",
+   "objective": "cai",
+   "commit": "74803ee",
+   "commit_short": "74803ee",
+   "strategies": [
+    "loop"
+   ],
+   "instances": [
+    "arfA"
+   ],
+   "split_hash": "2d16522d73205e93",
+   "hypothesis_id": "hypothesis-6148f02d-1907-487f-b1a0-d4d4c6d5bc12",
+   "loop_mean_gap_closed": 0.05069169372732716,
+   "loop_gap_closed_per_instance": {
+    "arfA": 0.05069169372732716
+   },
+   "holdout_used": false,
+   "note": "loop run hypothesis-6148f02d-1907-487f-b1a0-d4d4c6d5bc12 state=achieved rounds=3 tokens=569667 accepted_round=3; kept 13, 0 not above the original; models build=claude-sonnet-5-5 verify=claude-sonnet-5-5; evaluations is the kept count, not the loop's scoring budget"
+  },
+  {
+   "file": "benchmark-ledger/20261004T010815871640Z-attempt-c3ba696700829fe9.json",
+   "source": "$TMP/95f44646-4f13-48e9-a640-91afd80574df/scratchpad/bench-results/ledger/20261004T010815871640Z-attempt-c3ba696700829fe9.json",
+   "recorded_at": "2026-10-04T01:08:15.871773+00:00",
+   "objective": "cai",
+   "commit": "bb7cf40",
+   "commit_short": "bb7cf40",
+   "strategies": [
+    "loop"
+   ],
+   "instances": [
+    "arfA"
+   ],
+   "split_hash": "2d16522d73205e93",
+   "hypothesis_id": "hypothesis-5fec1ed4-0068-4950-bfc6-ccb048db0ddd",
+   "loop_mean_gap_closed": 1.0,
+   "loop_gap_closed_per_instance": {
+    "arfA": 1.0
+   },
+   "holdout_used": false,
+   "note": "loop run hypothesis-5fec1ed4-0068-4950-bfc6-ccb048db0ddd state=achieved rounds=1 tokens=102853 accepted_round=1; kept 1, 0 not above the original; models build=claude-sonnet-5-5 verify=claude-sonnet-5-5; evaluations is the kept count, not the loop's scoring budget"
+  },
+  {
+   "file": "benchmark-ledger/20261004T012551221119Z-attempt-5c6ab310164a3ee3.json",
+   "source": "$TMP/95f44646-4f13-48e9-a640-91afd80574df/scratchpad/bench-results/ledger/20261004T012551221119Z-attempt-5c6ab310164a3ee3.json",
+   "recorded_at": "2026-10-04T01:25:51.221276+00:00",
+   "objective": "cai",
+   "commit": "07f1f87e884a0b0c75c4c79d14558131d5c27ab4",
+   "commit_short": "07f1f87",
+   "strategies": [
+    "loop"
+   ],
+   "instances": [
+    "arfA"
+   ],
+   "split_hash": "2d16522d73205e93",
+   "hypothesis_id": "hypothesis-894a1eba-fc95-45d0-96cb-aaa05ea1da8a",
+   "loop_mean_gap_closed": 1.0,
+   "loop_gap_closed_per_instance": {
+    "arfA": 1.0
+   },
+   "holdout_used": false,
+   "note": "loop run hypothesis-894a1eba-fc95-45d0-96cb-aaa05ea1da8a state=achieved rounds=1 tokens=144385 accepted_round=1; kept 1, 0 not above the original; models build=claude-sonnet-5-5 verify=claude-sonnet-5-5; evaluations is the kept count, not the loop's scoring budget"
+  }
+ ],
+ "skipped": [],
+ "not_copied": [
+  "nodes/ and registry/ caches of every results dir",
+  ".venv, temporal.db, .env",
+  "oracle-20261003-* bundles in the scratchpad (derived zips of the compact runs, not primary records)",
+  "obs-evidence/arm-* and subagents/review-pr3/armF (byte-identical copies of evidence/arm-*)",
+  "state-only UI/test fixtures with no workflow and no trajectory (building, failed, blocked-one, planning-r2, run-a, ...)",
+  "packs' scorer.json files (scoring oracle) and replication-pack/results/entrez cache",
+  "worker and dev-server logs other than those named in each folder's logs/"
+ ]
+}

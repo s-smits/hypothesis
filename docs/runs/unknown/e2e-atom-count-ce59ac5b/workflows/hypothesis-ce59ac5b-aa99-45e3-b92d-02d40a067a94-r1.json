@@ -1,0 +1,221 @@
+{
+  "dag": {
+    "inputs": {
+      "seqs": "dna"
+    },
+    "steps": {
+      "mutate": {
+        "config": {
+          "name": "mutate_synonymous",
+          "config_hash": "d00f2f8f",
+          "seed": 1,
+          "count": 3
+        },
+        "inputs": {
+          "sequence": "seqs"
+        }
+      },
+      "score": {
+        "config": {
+          "name": "dna_atom_score",
+          "config_hash": "3745d4af",
+          "reference": {
+            "kind": "dna",
+            "sequence": "ATGGCTCTGAAATAA",
+            "id": "1e142be77490",
+            "display": "ATG GCT CTG AAA TAA"
+          }
+        },
+        "inputs": {
+          "sequence": "mutate"
+        }
+      },
+      "same_protein": {
+        "config": {
+          "name": "at_most",
+          "config_hash": "2c25cae6",
+          "column": "dna_atom_score__3745d4af__amino_acid_changes",
+          "threshold": 0.0
+        },
+        "inputs": {
+          "items": "score"
+        }
+      },
+      "fewer_atoms": {
+        "config": {
+          "name": "at_most",
+          "config_hash": "7075fa0b",
+          "column": "dna_atom_score__3745d4af__atom_count",
+          "threshold": 493.0
+        },
+        "inputs": {
+          "items": "same_protein.yes"
+        }
+      }
+    }
+  },
+  "steps": {
+    "mutate": "done",
+    "score": "done",
+    "same_protein": "done",
+    "fewer_atoms": "done"
+  },
+  "values": {
+    "seqs": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTGAAATAA",
+          "id": "1e142be77490",
+          "display": "ATG GCT CTG AAA TAA"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCGTTAAAGTAG",
+          "id": "b4fd7183a224",
+          "display": "ATG GCG TTA AAG TAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCCCTGAAATGA",
+          "id": "f9932d4787c6",
+          "display": "ATG GCC CTG AAA TGA"
+        }
+      ],
+      "scores": {}
+    },
+    "mutate": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAGTAG",
+          "id": "e36a52f20c7a",
+          "display": "ATG GCA CTG AAG TAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAATAG",
+          "id": "41c74bb4f2fe",
+          "display": "ATG GCA TTG AAA TAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTAAAGTGA",
+          "id": "c71ffed3d857",
+          "display": "ATG GCT CTA AAG TGA"
+        }
+      ],
+      "scores": {}
+    },
+    "score": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAGTAG",
+          "id": "e36a52f20c7a",
+          "display": "ATG GCA CTG AAG TAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAATAG",
+          "id": "41c74bb4f2fe",
+          "display": "ATG GCA TTG AAA TAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTAAAGTGA",
+          "id": "c71ffed3d857",
+          "display": "ATG GCT CTA AAG TGA"
+        }
+      ],
+      "scores": {
+        "dna_atom_score__3745d4af__atom_count": {
+          "e36a52f20c7a": 496.0,
+          "41c74bb4f2fe": 497.0,
+          "c71ffed3d857": 495.0
+        },
+        "dna_atom_score__3745d4af__amino_acid_changes": {
+          "e36a52f20c7a": 0.0,
+          "41c74bb4f2fe": 0.0,
+          "c71ffed3d857": 0.0
+        }
+      }
+    },
+    "same_protein.yes": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAGTAG",
+          "id": "e36a52f20c7a",
+          "display": "ATG GCA CTG AAG TAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAATAG",
+          "id": "41c74bb4f2fe",
+          "display": "ATG GCA TTG AAA TAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTAAAGTGA",
+          "id": "c71ffed3d857",
+          "display": "ATG GCT CTA AAG TGA"
+        }
+      ],
+      "scores": {
+        "dna_atom_score__3745d4af__atom_count": {
+          "e36a52f20c7a": 496.0,
+          "41c74bb4f2fe": 497.0,
+          "c71ffed3d857": 495.0
+        },
+        "dna_atom_score__3745d4af__amino_acid_changes": {
+          "e36a52f20c7a": 0.0,
+          "41c74bb4f2fe": 0.0,
+          "c71ffed3d857": 0.0
+        }
+      }
+    },
+    "same_protein.no": {
+      "items": [],
+      "scores": {}
+    },
+    "fewer_atoms.yes": {
+      "items": [],
+      "scores": {}
+    },
+    "fewer_atoms.no": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGGCACTGAAGTAG",
+          "id": "e36a52f20c7a",
+          "display": "ATG GCA CTG AAG TAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCATTGAAATAG",
+          "id": "41c74bb4f2fe",
+          "display": "ATG GCA TTG AAA TAG"
+        },
+        {
+          "kind": "dna",
+          "sequence": "ATGGCTCTAAAGTGA",
+          "id": "c71ffed3d857",
+          "display": "ATG GCT CTA AAG TGA"
+        }
+      ],
+      "scores": {
+        "dna_atom_score__3745d4af__atom_count": {
+          "e36a52f20c7a": 496.0,
+          "41c74bb4f2fe": 497.0,
+          "c71ffed3d857": 495.0
+        },
+        "dna_atom_score__3745d4af__amino_acid_changes": {
+          "e36a52f20c7a": 0.0,
+          "41c74bb4f2fe": 0.0,
+          "c71ffed3d857": 0.0
+        }
+      }
+    }
+  }
+}

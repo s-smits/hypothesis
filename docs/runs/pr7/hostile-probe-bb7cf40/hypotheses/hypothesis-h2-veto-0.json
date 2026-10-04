@@ -1,0 +1,833 @@
+{
+  "id": "hypothesis-h2-veto-0",
+  "goal": "Raise the number of in-frame ATG (methionine) codons in the DNA sequence without changing its protein. Keep the ones that have more ATG codons than the first sequence.",
+  "inputs": {
+    "seqs": [
+      {
+        "kind": "dna",
+        "sequence": "ATGGCTATGAAACTGATGTAA",
+        "id": "6299b5e98f9f",
+        "display": "ATGGCTATGAAACTGATGTAA"
+      }
+    ]
+  },
+  "input_sources": {},
+  "hypothesis": null,
+  "observations": [],
+  "criteria": [
+    {
+      "id": "protein_preserved",
+      "claim": "Every kept output DNA sequence translates to exactly the same protein as the input sequence, i.e. only synonymous codon changes were made.",
+      "source": "human"
+    },
+    {
+      "id": "more_atg",
+      "claim": "Every kept output sequence has strictly more in-frame ATG codons than the first input sequence.",
+      "source": "human"
+    },
+    {
+      "id": "only_more_kept",
+      "claim": "Any sequence that does not have more in-frame ATG codons than the first sequence is excluded from the output.",
+      "source": "human"
+    }
+  ],
+  "state": "not achieved",
+  "round": 1,
+  "attempts": [
+    {
+      "round": 1,
+      "plan": {
+        "hypothesis": "h",
+        "expected": "e",
+        "assertions": [
+          {
+            "criterion": "protein_preserved",
+            "step": "prot_ok",
+            "branch": "yes",
+            "claim": "c"
+          },
+          {
+            "criterion": "more_atg",
+            "step": "more_all",
+            "branch": "yes",
+            "claim": "c"
+          },
+          {
+            "criterion": "only_more_kept",
+            "step": "more_all",
+            "branch": "yes",
+            "claim": "c"
+          }
+        ],
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "pool": {
+            "node": "mutate_synonymous",
+            "config": {
+              "seed": 0,
+              "count": 1,
+              "variants_per_sequence": 10
+            },
+            "inputs": {
+              "sequence": "seqs"
+            },
+            "why": "w"
+          },
+          "check": {
+            "node": "constraint_check",
+            "config": {
+              "reference": {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAACTGATGTAA"
+              }
+            },
+            "inputs": {
+              "sequence": "pool"
+            },
+            "why": "w"
+          },
+          "prot_ok": {
+            "node": "at_least",
+            "config": {
+              "column": "constraint_check__a869b4cd__protein_unchanged",
+              "threshold": 1.0
+            },
+            "inputs": {
+              "items": "check"
+            },
+            "why": "w"
+          },
+          "len_ok": {
+            "node": "at_least",
+            "config": {
+              "column": "constraint_check__a869b4cd__length_unchanged",
+              "threshold": 1.0
+            },
+            "inputs": {
+              "items": "prot_ok.yes"
+            },
+            "why": "w"
+          },
+          "base": {
+            "node": "codon_count",
+            "config": {
+              "codons": [
+                "ATG"
+              ]
+            },
+            "inputs": {
+              "sequence": "seqs"
+            },
+            "why": "w"
+          },
+          "cnt": {
+            "node": "codon_count",
+            "config": {
+              "codons": [
+                "ATG"
+              ]
+            },
+            "inputs": {
+              "sequence": "len_ok.yes"
+            },
+            "why": "w"
+          },
+          "more": {
+            "node": "at_least",
+            "config": {
+              "column": "codon_count__ce572bd2__count",
+              "threshold": 3
+            },
+            "inputs": {
+              "items": "cnt"
+            },
+            "why": "w"
+          },
+          "more_all": {
+            "node": "at_least",
+            "config": {
+              "column": "codon_count__ce572bd2__count",
+              "threshold": 3
+            },
+            "inputs": {
+              "items": "more.yes"
+            },
+            "why": "w"
+          }
+        },
+        "requests": {},
+        "observations": [],
+        "addresses_critique": ""
+      },
+      "requests": [],
+      "dag": {
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "pool": {
+            "config": {
+              "name": "mutate_synonymous",
+              "config_hash": "7a5ba5c2",
+              "seed": 0,
+              "count": 1,
+              "variants_per_sequence": 10
+            },
+            "inputs": {
+              "sequence": "seqs"
+            }
+          },
+          "check": {
+            "config": {
+              "name": "constraint_check",
+              "config_hash": "a869b4cd",
+              "reference": {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAACTGATGTAA",
+                "id": "6299b5e98f9f",
+                "display": "ATGGCTATGAAACTGATGTAA"
+              },
+              "targeted_codons": []
+            },
+            "inputs": {
+              "sequence": "pool"
+            }
+          },
+          "prot_ok": {
+            "config": {
+              "name": "at_least",
+              "config_hash": "d517ab00",
+              "column": "constraint_check__a869b4cd__protein_unchanged",
+              "threshold": 1.0
+            },
+            "inputs": {
+              "items": "check"
+            }
+          },
+          "len_ok": {
+            "config": {
+              "name": "at_least",
+              "config_hash": "a71e6db3",
+              "column": "constraint_check__a869b4cd__length_unchanged",
+              "threshold": 1.0
+            },
+            "inputs": {
+              "items": "prot_ok.yes"
+            }
+          },
+          "base": {
+            "config": {
+              "name": "codon_count",
+              "config_hash": "ce572bd2",
+              "codons": [
+                "ATG"
+              ]
+            },
+            "inputs": {
+              "sequence": "seqs"
+            }
+          },
+          "cnt": {
+            "config": {
+              "name": "codon_count",
+              "config_hash": "ce572bd2",
+              "codons": [
+                "ATG"
+              ]
+            },
+            "inputs": {
+              "sequence": "len_ok.yes"
+            }
+          },
+          "more": {
+            "config": {
+              "name": "at_least",
+              "config_hash": "80c81214",
+              "column": "codon_count__ce572bd2__count",
+              "threshold": 3.0
+            },
+            "inputs": {
+              "items": "cnt"
+            }
+          },
+          "more_all": {
+            "config": {
+              "name": "at_least",
+              "config_hash": "80c81214",
+              "column": "codon_count__ce572bd2__count",
+              "threshold": 3.0
+            },
+            "inputs": {
+              "items": "more.yes"
+            }
+          }
+        }
+      },
+      "workflow_id": "hypothesis-h2-veto-0-r1",
+      "outcome": {
+        "values": {
+          "seqs": {
+            "items": [
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAACTGATGTAA",
+                "id": "6299b5e98f9f",
+                "display": "ATGGCTATGAAACTGATGTAA"
+              }
+            ],
+            "scores": {}
+          },
+          "pool": {
+            "items": [
+              {
+                "kind": "dna",
+                "sequence": "ATGGCAATGAAACTGATGTAA",
+                "id": "7ba74316d77c",
+                "display": "ATGGCAATGAAACTGATGTAA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAGCTGATGTAA",
+                "id": "e97fbd4c22ff",
+                "display": "ATGGCTATGAAGCTGATGTAA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAACTGATGTAG",
+                "id": "5f89a9f93287",
+                "display": "ATGGCTATGAAACTGATGTAG"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAACTGATGTGA",
+                "id": "8a13476253fb",
+                "display": "ATGGCTATGAAACTGATGTGA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAATTGATGTAA",
+                "id": "f3d891d6c6e4",
+                "display": "ATGGCTATGAAATTGATGTAA"
+              }
+            ],
+            "scores": {}
+          },
+          "base": {
+            "items": [
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAACTGATGTAA",
+                "id": "6299b5e98f9f",
+                "display": "ATGGCTATGAAACTGATGTAA"
+              }
+            ],
+            "scores": {
+              "codon_count__ce572bd2__count": {
+                "6299b5e98f9f": 3.0
+              }
+            }
+          },
+          "check": {
+            "items": [
+              {
+                "kind": "dna",
+                "sequence": "ATGGCAATGAAACTGATGTAA",
+                "id": "7ba74316d77c",
+                "display": "ATGGCAATGAAACTGATGTAA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAGCTGATGTAA",
+                "id": "e97fbd4c22ff",
+                "display": "ATGGCTATGAAGCTGATGTAA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAACTGATGTAG",
+                "id": "5f89a9f93287",
+                "display": "ATGGCTATGAAACTGATGTAG"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAACTGATGTGA",
+                "id": "8a13476253fb",
+                "display": "ATGGCTATGAAACTGATGTGA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAATTGATGTAA",
+                "id": "f3d891d6c6e4",
+                "display": "ATGGCTATGAAATTGATGTAA"
+              }
+            ],
+            "scores": {
+              "constraint_check__a869b4cd__protein_unchanged": {
+                "7ba74316d77c": 1.0,
+                "e97fbd4c22ff": 1.0,
+                "5f89a9f93287": 1.0,
+                "8a13476253fb": 1.0,
+                "f3d891d6c6e4": 1.0
+              },
+              "constraint_check__a869b4cd__length_unchanged": {
+                "7ba74316d77c": 1.0,
+                "e97fbd4c22ff": 1.0,
+                "5f89a9f93287": 1.0,
+                "8a13476253fb": 1.0,
+                "f3d891d6c6e4": 1.0
+              },
+              "constraint_check__a869b4cd__targets_remaining": {
+                "7ba74316d77c": 0.0,
+                "e97fbd4c22ff": 0.0,
+                "5f89a9f93287": 0.0,
+                "8a13476253fb": 0.0,
+                "f3d891d6c6e4": 0.0
+              },
+              "constraint_check__a869b4cd__targets_unreachable": {
+                "7ba74316d77c": 0.0,
+                "e97fbd4c22ff": 0.0,
+                "5f89a9f93287": 0.0,
+                "8a13476253fb": 0.0,
+                "f3d891d6c6e4": 0.0
+              }
+            }
+          },
+          "prot_ok.yes": {
+            "items": [
+              {
+                "kind": "dna",
+                "sequence": "ATGGCAATGAAACTGATGTAA",
+                "id": "7ba74316d77c",
+                "display": "ATGGCAATGAAACTGATGTAA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAGCTGATGTAA",
+                "id": "e97fbd4c22ff",
+                "display": "ATGGCTATGAAGCTGATGTAA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAACTGATGTAG",
+                "id": "5f89a9f93287",
+                "display": "ATGGCTATGAAACTGATGTAG"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAACTGATGTGA",
+                "id": "8a13476253fb",
+                "display": "ATGGCTATGAAACTGATGTGA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAATTGATGTAA",
+                "id": "f3d891d6c6e4",
+                "display": "ATGGCTATGAAATTGATGTAA"
+              }
+            ],
+            "scores": {
+              "constraint_check__a869b4cd__protein_unchanged": {
+                "7ba74316d77c": 1.0,
+                "e97fbd4c22ff": 1.0,
+                "5f89a9f93287": 1.0,
+                "8a13476253fb": 1.0,
+                "f3d891d6c6e4": 1.0
+              },
+              "constraint_check__a869b4cd__length_unchanged": {
+                "7ba74316d77c": 1.0,
+                "e97fbd4c22ff": 1.0,
+                "5f89a9f93287": 1.0,
+                "8a13476253fb": 1.0,
+                "f3d891d6c6e4": 1.0
+              },
+              "constraint_check__a869b4cd__targets_remaining": {
+                "7ba74316d77c": 0.0,
+                "e97fbd4c22ff": 0.0,
+                "5f89a9f93287": 0.0,
+                "8a13476253fb": 0.0,
+                "f3d891d6c6e4": 0.0
+              },
+              "constraint_check__a869b4cd__targets_unreachable": {
+                "7ba74316d77c": 0.0,
+                "e97fbd4c22ff": 0.0,
+                "5f89a9f93287": 0.0,
+                "8a13476253fb": 0.0,
+                "f3d891d6c6e4": 0.0
+              }
+            }
+          },
+          "prot_ok.no": {
+            "items": [],
+            "scores": {}
+          },
+          "len_ok.yes": {
+            "items": [
+              {
+                "kind": "dna",
+                "sequence": "ATGGCAATGAAACTGATGTAA",
+                "id": "7ba74316d77c",
+                "display": "ATGGCAATGAAACTGATGTAA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAGCTGATGTAA",
+                "id": "e97fbd4c22ff",
+                "display": "ATGGCTATGAAGCTGATGTAA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAACTGATGTAG",
+                "id": "5f89a9f93287",
+                "display": "ATGGCTATGAAACTGATGTAG"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAACTGATGTGA",
+                "id": "8a13476253fb",
+                "display": "ATGGCTATGAAACTGATGTGA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAATTGATGTAA",
+                "id": "f3d891d6c6e4",
+                "display": "ATGGCTATGAAATTGATGTAA"
+              }
+            ],
+            "scores": {
+              "constraint_check__a869b4cd__protein_unchanged": {
+                "7ba74316d77c": 1.0,
+                "e97fbd4c22ff": 1.0,
+                "5f89a9f93287": 1.0,
+                "8a13476253fb": 1.0,
+                "f3d891d6c6e4": 1.0
+              },
+              "constraint_check__a869b4cd__length_unchanged": {
+                "7ba74316d77c": 1.0,
+                "e97fbd4c22ff": 1.0,
+                "5f89a9f93287": 1.0,
+                "8a13476253fb": 1.0,
+                "f3d891d6c6e4": 1.0
+              },
+              "constraint_check__a869b4cd__targets_remaining": {
+                "7ba74316d77c": 0.0,
+                "e97fbd4c22ff": 0.0,
+                "5f89a9f93287": 0.0,
+                "8a13476253fb": 0.0,
+                "f3d891d6c6e4": 0.0
+              },
+              "constraint_check__a869b4cd__targets_unreachable": {
+                "7ba74316d77c": 0.0,
+                "e97fbd4c22ff": 0.0,
+                "5f89a9f93287": 0.0,
+                "8a13476253fb": 0.0,
+                "f3d891d6c6e4": 0.0
+              }
+            }
+          },
+          "len_ok.no": {
+            "items": [],
+            "scores": {}
+          },
+          "cnt": {
+            "items": [
+              {
+                "kind": "dna",
+                "sequence": "ATGGCAATGAAACTGATGTAA",
+                "id": "7ba74316d77c",
+                "display": "ATGGCAATGAAACTGATGTAA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAGCTGATGTAA",
+                "id": "e97fbd4c22ff",
+                "display": "ATGGCTATGAAGCTGATGTAA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAACTGATGTAG",
+                "id": "5f89a9f93287",
+                "display": "ATGGCTATGAAACTGATGTAG"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAACTGATGTGA",
+                "id": "8a13476253fb",
+                "display": "ATGGCTATGAAACTGATGTGA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAATTGATGTAA",
+                "id": "f3d891d6c6e4",
+                "display": "ATGGCTATGAAATTGATGTAA"
+              }
+            ],
+            "scores": {
+              "constraint_check__a869b4cd__protein_unchanged": {
+                "7ba74316d77c": 1.0,
+                "e97fbd4c22ff": 1.0,
+                "5f89a9f93287": 1.0,
+                "8a13476253fb": 1.0,
+                "f3d891d6c6e4": 1.0
+              },
+              "constraint_check__a869b4cd__length_unchanged": {
+                "7ba74316d77c": 1.0,
+                "e97fbd4c22ff": 1.0,
+                "5f89a9f93287": 1.0,
+                "8a13476253fb": 1.0,
+                "f3d891d6c6e4": 1.0
+              },
+              "constraint_check__a869b4cd__targets_remaining": {
+                "7ba74316d77c": 0.0,
+                "e97fbd4c22ff": 0.0,
+                "5f89a9f93287": 0.0,
+                "8a13476253fb": 0.0,
+                "f3d891d6c6e4": 0.0
+              },
+              "constraint_check__a869b4cd__targets_unreachable": {
+                "7ba74316d77c": 0.0,
+                "e97fbd4c22ff": 0.0,
+                "5f89a9f93287": 0.0,
+                "8a13476253fb": 0.0,
+                "f3d891d6c6e4": 0.0
+              },
+              "codon_count__ce572bd2__count": {
+                "7ba74316d77c": 3.0,
+                "e97fbd4c22ff": 3.0,
+                "5f89a9f93287": 3.0,
+                "8a13476253fb": 3.0,
+                "f3d891d6c6e4": 3.0
+              }
+            }
+          },
+          "more.yes": {
+            "items": [
+              {
+                "kind": "dna",
+                "sequence": "ATGGCAATGAAACTGATGTAA",
+                "id": "7ba74316d77c",
+                "display": "ATGGCAATGAAACTGATGTAA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAGCTGATGTAA",
+                "id": "e97fbd4c22ff",
+                "display": "ATGGCTATGAAGCTGATGTAA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAACTGATGTAG",
+                "id": "5f89a9f93287",
+                "display": "ATGGCTATGAAACTGATGTAG"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAACTGATGTGA",
+                "id": "8a13476253fb",
+                "display": "ATGGCTATGAAACTGATGTGA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAATTGATGTAA",
+                "id": "f3d891d6c6e4",
+                "display": "ATGGCTATGAAATTGATGTAA"
+              }
+            ],
+            "scores": {
+              "constraint_check__a869b4cd__protein_unchanged": {
+                "7ba74316d77c": 1.0,
+                "e97fbd4c22ff": 1.0,
+                "5f89a9f93287": 1.0,
+                "8a13476253fb": 1.0,
+                "f3d891d6c6e4": 1.0
+              },
+              "constraint_check__a869b4cd__length_unchanged": {
+                "7ba74316d77c": 1.0,
+                "e97fbd4c22ff": 1.0,
+                "5f89a9f93287": 1.0,
+                "8a13476253fb": 1.0,
+                "f3d891d6c6e4": 1.0
+              },
+              "constraint_check__a869b4cd__targets_remaining": {
+                "7ba74316d77c": 0.0,
+                "e97fbd4c22ff": 0.0,
+                "5f89a9f93287": 0.0,
+                "8a13476253fb": 0.0,
+                "f3d891d6c6e4": 0.0
+              },
+              "constraint_check__a869b4cd__targets_unreachable": {
+                "7ba74316d77c": 0.0,
+                "e97fbd4c22ff": 0.0,
+                "5f89a9f93287": 0.0,
+                "8a13476253fb": 0.0,
+                "f3d891d6c6e4": 0.0
+              },
+              "codon_count__ce572bd2__count": {
+                "7ba74316d77c": 3.0,
+                "e97fbd4c22ff": 3.0,
+                "5f89a9f93287": 3.0,
+                "8a13476253fb": 3.0,
+                "f3d891d6c6e4": 3.0
+              }
+            }
+          },
+          "more.no": {
+            "items": [],
+            "scores": {}
+          },
+          "more_all.yes": {
+            "items": [
+              {
+                "kind": "dna",
+                "sequence": "ATGGCAATGAAACTGATGTAA",
+                "id": "7ba74316d77c",
+                "display": "ATGGCAATGAAACTGATGTAA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAGCTGATGTAA",
+                "id": "e97fbd4c22ff",
+                "display": "ATGGCTATGAAGCTGATGTAA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAACTGATGTAG",
+                "id": "5f89a9f93287",
+                "display": "ATGGCTATGAAACTGATGTAG"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAACTGATGTGA",
+                "id": "8a13476253fb",
+                "display": "ATGGCTATGAAACTGATGTGA"
+              },
+              {
+                "kind": "dna",
+                "sequence": "ATGGCTATGAAATTGATGTAA",
+                "id": "f3d891d6c6e4",
+                "display": "ATGGCTATGAAATTGATGTAA"
+              }
+            ],
+            "scores": {
+              "constraint_check__a869b4cd__protein_unchanged": {
+                "7ba74316d77c": 1.0,
+                "e97fbd4c22ff": 1.0,
+                "5f89a9f93287": 1.0,
+                "8a13476253fb": 1.0,
+                "f3d891d6c6e4": 1.0
+              },
+              "constraint_check__a869b4cd__length_unchanged": {
+                "7ba74316d77c": 1.0,
+                "e97fbd4c22ff": 1.0,
+                "5f89a9f93287": 1.0,
+                "8a13476253fb": 1.0,
+                "f3d891d6c6e4": 1.0
+              },
+              "constraint_check__a869b4cd__targets_remaining": {
+                "7ba74316d77c": 0.0,
+                "e97fbd4c22ff": 0.0,
+                "5f89a9f93287": 0.0,
+                "8a13476253fb": 0.0,
+                "f3d891d6c6e4": 0.0
+              },
+              "constraint_check__a869b4cd__targets_unreachable": {
+                "7ba74316d77c": 0.0,
+                "e97fbd4c22ff": 0.0,
+                "5f89a9f93287": 0.0,
+                "8a13476253fb": 0.0,
+                "f3d891d6c6e4": 0.0
+              },
+              "codon_count__ce572bd2__count": {
+                "7ba74316d77c": 3.0,
+                "e97fbd4c22ff": 3.0,
+                "5f89a9f93287": 3.0,
+                "8a13476253fb": 3.0,
+                "f3d891d6c6e4": 3.0
+              }
+            }
+          },
+          "more_all.no": {
+            "items": [],
+            "scores": {}
+          }
+        },
+        "skipped": []
+      },
+      "held": {
+        "prot_ok.yes": true,
+        "more_all.yes": true
+      },
+      "produced": {
+        "seqs": [
+          "ATGGCTATGAAA..ATGTAA (21)"
+        ],
+        "pool": [
+          "ATGGCAATGAAA..ATGTAA (21)",
+          "ATGGCTATGAAG..ATGTAA (21)",
+          "ATGGCTATGAAA..ATGTAG (21)"
+        ],
+        "base": [
+          "ATGGCTATGAAA..ATGTAA (21)"
+        ],
+        "check": [
+          "ATGGCAATGAAA..ATGTAA (21)",
+          "ATGGCTATGAAG..ATGTAA (21)",
+          "ATGGCTATGAAA..ATGTAG (21)"
+        ],
+        "prot_ok.yes": [
+          "ATGGCAATGAAA..ATGTAA (21)",
+          "ATGGCTATGAAG..ATGTAA (21)",
+          "ATGGCTATGAAA..ATGTAG (21)"
+        ],
+        "prot_ok.no": [],
+        "len_ok.yes": [
+          "ATGGCAATGAAA..ATGTAA (21)",
+          "ATGGCTATGAAG..ATGTAA (21)",
+          "ATGGCTATGAAA..ATGTAG (21)"
+        ],
+        "len_ok.no": [],
+        "cnt": [
+          "ATGGCAATGAAA..ATGTAA (21)",
+          "ATGGCTATGAAG..ATGTAA (21)",
+          "ATGGCTATGAAA..ATGTAG (21)"
+        ],
+        "more.yes": [
+          "ATGGCAATGAAA..ATGTAA (21)",
+          "ATGGCTATGAAG..ATGTAA (21)",
+          "ATGGCTATGAAA..ATGTAG (21)"
+        ],
+        "more.no": [],
+        "more_all.yes": [
+          "ATGGCAATGAAA..ATGTAA (21)",
+          "ATGGCTATGAAG..ATGTAA (21)",
+          "ATGGCTATGAAA..ATGTAG (21)"
+        ],
+        "more_all.no": []
+      },
+      "verdict": {
+        "achieved": false,
+        "reason": "the opinion\n\nAcceptance: the verifier did not agree the goal was met",
+        "agrees": false,
+        "covers_goal": true
+      },
+      "critique": {
+        "diagnosis": "d",
+        "root_cause": "wrong_config",
+        "evidence": [
+          "e"
+        ],
+        "keep": [],
+        "fix": "try another threshold"
+      },
+      "error": null,
+      "started": "2026-10-04T00:51:20.878000Z"
+    }
+  ],
+  "usage": {
+    "plan": 10,
+    "total": 18,
+    "verify": 5,
+    "critique": 3
+  },
+  "stopped_because": "out of rounds after 1"
+}

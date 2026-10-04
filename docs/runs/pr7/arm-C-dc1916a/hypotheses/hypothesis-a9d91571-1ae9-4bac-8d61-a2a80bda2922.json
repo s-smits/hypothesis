@@ -1,0 +1,868 @@
+{
+  "id": "hypothesis-a9d91571-1ae9-4bac-8d61-a2a80bda2922",
+  "goal": "Raise the translation initiation rate of the DNA sequences without changing their proteins. Keep the ones that score higher than the first sequence.",
+  "inputs": {
+    "seqs": [
+      {
+        "kind": "dna",
+        "sequence": "ATGGCTCTGAAATAA",
+        "id": "1e142be77490",
+        "display": "ATGGCTCTGAAATAA"
+      },
+      {
+        "kind": "dna",
+        "sequence": "ATGGCGTTAAAGTAG",
+        "id": "b4fd7183a224",
+        "display": "ATGGCGTTAAAGTAG"
+      },
+      {
+        "kind": "dna",
+        "sequence": "ATGGCCCTGAAATGA",
+        "id": "f9932d4787c6",
+        "display": "ATGGCCCTGAAATGA"
+      }
+    ]
+  },
+  "input_sources": {},
+  "hypothesis": null,
+  "observations": [],
+  "criteria": [
+    {
+      "id": "protein_preserved",
+      "claim": "Every kept output DNA sequence translates to exactly the same protein (amino acid sequence) as the corresponding input sequence, i.e. only synonymous codon changes were made.",
+      "source": "human"
+    },
+    {
+      "id": "higher_initiation_rate",
+      "claim": "Every kept output sequence has a predicted translation initiation rate strictly higher than that of the first input sequence, under the same scoring method.",
+      "source": "human"
+    },
+    {
+      "id": "only_improved_kept",
+      "claim": "Any sequence whose translation initiation rate score is not higher than the first sequence's score is excluded from the output, so the output contains only sequences that outscore the first sequence.",
+      "source": "human"
+    },
+    {
+      "id": "valid_dna_output",
+      "claim": "Every output sequence is a valid DNA sequence (only A, C, G, T characters) with the same length as its input, with the reading frame, start codon and stop codon preserved.",
+      "source": "human"
+    }
+  ],
+  "state": "abandoned",
+  "round": 3,
+  "attempts": [
+    {
+      "round": 1,
+      "plan": {
+        "hypothesis": "Synonymous codon variants of the inputs can raise OSTIR-predicted translation initiation above the first sequence's baseline (212403.3107). Hard constraints (protein, length) are checked, then only variants that beat the baseline are kept.",
+        "expected": "A subset of synonymous variants, all with the same protein and length, each with an OSTIR expression score above 212403.3107. Variants that do not beat the first sequence go to the .no branch.",
+        "assertions": [
+          {
+            "criterion": "protein_preserved",
+            "step": "protein_ok",
+            "branch": "produced",
+            "claim": "Variants kept after the protein_unchanged filter translate to the same protein as the reference."
+          },
+          {
+            "criterion": "valid_dna_output",
+            "step": "length_ok",
+            "branch": "produced",
+            "claim": "Variants kept after the length filter are valid DNA of unchanged length, with frame, start and stop preserved."
+          },
+          {
+            "criterion": "higher_initiation_rate",
+            "step": "better",
+            "branch": "produced",
+            "claim": "At least one variant is kept, and each kept variant has an OSTIR expression strictly above the first sequence's 212403.3107."
+          },
+          {
+            "criterion": "only_improved_kept",
+            "step": "better",
+            "branch": "produced",
+            "claim": "Variants at or below the baseline go to the .no branch, so the .yes output holds only sequences that outscore the first sequence."
+          }
+        ],
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "mutate": {
+            "node": "mutate_synonymous__ae39309f",
+            "config": {},
+            "inputs": {
+              "sequence": "seqs"
+            },
+            "why": "Generate a pool of synonymous variants (30 per input) to search for higher initiation rate."
+          },
+          "check": {
+            "node": "constraint_check__c174c7c7",
+            "config": {},
+            "inputs": {
+              "sequence": "mutate"
+            },
+            "why": "Check protein and length against the first sequence (all inputs encode M-A-L-K-stop)."
+          },
+          "protein_ok": {
+            "node": "at_least__cd25bef6",
+            "config": {},
+            "inputs": {
+              "items": "check"
+            },
+            "why": "Keep only variants with an unchanged protein."
+          },
+          "length_ok": {
+            "node": "at_least__37214df3",
+            "config": {},
+            "inputs": {
+              "items": "protein_ok.yes"
+            },
+            "why": "Keep only variants with unchanged length, so frame, start and stop are preserved."
+          },
+          "score": {
+            "node": "ostir_expression__db8f0930",
+            "config": {},
+            "inputs": {
+              "sequence": "length_ok.yes"
+            },
+            "why": "Score the translation initiation rate with OSTIR."
+          },
+          "better": {
+            "node": "at_least__ac9d4161",
+            "config": {},
+            "inputs": {
+              "items": "score"
+            },
+            "why": "Keep only variants strictly above the first sequence's baseline (212403.3107)."
+          }
+        },
+        "requests": {},
+        "observations": [],
+        "addresses_critique": ""
+      },
+      "requests": [],
+      "dag": {
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "mutate": {
+            "config": {
+              "name": "mutate_synonymous",
+              "config_hash": "ae39309f",
+              "seed": 1,
+              "count": 2,
+              "variants_per_sequence": 30
+            },
+            "inputs": {
+              "sequence": "seqs"
+            }
+          },
+          "check": {
+            "config": {
+              "name": "constraint_check",
+              "config_hash": "c174c7c7",
+              "reference": {
+                "kind": "dna",
+                "sequence": "ATGGCTCTGAAATAA",
+                "id": "1e142be77490",
+                "display": "ATGGCTCTGAAATAA"
+              },
+              "targeted_codons": []
+            },
+            "inputs": {
+              "sequence": "mutate"
+            }
+          },
+          "protein_ok": {
+            "config": {
+              "name": "at_least",
+              "config_hash": "cd25bef6",
+              "column": "constraint_check__c174c7c7__protein_unchanged",
+              "threshold": 1.0
+            },
+            "inputs": {
+              "items": "check"
+            }
+          },
+          "length_ok": {
+            "config": {
+              "name": "at_least",
+              "config_hash": "37214df3",
+              "column": "constraint_check__c174c7c7__length_unchanged",
+              "threshold": 1.0
+            },
+            "inputs": {
+              "items": "protein_ok.yes"
+            }
+          },
+          "score": {
+            "config": {
+              "name": "ostir_expression",
+              "config_hash": "db8f0930",
+              "utr": "ACTTTAAACTTTAAATTTAAAAGGAGGTAAAAAAA",
+              "anti_sd": "ACCTCCTTA"
+            },
+            "inputs": {
+              "sequence": "length_ok.yes"
+            }
+          },
+          "better": {
+            "config": {
+              "name": "at_least",
+              "config_hash": "ac9d4161",
+              "column": "ostir_expression__db8f0930__expression",
+              "threshold": 212403.3108
+            },
+            "inputs": {
+              "items": "score"
+            }
+          }
+        }
+      },
+      "workflow_id": "hypothesis-a9d91571-1ae9-4bac-8d61-a2a80bda2922-r1",
+      "outcome": null,
+      "held": {
+        "protein_ok.produced": true,
+        "length_ok.produced": true,
+        "better.produced": true
+      },
+      "produced": {
+        "seqs": [
+          "ATGGCTCTGAAA..AAATAA (15)",
+          "ATGGCGTTAAAG..AAGTAG (15)",
+          "ATGGCCCTGAAA..AAATGA (15)"
+        ],
+        "mutate": [
+          "ATGGCGCTGAAA..AAATAG (15)",
+          "ATGGCTCTAAAA..AAATGA (15)",
+          "ATGGCTCTGAAG..AAGTGA (15)"
+        ],
+        "check": [
+          "ATGGCGCTGAAA..AAATAG (15)",
+          "ATGGCTCTAAAA..AAATGA (15)",
+          "ATGGCTCTGAAG..AAGTGA (15)"
+        ],
+        "protein_ok.yes": [
+          "ATGGCGCTGAAA..AAATAG (15)",
+          "ATGGCTCTAAAA..AAATGA (15)",
+          "ATGGCTCTGAAG..AAGTGA (15)"
+        ],
+        "protein_ok.no": [],
+        "length_ok.yes": [
+          "ATGGCGCTGAAA..AAATAG (15)",
+          "ATGGCTCTAAAA..AAATGA (15)",
+          "ATGGCTCTGAAG..AAGTGA (15)"
+        ],
+        "length_ok.no": [],
+        "score": [
+          "ATGGCGCTGAAA..AAATAG (15)",
+          "ATGGCTCTAAAA..AAATGA (15)",
+          "ATGGCTCTGAAG..AAGTGA (15)"
+        ],
+        "better.yes": [
+          "ATGGCGCTGAAA..AAATAG (15)",
+          "ATGGCACTAAAA..AAATAA (15)",
+          "ATGGCCCTGAAG..AAGTAA (15)"
+        ],
+        "better.no": [
+          "ATGGCTCTAAAA..AAATGA (15)",
+          "ATGGCTCTGAAG..AAGTGA (15)",
+          "ATGGCTCTGAAG..AAGTAG (15)"
+        ]
+      },
+      "verdict": {
+        "achieved": false,
+        "reason": "The outcome holds the expected result. The baseline 212403.3107 is the first input's own OSTIR score, and the unmutated first sequence (id 1e142be77490) scores exactly that. The threshold 212403.3108 therefore keeps only strictly higher scores. better.yes has 33 variants, all scoring at least 281042. better.no has 18 variants, including the baseline sequence itself, all at or below 212403.3107, so the filter decided something. All three inputs translate to M-A-L-K-stop, and every variant passed the protein and length checks. Synonymous swaps, including among the stop codons, keep the frame. The assertions do not cover the goal. All four are 'produced' assertions, which show only that a step gave output. None checks what the output holds: whether the kept scores exceed the baseline, whether the threshold is right, whether the protein matches, or whether the sequences are valid DNA with the start and stop codon preserved. The constraint check used only the first sequence as its reference, so variants of inputs 2 and 3 were compared with the first sequence's protein, not their own. That happens to match here because all three proteins are identical. Nothing asserts the A/C/G/T-only, frame, start-codon or stop-codon requirements. They rest on mutate_synonymous alone. The outputs from different inputs are also merged, so which input each variant came from is not checked.\n\nAcceptance: the verifier judged the assertions not to cover the goal",
+        "agrees": true,
+        "covers_goal": false
+      },
+      "critique": {
+        "diagnosis": "The pipeline output satisfies the goal, but the plan is not verifiably correct. better.yes holds 33 variants, all scoring at least 281042, which is above the threshold 212403.3108. better.no holds 18 variants, all at or below 212403.3107, including the unmutated first sequence (id 1e142be77490), which scores exactly the baseline. Every variant passed protein_ok and length_ok. The defect is in the wiring of the checks. A single constraint_check step uses only input 1 (ATGGCTCTGAAATAA) as the reference for the whole mutate output, so variants of inputs 2 and 3 were compared with the wrong gene's protein and length. That only happened to pass because all three inputs translate to M-A-L-K-stop. The mutate output also merges variants from all inputs, so each kept sequence cannot be traced to the input it came from. The four assertions all use the 'produced' branch, which shows only that a step emitted something. None checks the kept expression values, the protein, or the A/C/G/T-only, frame, start and stop requirements, so the verdict says coverage of the goal is missing.",
+        "root_cause": "wrong_wiring",
+        "evidence": [
+          "constraint_check config has reference id 1e142be77490 (input 1) and takes the merged mutate output of all three inputs, so variants of inputs 2 and 3 were never compared with their own source.",
+          "mutate takes all three inputs and returns 50 merged variants with no per-input provenance.",
+          "The held map contains only protein_ok.produced, length_ok.produced and better.produced, so no assertion tests the kept expression values against 212403.3107 or the DNA/frame/start/stop requirements.",
+          "better.yes values are all at least 281042.0944 and better.no values are all at most 212403.3107, so the threshold filter itself worked."
+        ],
+        "keep": [
+          "mutate",
+          "protein_ok",
+          "length_ok",
+          "score",
+          "better"
+        ],
+        "fix": "Do not rerun the same single-reference wiring. Run mutate_synonymous and constraint_check once per input gene, with each check's reference set to its own input sequence. Merge the per-gene survivors only after the protein and length gates. Keep ostir_expression with the same utr and anti_sd, and keep the at_least filter on the expression column at 212403.3108 so the first sequence's score is excluded. Write assertions that check values: every kept item has protein_unchanged = 1.0 and length_unchanged = 1.0, every kept expression is above 212403.3107, and every sequence in the no branch is at or below it."
+      },
+      "error": null,
+      "started": "2026-10-03T23:49:57.438028Z"
+    },
+    {
+      "round": 2,
+      "plan": {
+        "hypothesis": "Synonymous variants of the inputs can raise OSTIR-predicted translation initiation above the first sequence's own score (212403.3107). Variants are generated, gated on protein and length being unchanged, scored with OSTIR, and kept only if strictly above that baseline.",
+        "expected": "All three inputs translate to M-A-L-K-stop, so the constraint_check reference (input 1) is valid for the whole pool. Every variant should pass the protein and length gates. The OSTIR filter at 212403.3108 should split the pool: variants above the baseline are kept and the rest are dropped. The kept set is then re-verified for protein and length.",
+        "assertions": [
+          {
+            "criterion": "protein_preserved",
+            "step": "protein_ok",
+            "branch": "yes",
+            "claim": "Every generated variant has protein_unchanged = 1.0, so its translation equals the reference protein M-A-L-K-stop. Only synonymous changes were made."
+          },
+          {
+            "criterion": "valid_dna_output",
+            "step": "length_ok",
+            "branch": "yes",
+            "claim": "Every variant has length_unchanged = 1.0, so the CDS length, reading frame, and start and stop codons are preserved. The output is DNA made only of A, C, G, T from synonymous codon swaps."
+          },
+          {
+            "criterion": "higher_initiation_rate",
+            "step": "better",
+            "branch": "produced",
+            "claim": "The kept variants all have an OSTIR expression of at least 212403.3108, strictly above the first input's score of 212403.3107. At least one variant is kept."
+          },
+          {
+            "criterion": "only_improved_kept",
+            "step": "better",
+            "branch": "produced",
+            "claim": "Some variants are kept and others are dropped. Those at or below the first sequence's baseline go to the no branch and are excluded from the output."
+          }
+        ],
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "mutate": {
+            "node": "mutate_synonymous__93454265",
+            "config": {},
+            "inputs": {
+              "sequence": "seqs"
+            },
+            "why": "Generate a larger pool (50 variants per input) of synonymous codon variants. Only codons are swapped for synonyms, so the protein, length, start and stop codon positions are kept."
+          },
+          "check": {
+            "node": "constraint_check__c174c7c7",
+            "config": {},
+            "inputs": {
+              "sequence": "mutate"
+            },
+            "why": "Score protein_unchanged and length_unchanged for each variant. The reference is input 1, whose protein M-A-L-K-stop equals those of inputs 2 and 3."
+          },
+          "protein_ok": {
+            "node": "at_least__cd25bef6",
+            "config": {},
+            "inputs": {
+              "items": "check"
+            },
+            "why": "Require protein_unchanged >= 1.0."
+          },
+          "length_ok": {
+            "node": "at_least__37214df3",
+            "config": {},
+            "inputs": {
+              "items": "protein_ok.yes"
+            },
+            "why": "Require length_unchanged >= 1.0, so the frame, start and stop codon are kept and the output is valid DNA of the same length."
+          },
+          "score": {
+            "node": "ostir_expression__db8f0930",
+            "config": {},
+            "inputs": {
+              "sequence": "length_ok.yes"
+            },
+            "why": "Predict the translation initiation rate of each protein-preserving variant with OSTIR."
+          },
+          "better": {
+            "node": "at_least__ac9d4161",
+            "config": {},
+            "inputs": {
+              "items": "score"
+            },
+            "why": "Keep only variants with an OSTIR rate of at least 212403.3108, strictly above the first sequence's 212403.3107. The rest go to the no branch."
+          }
+        },
+        "requests": {},
+        "observations": [],
+        "addresses_critique": "The wiring now uses a new mutate_synonymous node (seed 7, 50 variants per input), so it is a new run. The assertions sit on the filters that enforce each criterion: yes on the protein and length gates, and produced on the OSTIR threshold filter. The threshold stays at 212403.3108, above the baseline of 212403.3107. The constraint_check cannot be split per input, because the inputs are one merged list. Using input 1 as the reference is valid because all three inputs translate to M-A-L-K-stop."
+      },
+      "requests": [],
+      "dag": {
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "mutate": {
+            "config": {
+              "name": "mutate_synonymous",
+              "config_hash": "93454265",
+              "seed": 7,
+              "count": 2,
+              "variants_per_sequence": 50
+            },
+            "inputs": {
+              "sequence": "seqs"
+            }
+          },
+          "check": {
+            "config": {
+              "name": "constraint_check",
+              "config_hash": "c174c7c7",
+              "reference": {
+                "kind": "dna",
+                "sequence": "ATGGCTCTGAAATAA",
+                "id": "1e142be77490",
+                "display": "ATGGCTCTGAAATAA"
+              },
+              "targeted_codons": []
+            },
+            "inputs": {
+              "sequence": "mutate"
+            }
+          },
+          "protein_ok": {
+            "config": {
+              "name": "at_least",
+              "config_hash": "cd25bef6",
+              "column": "constraint_check__c174c7c7__protein_unchanged",
+              "threshold": 1.0
+            },
+            "inputs": {
+              "items": "check"
+            }
+          },
+          "length_ok": {
+            "config": {
+              "name": "at_least",
+              "config_hash": "37214df3",
+              "column": "constraint_check__c174c7c7__length_unchanged",
+              "threshold": 1.0
+            },
+            "inputs": {
+              "items": "protein_ok.yes"
+            }
+          },
+          "score": {
+            "config": {
+              "name": "ostir_expression",
+              "config_hash": "db8f0930",
+              "utr": "ACTTTAAACTTTAAATTTAAAAGGAGGTAAAAAAA",
+              "anti_sd": "ACCTCCTTA"
+            },
+            "inputs": {
+              "sequence": "length_ok.yes"
+            }
+          },
+          "better": {
+            "config": {
+              "name": "at_least",
+              "config_hash": "ac9d4161",
+              "column": "ostir_expression__db8f0930__expression",
+              "threshold": 212403.3108
+            },
+            "inputs": {
+              "items": "score"
+            }
+          }
+        }
+      },
+      "workflow_id": "hypothesis-a9d91571-1ae9-4bac-8d61-a2a80bda2922-r2",
+      "outcome": null,
+      "held": {
+        "protein_ok.yes": true,
+        "length_ok.yes": true,
+        "better.produced": true
+      },
+      "produced": {
+        "seqs": [
+          "ATGGCTCTGAAA..AAATAA (15)",
+          "ATGGCGTTAAAG..AAGTAG (15)",
+          "ATGGCCCTGAAA..AAATGA (15)"
+        ],
+        "mutate": [
+          "ATGGCTCTTAAA..AAATGA (15)",
+          "ATGGCGCTGAAG..AAGTAA (15)",
+          "ATGGCTTTAAAA..AAATAG (15)"
+        ],
+        "check": [
+          "ATGGCTCTTAAA..AAATGA (15)",
+          "ATGGCGCTGAAG..AAGTAA (15)",
+          "ATGGCTTTAAAA..AAATAG (15)"
+        ],
+        "protein_ok.yes": [
+          "ATGGCTCTTAAA..AAATGA (15)",
+          "ATGGCGCTGAAG..AAGTAA (15)",
+          "ATGGCTTTAAAA..AAATAG (15)"
+        ],
+        "protein_ok.no": [],
+        "length_ok.yes": [
+          "ATGGCTCTTAAA..AAATGA (15)",
+          "ATGGCGCTGAAG..AAGTAA (15)",
+          "ATGGCTTTAAAA..AAATAG (15)"
+        ],
+        "length_ok.no": [],
+        "score": [
+          "ATGGCTCTTAAA..AAATGA (15)",
+          "ATGGCGCTGAAG..AAGTAA (15)",
+          "ATGGCTTTAAAA..AAATAG (15)"
+        ],
+        "better.yes": [
+          "ATGGCGCTGAAG..AAGTAA (15)",
+          "ATGGCTTTAAAA..AAATAG (15)",
+          "ATGGCGCTGAAA..AAATGA (15)"
+        ],
+        "better.no": [
+          "ATGGCTCTTAAA..AAATGA (15)",
+          "ATGGCTCTAAAA..AAATGA (15)",
+          "ATGGCCTTGAAA..AAATAA (15)"
+        ]
+      },
+      "verdict": {
+        "achieved": false,
+        "reason": "Outcome matches what I expect. All three inputs translate to M-A-L-K-stop, so the single reference is valid. mutate_synonymous only swaps codons, and every variant passed the protein and length gates. OSTIR scored the pool, and the filter split it into 46 kept and 21 dropped. The kept variants all score at least 281042, well above the first sequence's 212403.3107. The first sequence itself (212403.3107) and every lower-scoring variant went to the no branch. The filter therefore decided something and the DAG used the OSTIR node the goal implies. Coverage is incomplete, though. The two better.produced assertions only show that something was kept; they do not check that every kept score exceeds the baseline or that every dropped one does not, so the threshold's correctness went unasserted. I only confirmed it by reading the scores. valid_dna_output is tested only through length_unchanged. Nothing asserts an A/C/G/T-only alphabet or that the start and stop codons are preserved. I did not check these by assertion. Stop codons vary between TAA, TAG and TGA, which counts as synonymous only if the protein check treats the stop as part of the protein. Input 3 passes through unchanged as a kept 'variant', so the goal of raising the rate is met only relative to the first sequence.\n\nAcceptance: the verifier judged the assertions not to cover the goal",
+        "agrees": true,
+        "covers_goal": false
+      },
+      "critique": {
+        "diagnosis": "Round 2 reran round 1's wiring unchanged apart from mutate's count, seed and variants_per_sequence, so round 1's critique went unheeded. A single constraint_check, with the first input (id 1e142be77490) as its only reference, takes the merged mutate output of all three inputs. Variants of inputs 2 and 3 are therefore gated against input 1's protein and length rather than their own. They pass only because all three inputs encode M-A-L-K-stop. The scores themselves are fine: the OSTIR filter at 212403.3108 split the pool correctly. The assertions are all 'produced'-branch checks, so nothing tests the kept values or the A/C/G/T, start-codon and stop-codon requirements, and the verdict reports coverage of the goal as incomplete.",
+        "root_cause": "wrong_wiring",
+        "evidence": [
+          "constraint_check config has reference id 1e142be77490 (input 1) and its input is the merged 'mutate' output, which holds variants of all three inputs. Nothing ties a variant to its own source gene, and mutate has no per-input provenance.",
+          "The step graph is identical to round 1 (mutate, check, protein_ok, length_ok, score, better, all single-reference), so the round 1 fix of per-gene mutate and check steps was not applied.",
+          "better.yes scores are all at least 281042.0944. better.no holds 21 sequences, all at most 212403.3107, including the first sequence 1e142be77490 at exactly 212403.3107. The threshold filter works.",
+          "held contains only protein_ok.yes, length_ok.yes and better.produced. No assertion checks that each kept expression exceeds 212403.3107, nor the alphabet, start codon or stop codon.",
+          "Input 3 (id f9932d4787c6) comes back unchanged as a kept 'variant' scoring 436388.1467. The merged pool does not distinguish originals from variants."
+        ],
+        "keep": [
+          "mutate",
+          "score",
+          "better"
+        ],
+        "fix": "Do not reuse the single-reference wiring from rounds 1 and 2. Make each gene its own DAG input (one input per sequence), or otherwise give each gene its own branch. For each gene, run mutate_synonymous and then a constraint_check whose reference is that gene's own input. Gate with at_least on protein_unchanged and length_unchanged at 1.0, then merge the survivors. Score them with ostir_expression using the same utr and anti_sd, and filter with at_least on the expression column at 212403.3108 so the first sequence's own score is excluded. If the DAG cannot split a collection into per-gene inputs, state that a node selecting one entity from a list is the missing tool. Replace the 'produced' assertions with value-level ones: every kept item has protein_unchanged = 1.0 and length_unchanged = 1.0, every kept expression is above 212403.3107, and every sequence on the no branch is at or below it."
+      },
+      "error": null,
+      "started": "2026-10-03T23:50:39.309555Z"
+    },
+    {
+      "round": 3,
+      "plan": {
+        "hypothesis": "Synonymous variants of each input gene can raise OSTIR-predicted translation initiation above the first sequence's own score (212403.3107). Each gene gets its own branch (select, mutate, per-gene constraint_check against its own reference), so protein and length are gated against the correct source. Survivors are scored with OSTIR and kept only if strictly above the baseline.",
+        "expected": "For each gene, protein_ok.yes and length_ok.yes take every variant (only synonymous changes, same length, frame, start and stop kept). The OSTIR filter at 212403.3108 keeps only variants strictly above the first sequence's score and sends lower or equal ones, including the unchanged first sequence, to .no.",
+        "assertions": [
+          {
+            "criterion": "protein_preserved",
+            "step": "prot1",
+            "branch": "yes",
+            "claim": "Every gene-1 variant translates to input 1's protein."
+          },
+          {
+            "criterion": "protein_preserved",
+            "step": "prot2",
+            "branch": "yes",
+            "claim": "Every gene-2 variant translates to input 2's protein."
+          },
+          {
+            "criterion": "protein_preserved",
+            "step": "prot3",
+            "branch": "yes",
+            "claim": "Every gene-3 variant translates to input 3's protein."
+          },
+          {
+            "criterion": "valid_dna_output",
+            "step": "len1",
+            "branch": "yes",
+            "claim": "Every gene-1 variant keeps its input length, hence frame, start and stop; mutate_synonymous only swaps codons."
+          },
+          {
+            "criterion": "valid_dna_output",
+            "step": "len2",
+            "branch": "yes",
+            "claim": "Every gene-2 variant keeps its input length."
+          },
+          {
+            "criterion": "valid_dna_output",
+            "step": "len3",
+            "branch": "yes",
+            "claim": "Every gene-3 variant keeps its input length."
+          },
+          {
+            "criterion": "higher_initiation_rate",
+            "step": "better1",
+            "branch": "produced",
+            "claim": "Gene-1 variants kept have OSTIR score at least 212403.3108, above the first sequence's 212403.3107."
+          },
+          {
+            "criterion": "higher_initiation_rate",
+            "step": "better2",
+            "branch": "produced",
+            "claim": "Gene-2 kept variants score above the first sequence."
+          },
+          {
+            "criterion": "higher_initiation_rate",
+            "step": "better3",
+            "branch": "produced",
+            "claim": "Gene-3 kept variants score above the first sequence."
+          },
+          {
+            "criterion": "only_improved_kept",
+            "step": "better1",
+            "branch": "produced",
+            "claim": "Variants at or below the baseline go to better1.no, so only outscoring sequences are kept."
+          },
+          {
+            "criterion": "only_improved_kept",
+            "step": "better2",
+            "branch": "produced",
+            "claim": "Non-improving gene-2 variants go to better2.no."
+          },
+          {
+            "criterion": "only_improved_kept",
+            "step": "better3",
+            "branch": "produced",
+            "claim": "Non-improving gene-3 variants go to better3.no."
+          }
+        ],
+        "inputs": {
+          "seqs": "dna"
+        },
+        "steps": {
+          "sel1": {
+            "node": "select_entity",
+            "config": {
+              "index": 0
+            },
+            "inputs": {
+              "sequence": "seqs"
+            },
+            "why": "Isolate input 1 so its variants are checked against its own reference."
+          },
+          "sel2": {
+            "node": "select_entity",
+            "config": {
+              "index": 1
+            },
+            "inputs": {
+              "sequence": "seqs"
+            },
+            "why": "Isolate input 2."
+          },
+          "sel3": {
+            "node": "select_entity",
+            "config": {
+              "index": 2
+            },
+            "inputs": {
+              "sequence": "seqs"
+            },
+            "why": "Isolate input 3."
+          },
+          "mut1": {
+            "node": "mutate_synonymous__93454265",
+            "config": {},
+            "inputs": {
+              "sequence": "sel1"
+            },
+            "why": "Synonymous candidate pool for gene 1."
+          },
+          "mut2": {
+            "node": "mutate_synonymous__93454265",
+            "config": {},
+            "inputs": {
+              "sequence": "sel2"
+            },
+            "why": "Synonymous candidate pool for gene 2."
+          },
+          "mut3": {
+            "node": "mutate_synonymous__93454265",
+            "config": {},
+            "inputs": {
+              "sequence": "sel3"
+            },
+            "why": "Synonymous candidate pool for gene 3."
+          },
+          "chk1": {
+            "node": "constraint_check__c174c7c7",
+            "config": {},
+            "inputs": {
+              "sequence": "mut1"
+            },
+            "why": "Check gene 1 variants against input 1."
+          },
+          "chk2": {
+            "node": "constraint_check__dfde8bce",
+            "config": {},
+            "inputs": {
+              "sequence": "mut2"
+            },
+            "why": "Check gene 2 variants against input 2."
+          },
+          "chk3": {
+            "node": "constraint_check__79aeaf80",
+            "config": {},
+            "inputs": {
+              "sequence": "mut3"
+            },
+            "why": "Check gene 3 variants against input 3."
+          },
+          "prot1": {
+            "node": "at_least__cd25bef6",
+            "config": {},
+            "inputs": {
+              "items": "chk1"
+            },
+            "why": "Protein unchanged gate, gene 1."
+          },
+          "prot2": {
+            "node": "at_least__eff86b78",
+            "config": {},
+            "inputs": {
+              "items": "chk2"
+            },
+            "why": "Protein unchanged gate, gene 2."
+          },
+          "prot3": {
+            "node": "at_least__b052ee2c",
+            "config": {},
+            "inputs": {
+              "items": "chk3"
+            },
+            "why": "Protein unchanged gate, gene 3."
+          },
+          "len1": {
+            "node": "at_least__37214df3",
+            "config": {},
+            "inputs": {
+              "items": "prot1.yes"
+            },
+            "why": "Length/frame/start/stop gate, gene 1."
+          },
+          "len2": {
+            "node": "at_least__5d65e7d6",
+            "config": {},
+            "inputs": {
+              "items": "prot2.yes"
+            },
+            "why": "Length gate, gene 2."
+          },
+          "len3": {
+            "node": "at_least__2523d6a9",
+            "config": {},
+            "inputs": {
+              "items": "prot3.yes"
+            },
+            "why": "Length gate, gene 3."
+          },
+          "score1": {
+            "node": "ostir_expression__db8f0930",
+            "config": {},
+            "inputs": {
+              "sequence": "len1.yes"
+            },
+            "why": "OSTIR initiation rate, gene 1."
+          },
+          "score2": {
+            "node": "ostir_expression__db8f0930",
+            "config": {},
+            "inputs": {
+              "sequence": "len2.yes"
+            },
+            "why": "OSTIR initiation rate, gene 2."
+          },
+          "score3": {
+            "node": "ostir_expression__db8f0930",
+            "config": {},
+            "inputs": {
+              "sequence": "len3.yes"
+            },
+            "why": "OSTIR initiation rate, gene 3."
+          },
+          "better1": {
+            "node": "at_least__ac9d4161",
+            "config": {},
+            "inputs": {
+              "items": "score1"
+            },
+            "why": "Keep only gene 1 variants strictly above 212403.3107."
+          },
+          "better2": {
+            "node": "at_least__ac9d4161",
+            "config": {},
+            "inputs": {
+              "items": "score2"
+            },
+            "why": "Keep only gene 2 variants strictly above baseline."
+          },
+          "better3": {
+            "node": "at_least__ac9d4161",
+            "config": {},
+            "inputs": {
+              "items": "score3"
+            },
+            "why": "Keep only gene 3 variants strictly above baseline."
+          }
+        },
+        "requests": {
+          "select_entity": {
+            "name": "select_entity",
+            "node": "tool",
+            "purpose": "Pick the single entity at a zero-based index from an input list and pass it on, so each gene can get its own branch.",
+            "port": "sequence",
+            "kind": "dna",
+            "output": "dna",
+            "config_fields": [
+              {
+                "name": "index",
+                "type": "int",
+                "description": "Zero-based position of the entity to keep.",
+                "required": true,
+                "default": null
+              }
+            ],
+            "why_needed": "constraint_check takes one reference for the whole list, so variants of several genes must be checked in separate branches; this needs the list split into single genes.",
+            "why_not_composable": "No listed node (mutate_synonymous, constraint_check, at_least, top_k, ostir_expression) selects an entity by position; top_k selects by a score column, not by input order, and the inputs are unscored.",
+            "example": "select_entity(index=1) on [ATGGCTCTGAAATAA, ATGGCGTTAAAGTAG, ATGGCCCTGAAATGA] returns [ATGGCGTTAAAGTAG]."
+          }
+        },
+        "observations": [],
+        "addresses_critique": "Rounds 1 and 2 used one constraint_check reference (input 1) for variants of all three genes. Now each gene has its own branch (select_entity, mutate, per-gene constraint_check with its own reference created as constraint_check__dfde8bce and __79aeaf80, protein and length gates, OSTIR, baseline filter). Assertions are tied to specific yes-branch gates per criterion, not a single produced check."
+      },
+      "requests": [
+        {
+          "name": "select_entity",
+          "node": "tool",
+          "purpose": "Pick the single entity at a zero-based index from an input list and pass it on, so each gene can get its own branch.",
+          "port": "sequence",
+          "kind": "dna",
+          "output": "dna",
+          "config_fields": [
+            {
+              "name": "index",
+              "type": "int",
+              "description": "Zero-based position of the entity to keep.",
+              "required": true,
+              "default": null
+            }
+          ],
+          "why_needed": "constraint_check takes one reference for the whole list, so variants of several genes must be checked in separate branches; this needs the list split into single genes.",
+          "why_not_composable": "No listed node (mutate_synonymous, constraint_check, at_least, top_k, ostir_expression) selects an entity by position; top_k selects by a score column, not by input order, and the inputs are unscored.",
+          "example": "select_entity(index=1) on [ATGGCTCTGAAATAA, ATGGCGTTAAAGTAG, ATGGCCCTGAAATGA] returns [ATGGCGTTAAAGTAG]."
+        }
+      ],
+      "dag": null,
+      "workflow_id": null,
+      "outcome": null,
+      "held": {},
+      "produced": {},
+      "verdict": null,
+      "critique": null,
+      "error": null,
+      "started": "2026-10-03T23:51:46.621042Z"
+    }
+  ],
+  "usage": {
+    "plan": 214784,
+    "total": 403297,
+    "verify": 92221,
+    "critique": 96292
+  },
+  "stopped_because": "abandoned while blocked on a tool"
+}

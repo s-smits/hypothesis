@@ -1,0 +1,137 @@
+"""Per-gene table over ALL development genes, from recorded bytes only. No model, no network.
+
+For every saved run in <results>/hypotheses it finds the dev gene by its input sequence (an explicit
+instance-to-result mapping, not an id), runs bench_score.py on every run that ended, and prints one row per
+dev gene in pack.json. The denominator is every dev gene: a gene that never ran, or whose run did not end
+`achieved`, counts as not achieved. It reads no held-out gene: pack.json holds development genes only, and a
+run on any other sequence is listed as "not a dev gene" without scoring it.
+
+Columns (the round the run ENDED on, i.e. what it delivered):
+  end        the loop's own end state; `never ran` or `open` count as not achieved
+  kept       entities in the smallest non-empty `.yes` table of that round's workflow
+  not_better kept entities that fail the protein gate or do not beat the original
+  gap        best gap_closed of that round, by the benchmark's own gate and objective (1.0 = the optimum)
+  gap_any    best gap_closed over every round (shows a loop that left a good candidate behind)
+  ok         achieved AND kept >= 1 AND not_better == 0 AND gap > 0: the verdict holds under the benchmark's gate
+
+Usage: score_all.py <results dir> <pack.json> <bench_score.py> <out dir>
+"""
+
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+DONE = {"achieved", "not achieved", "abandoned", "failed"}
+results, pack_path, scorer, out = (Path(a) for a in sys.argv[1:5])
+pack = json.loads(pack_path.read_text())
+by_seq = {seq: gene for gene, seq in pack["dev"].items()}
+out.mkdir(parents=True, exist_ok=True)
+
+# 1. every saved run, tied to a dev gene by its input sequence
+runs: dict[str, list[dict]] = {g: [] for g in pack["dev"]}
+other = 0
+for f in sorted((results / "hypotheses").glob("*.json"), key=lambda p: p.stat().st_mtime):
+    try:
+        h = json.loads(f.read_text())
+    except (OSError, ValueError):
+        print(f"unreadable run file {f.name}: left out", file=sys.stderr)
+        continue
+    seqs = ((h.get("inputs") or {}).get("seqs")) or []
+    gene = by_seq.get(seqs[0].get("sequence")) if len(seqs) == 1 else None
+    if gene is None:
+        other += 1
+        continue
+    runs[gene].append(
+        {
+            "id": h["id"],
+            "state": h.get("state") or "open",
+            "tokens": int((h.get("usage") or {}).get("total") or 0),
+            "rounds": len(h.get("attempts") or []),
+        }
+    )
+
+# 2. bench_score.py on every run that ended
+for gene, rs in runs.items():
+    for r in rs:
+        r["scored"] = None
+        if r["state"] not in DONE:
+            r["state"] = f"open ({r['state']})"
+            continue
+        p = subprocess.run(
+            [sys.executable, str(scorer), str(results), r["id"], gene, str(pack_path)],
+            capture_output=True, text=True,
+        )
+        (out / f"bench_score_{gene}_{r['id'][11:19]}.txt").write_text(p.stdout + p.stderr)
+        last = [ln for ln in p.stdout.splitlines() if ln.startswith("@@ ")]
+        if p.returncode == 0 and last:
+            r["scored"] = json.loads(last[-1][3:])["rounds"]
+        else:
+            r["error"] = (p.stderr.strip().splitlines() or ["no output"])[-1]
+
+
+def row(gene: str, r: dict | None) -> dict:
+    base = {"gene": gene, "codons": len(pack["dev"][gene]) // 3, "runs": 0}
+    if r is None:
+        return base | {"end": "never ran", "won": False, "rounds": 0, "tokens": 0, "kept": None, "not_better": None, "gap": None, "gap_any": None, "ok": False}
+    rounds = r["scored"] or []
+    final = rounds[-1] if rounds else None
+    gaps = [x["gap_closed"] for x in rounds if x["gap_closed"] is not None]
+    won = r["state"] == "achieved"
+    kept = final["kept"] if final else (0 if r["scored"] is not None else None)
+    nb = final["not_better"] if final else (0 if r["scored"] is not None else None)
+    gap = final["gap_closed"] if final else None
+    ok = bool(won and kept and nb == 0 and gap is not None and gap > 0)
+    return base | {
+        "end": r["state"] if "error" not in r else f"{r['state']} (score error)",
+        "won": won, "rounds": r["rounds"], "tokens": r["tokens"], "kept": kept,
+        "not_better": nb, "gap": gap, "gap_any": max(gaps) if gaps else None, "ok": ok,
+    }
+
+
+rows = []
+extra = []
+for gene in pack["dev"]:
+    rs = runs[gene]
+    latest = rs[-1] if rs else None
+    d = row(gene, latest)
+    d["runs"] = len(rs)
+    rows.append(d)
+    extra += [row(gene, r) | {"runs": "repeat"} for r in rs[:-1]]
+
+
+def cell(v: object, w: int, fmt: str = "") -> str:
+    s = "-" if v is None else (format(v, fmt) if fmt else str(v))
+    return s.rjust(w)
+
+
+head = f"{'gene':<6} {'codons':>6} {'runs':>6}  {'end':<22} {'won':>4} {'rnds':>4} {'tokens':>8} {'kept':>5} {'not_better':>10} {'gap':>7} {'gap_any':>8} {'ok':>3}"
+lines = [head, "-" * len(head)]
+for d in rows + extra:
+    lines.append(
+        f"{d['gene']:<6} {d['codons']:>6} {str(d['runs']):>6}  {d['end']:<22} {'yes' if d['won'] else 'no':>4} {d['rounds']:>4} {d['tokens']:>8} "
+        f"{cell(d['kept'], 5)} {cell(d['not_better'], 10)} {cell(d['gap'], 7, '.3f')} {cell(d['gap_any'], 8, '.3f')} {'yes' if d['ok'] else 'no':>3}"
+    )
+n = len(rows)
+won = sum(d["won"] for d in rows)
+ok = sum(d["ok"] for d in rows)
+ran = [d for d in rows if d["end"] != "never ran"]
+measured = [d["gap"] for d in rows if d["gap"] is not None]
+lines += [
+    "-" * len(head),
+    f"denominator: all {n} development genes; a gene that never ran or did not end achieved counts as not achieved",
+    f"achieved by the loop's own verdict : {won}/{n}",
+    f"verdict holds under the benchmark's gate (ok) : {ok}/{n}   (achieved but not ok: {won - ok})",
+    f"mean gap_closed over all {n} (a missing or unmeasured gap counts 0.0) : {sum(measured) / n:.3f}   ({len(measured)} of {n} had a measured gap)",
+    f"tokens: {sum(d['tokens'] for d in rows)} in total over {len(ran)} gene(s) that ran"
+    + (f", {sum(d['tokens'] for d in ran) // len(ran)} per run on average" if ran else ""),
+    f"never ran: {[d['gene'] for d in rows if d['end'] == 'never ran'] or 'none'}",
+]
+if other:
+    lines.append(f"{other} saved run(s) are not a dev gene (other inputs); left out and not scored")
+if extra:
+    lines.append("repeat rows are earlier runs on the same gene; the first row of a gene is its latest run and the one counted above")
+text = "\n".join(lines)
+print(text)
+(out / "scores.txt").write_text(text + "\n")
+(out / "scores.json").write_text(json.dumps({"rows": rows, "repeats": extra, "achieved": won, "ok": ok, "genes": n}, indent=1))

@@ -1,0 +1,83 @@
+{
+  "dag": {
+    "inputs": {
+      "seq": "dna"
+    },
+    "steps": {
+      "counted": {
+        "config": {
+          "name": "codon_count",
+          "config_hash": "e5280feb",
+          "codons": [
+            "TCG"
+          ]
+        },
+        "inputs": {
+          "sequence": "seq"
+        }
+      },
+      "small": {
+        "config": {
+          "name": "at_most",
+          "config_hash": "6c3827b5",
+          "column": "codon_count__e5280feb__count",
+          "threshold": 0.0
+        },
+        "inputs": {
+          "items": "counted"
+        }
+      }
+    }
+  },
+  "steps": {
+    "counted": "done",
+    "small": "done"
+  },
+  "values": {
+    "seq": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGTCGTAA",
+          "id": "ff8800faa8c2",
+          "display": "ATG TCG TAA"
+        }
+      ],
+      "scores": {}
+    },
+    "counted": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGTCGTAA",
+          "id": "ff8800faa8c2",
+          "display": "ATG TCG TAA"
+        }
+      ],
+      "scores": {
+        "codon_count__e5280feb__count": {
+          "ff8800faa8c2": 1.0
+        }
+      }
+    },
+    "small.yes": {
+      "items": [],
+      "scores": {}
+    },
+    "small.no": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGTCGTAA",
+          "id": "ff8800faa8c2",
+          "display": "ATG TCG TAA"
+        }
+      ],
+      "scores": {
+        "codon_count__e5280feb__count": {
+          "ff8800faa8c2": 1.0
+        }
+      }
+    }
+  }
+}

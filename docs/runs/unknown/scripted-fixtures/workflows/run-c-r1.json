@@ -1,0 +1,83 @@
+{
+  "dag": {
+    "inputs": {
+      "seq": "dna"
+    },
+    "steps": {
+      "counted": {
+        "config": {
+          "name": "codon_count",
+          "config_hash": "e5280feb",
+          "codons": [
+            "TCG"
+          ]
+        },
+        "inputs": {
+          "sequence": "seq"
+        }
+      },
+      "small": {
+        "config": {
+          "name": "at_most",
+          "config_hash": "6c3827b5",
+          "column": "codon_count__e5280feb__count",
+          "threshold": 0.0
+        },
+        "inputs": {
+          "items": "counted"
+        }
+      }
+    }
+  },
+  "steps": {
+    "counted": "done",
+    "small": "done"
+  },
+  "values": {
+    "seq": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGTCTTAA",
+          "id": "dfc2656f0476",
+          "display": "ATGTCTTAA"
+        }
+      ],
+      "scores": {}
+    },
+    "counted": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGTCTTAA",
+          "id": "dfc2656f0476",
+          "display": "ATGTCTTAA"
+        }
+      ],
+      "scores": {
+        "codon_count__e5280feb__count": {
+          "dfc2656f0476": 0.0
+        }
+      }
+    },
+    "small.yes": {
+      "items": [
+        {
+          "kind": "dna",
+          "sequence": "ATGTCTTAA",
+          "id": "dfc2656f0476",
+          "display": "ATGTCTTAA"
+        }
+      ],
+      "scores": {
+        "codon_count__e5280feb__count": {
+          "dfc2656f0476": 0.0
+        }
+      }
+    },
+    "small.no": {
+      "items": [],
+      "scores": {}
+    }
+  }
+}

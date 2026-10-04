@@ -1,0 +1,7 @@
+2026-10-03 22:43:59 arm A run 1 opened (spent so far 0)
+2026-10-03 22:46:21 arm A run 1 ended rc=0
+2026-10-03 22:46:21 arm A run 2 opened (spent so far 589145)
+2026-10-03 22:48:52 arm A run 2 ended rc=0
+2026-10-03 22:48:52 arm A run 3 opened (spent so far 1374406)
+2026-10-03 22:50:46 arm A run 3 ended rc=0
+2026-10-03 22:50:46 arm A lane finished

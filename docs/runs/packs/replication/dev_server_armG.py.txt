@@ -1,0 +1,13 @@
+import asyncio
+import sys
+
+from temporalio.testing import WorkflowEnvironment
+
+
+async def main(port: int) -> None:
+    env = await WorkflowEnvironment.start_local(port=port, ui=False)  # Keep it: a dropped env stops the server.
+    print("temporal dev server on", env.client.service_client.config.target_host, flush=True)
+    await asyncio.Event().wait()
+
+
+asyncio.run(main(int(sys.argv[1])))
