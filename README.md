@@ -25,7 +25,7 @@ Every goal, and how many of its hypotheses met it:
 
 ![The goals list](docs/goals.png)
 
-Click a goal to list its hypotheses, then a hypothesis to see its DAG, outcome and
+Open a goal to list its hypotheses, then a hypothesis for its DAG, outcome and
 verdict:
 
 ![One hypothesis](docs/hypotheses.png)
@@ -157,14 +157,19 @@ not on load. The structures themselves come down with the run, so a run that fol
 lot of sequences makes for a big `progress` response.
 
 http://127.0.0.1:8000/hypotheses lists every goal with a count of its hypotheses by
-status. Click a goal to list its hypotheses, each with its status, a summary and its
-inputs. Click a hypothesis to see all of it: inputs, hypothesis, outcome, verdict, its
-DAG step by step, and a link to its run. It reads the files
+status. It is one page: open a goal to list its hypotheses, each a line with its
+status and a summary, and open a hypothesis for the rest of it. What a hypothesis
+holds sits behind a section you open as you want it: the verdict and its reason, the
+plan, the observations it was built on, its DAG step by step, and the outcome, with a
+link to its run. Opening the Record under an observation fetches that Amass record,
+which is the only part of the page that leaves disk. It otherwise reads the files
 under `results/`, so it needs no worker.
 
-http://127.0.0.1:8000/new starts a hypothesis: enter a goal and, optionally, your own
-hypothesis for how to meet it. The page does not ask for inputs; the builder agent
-chooses them, so name the gene, organism or accession in the goal. The server then runs
+http://127.0.0.1:8000/new starts a hypothesis: enter a goal, and open a section for
+anything else you want to set — your own hypothesis for how to meet it, the success
+criteria, and the observations from the literature it should be built on. The page
+does not ask for inputs; the builder agent chooses them, so name the gene, organism
+or accession in the goal. The server then runs
 the builder agent, the DAG and the verifier in the background, and the page jumps to
 the hypothesis so you can watch it. This needs `--model` (and optionally
 `--verify-model`) on `run_ui`, and a worker running.

@@ -33,12 +33,17 @@ from temporal.run_hypothesis import (
     save_hypothesis,
 )
 from temporal.ui.app import (
+    CSS,
     HYPOTHESES,
+    INDEX,
     NEW,
+    NODES,
     NewDraft,
     NewHypothesis,
     make_app,
 )
+
+PAGES = (INDEX, HYPOTHESES, NEW, NODES)
 
 
 def _endpoint(path: str):
@@ -347,6 +352,49 @@ def test_the_new_page_edits_the_observations_it_gathers_before_a_run():
     # A summary is editable, and the record it cites is not re-typed by hand.
     assert "observationRow" in page
     assert "...r.obs" in page
+
+
+async def test_every_page_draws_from_one_stylesheet():
+    """One look, in one file: a page's own <style> adds to it, not a copy of it."""
+    served = await _endpoint("/ui.css")()
+    assert isinstance(served, FileResponse)
+    assert Path(served.path) == CSS
+    tokens = CSS.read_text()
+    for name in ("--bg:", "--running:", ".badge", "details.sec"):
+        assert name in tokens
+    for page in PAGES:
+        text = page.read_text()
+        assert text.count('<link rel="stylesheet" href="/ui.css">') == 1
+        # The palette is defined once, so the pages cannot drift apart.
+        assert "--bg:" not in text
+
+
+def test_the_hypotheses_page_opens_a_goal_and_a_hypothesis_in_place():
+    """One page: goals, their hypotheses and statuses, and detail behind a toggle."""
+    page = HYPOTHESES.read_text()
+    assert '<details class="goal"' in page
+    assert '<details class="hyp"' in page
+    for label in ("Success criteria", "Observations", "DAG", "Outcome"):
+        assert f'"{label}"' in page
+    # Opening something must survive the poll's redraw.
+    assert "open.add" in page and "open.has" in page
+    # No drill-down: nothing navigates away to a goal or hypothesis of its own.
+    assert "crumbs" not in page
+    assert "pushState" not in page
+
+
+def test_the_hypothesis_view_drops_the_inputs_and_the_observations_page():
+    """The builder's inputs are plumbing; the record stays, reachable where it is cited."""
+    page = HYPOTHESES.read_text()
+    assert "inputChips" not in page
+    assert "input_sources" not in page
+    for other in PAGES:
+        assert 'href="/observations' not in other.read_text()
+    with pytest.raises(StopIteration):
+        _endpoint("/observations")
+    # The record itself is still read, in the hypothesis that cites it.
+    assert "/api/observations/" in page
+    assert "loadRecord" in page
 
 
 def test_the_hypotheses_page_marks_each_criterion_with_the_critics_call():

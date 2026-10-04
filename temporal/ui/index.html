@@ -3,65 +3,39 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>node-dag runs</title>
+<title>Runs · node-dag</title>
 <script src="https://unpkg.com/@ebay/nice-dag-core@1.0.45/lib/index.umd.cjs"></script>
+<link rel="stylesheet" href="/ui.css">
 <style>
-  :root {
-    --bg: #f6f7f9; --panel: #fff; --text: #1d2330; --muted: #6b7280; --line: #e3e6eb;
-    --pending: #9ca3af; --running: #2563eb; --done: #16a34a; --skipped: #d1d5db; --failed: #dc2626;
-    --accent-bg: #eef2ff;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #11141a; --panel: #1a1e26; --text: #e5e7eb; --muted: #9ca3af; --line: #2b313c;
-      --pending: #6b7280; --running: #60a5fa; --done: #4ade80; --skipped: #3a404b; --failed: #f87171;
-      --accent-bg: #1f2740;
-    }
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; font: 14px/1.4 system-ui, sans-serif; background: var(--bg); color: var(--text); }
-  header { padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--panel); display: flex; align-items: baseline; gap: 12px; }
-  header h1 { font-size: 16px; margin: 0; }
-  header span { color: var(--muted); font-size: 12px; }
-  header nav { display: flex; gap: 12px; font-size: 13px; }
-  header nav a { color: var(--muted); text-decoration: none; }
-  header nav a.here { color: var(--text); font-weight: 600; }
-  main { display: grid; grid-template-columns: 300px minmax(0, 1fr); height: calc(100vh - 47px); }
+  main { display: grid; grid-template-columns: 280px minmax(0, 1fr); height: calc(100vh - 48px); max-width: none; margin: 0; padding: 0; }
   @media (max-width: 760px) { main { grid-template-columns: minmax(0, 1fr); height: auto; } #runs { max-height: 40vh; } }
   #runs { border-right: 1px solid var(--line); background: var(--panel); overflow-y: auto; }
   .run { padding: 10px 16px; border-bottom: 1px solid var(--line); cursor: pointer; }
-  .run:hover { background: var(--bg); }
-  .run.selected { background: var(--accent-bg); }
+  .run:hover { background: var(--accent-bg); }
+  .run.selected { background: var(--accent-bg); box-shadow: inset 2px 0 var(--running); }
   .run .id { font-family: ui-monospace, monospace; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .run .meta { display: flex; justify-content: space-between; margin-top: 4px; color: var(--muted); font-size: 12px; }
-  .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; color: #fff; text-transform: lowercase; }
-  .s-RUNNING, .s-running { background: var(--running); }
-  .s-COMPLETED, .s-done { background: var(--done); }
-  .s-FAILED, .s-TERMINATED, .s-TIMED_OUT, .s-CANCELED, .s-failed { background: var(--failed); }
-  .s-pending { background: var(--pending); }
-  .s-skipped { background: var(--skipped); color: var(--muted); }
-  .s-kept { background: var(--done); }
-  .s-out { background: var(--failed); }
-  #detail { overflow: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-  .empty { color: var(--muted); padding: 20px; }
+  .run .meta { display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px; }
+  .badge { text-transform: lowercase; }
+  #detail { overflow: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .empty { padding: 20px; }
   .summary { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .summary h2 { font: 600 15px ui-monospace, monospace; margin: 0; word-break: break-all; min-width: 0; }
-  .bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; display: flex; }
+  .summary h2 { font: 600 14px ui-monospace, monospace; margin: 0; word-break: break-all; min-width: 0; }
+  .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; display: flex; }
   .bar > div { height: 100%; transition: width .3s; }
   .counts { display: flex; gap: 14px; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
-  .counts i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+  .counts i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
   /* Somewhere to watch a step's work, e.g. its GPU run on Modal. */
   .links { display: flex; gap: 8px; flex-wrap: wrap; }
-  .links a { font-size: 12px; text-decoration: none; color: var(--running); border: 1px solid var(--running); border-radius: 10px; padding: 1px 10px; }
-  .links a:hover { background: var(--accent-bg); }
+  .links a { font-size: 12px; text-decoration: none; color: var(--running); border: 1px solid var(--line); border-radius: 10px; padding: 1px 10px; }
+  .links a:hover { border-color: var(--running); background: var(--accent-bg); }
   .links .step { font-family: ui-monospace, monospace; color: var(--muted); }
-  .error { background: color-mix(in srgb, var(--failed) 12%, transparent); border: 1px solid var(--failed); border-radius: 6px; padding: 8px 12px; font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; }
+  .error { border-left: 2px solid var(--failed); padding: 2px 0 2px 12px; font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; }
 
   /* The two views, and the toggle inside the node panel. */
-  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
-  .seg button { font: inherit; font-size: 13px; color: var(--muted); background: none; border: 0; padding: 4px 14px; cursor: pointer; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--panel); }
+  .seg button { font-size: 13px; color: var(--muted); border: 0; border-radius: 0; padding: 4px 14px; }
   .seg button + button { border-left: 1px solid var(--line); }
-  .seg button.on { background: var(--accent-bg); color: var(--text); font-weight: 600; }
+  .seg button.on { background: var(--accent-bg); color: var(--text); font-weight: 500; }
   #tabs { display: flex; align-items: center; gap: 12px; }
 
   /* The graph gets a fixed share of the screen, and the drawing is scaled to fit it. */
@@ -119,7 +93,7 @@
 <body>
 <header>
   <h1>node-dag</h1>
-  <nav><a href="/" class="here">Runs</a><a href="/hypotheses">Hypotheses</a><a href="/observations">Observations</a><a href="/new">New</a><a href="/nodes">Nodes</a></nav>
+  <nav><a href="/" class="here">Runs</a><a href="/hypotheses">Hypotheses</a><a href="/new">New</a><a href="/nodes">Nodes</a></nav>
   <span id="updated"></span>
 </header>
 <main>

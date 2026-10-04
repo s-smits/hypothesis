@@ -49,7 +49,7 @@ INDEX = Path(__file__).with_name("index.html")
 NEW = Path(__file__).with_name("new.html")
 HYPOTHESES = Path(__file__).with_name("hypotheses.html")
 NODES = Path(__file__).with_name("nodes.html")
-OBSERVATIONS = Path(__file__).with_name("observations.html")
+CSS = Path(__file__).with_name("ui.css")  # The look every page shares.
 
 HypothesisStatus = Literal[
     "building",
@@ -411,6 +411,10 @@ def make_app(
     async def index() -> FileResponse:
         return FileResponse(INDEX)
 
+    @app.get("/ui.css", include_in_schema=False)
+    async def stylesheet() -> FileResponse:
+        return FileResponse(CSS, media_type="text/css")
+
     @app.get("/hypotheses", include_in_schema=False)
     async def hypotheses_page() -> FileResponse:
         return FileResponse(HYPOTHESES)
@@ -433,10 +437,6 @@ def make_app(
     async def goals() -> list[Goal]:
         """Every goal with a saved Hypothesis, the most recently used first."""
         return _goals(_saved_rows())
-
-    @app.get("/observations", include_in_schema=False)
-    async def observations_page() -> FileResponse:
-        return FileResponse(OBSERVATIONS)
 
     @app.get("/api/observations/{core}/{amass_id}")
     async def observation(core: amass.Core, amass_id: str) -> ObservationDetail:

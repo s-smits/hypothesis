@@ -1,0 +1,123 @@
+/* The shared look of every page. Page-specific rules stay in that page's <style>. */
+:root {
+  --bg: #f7f8fa; --panel: #fff; --text: #16191f; --muted: #6b7280; --line: #e5e7eb;
+  --pending: #9ca3af; --running: #2563eb; --done: #16a34a; --skipped: #d1d5db;
+  --failed: #dc2626; --amber: #b45309; --accent-bg: #f1f4fb;
+  --radius: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216; --panel: #171a20; --text: #e7e9ee; --muted: #949aa5; --line: #262a32;
+    --pending: #6b7280; --running: #60a5fa; --done: #4ade80; --skipped: #353a44;
+    --failed: #f87171; --amber: #fbbf24; --accent-bg: #1b2029;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 14px/1.5 system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--running); }
+code, .mono { font-family: ui-monospace, SFMono-Regular, monospace; }
+
+/* Header: the product name, where you are, and when the page last updated. */
+header {
+  display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+  padding: 0 20px; height: 48px;
+  background: var(--panel); border-bottom: 1px solid var(--line);
+}
+header h1 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
+header nav { display: flex; gap: 18px; font-size: 13px; }
+header nav a { color: var(--muted); text-decoration: none; }
+header nav a:hover { color: var(--text); }
+header nav a.here { color: var(--text); font-weight: 500; }
+header #updated { margin-left: auto; color: var(--muted); font-size: 12px; }
+
+main { max-width: 900px; margin: 0 auto; padding: 24px 20px 64px; }
+
+/* Type scale. Three sizes, no more. */
+h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+h3 { margin: 0; font-size: 14px; font-weight: 600; }
+.label { color: var(--muted); font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; }
+.meta { color: var(--muted); font-size: 12px; }
+.empty { color: var(--muted); padding: 32px 0; }
+
+/* An expandable section: a one-line summary, and the detail behind it. Everything
+   below the top-level facts on a page lives in one of these. */
+details.sec { border-top: 1px solid var(--line); }
+details.sec > summary {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 10px 0; cursor: pointer; list-style: none;
+  color: var(--muted); font-size: 12px; font-weight: 500;
+  letter-spacing: .06em; text-transform: uppercase;
+}
+details.sec > summary::-webkit-details-marker { display: none; }
+details.sec > summary::before {
+  content: "›"; display: inline-block; width: 10px;
+  font-size: 14px; line-height: 1; transition: transform .15s;
+}
+details.sec[open] > summary::before { transform: rotate(90deg); }
+details.sec > summary:hover { color: var(--text); }
+details.sec > summary .count { text-transform: none; letter-spacing: 0; opacity: .8; }
+details.sec > .body { padding: 0 0 14px 18px; display: flex; flex-direction: column; gap: 10px; }
+
+/* Status. One vocabulary across runs, hypotheses and steps. */
+.badge {
+  display: inline-block; padding: 1px 8px; border-radius: 10px;
+  font-size: 11px; font-weight: 600; line-height: 1.6; white-space: nowrap; color: #fff;
+}
+.s-pending, .s-building { background: var(--pending); }
+.s-RUNNING, .s-running, .s-verifying { background: var(--running); }
+.s-COMPLETED, .s-done, .s-achieved, .s-kept, .s-met { background: var(--done); }
+.s-not-achieved, .s-not-met, .s-out { background: var(--amber); }
+.s-FAILED, .s-TERMINATED, .s-TIMED_OUT, .s-CANCELED, .s-failed { background: var(--failed); }
+.s-interrupted { background: var(--muted); }
+.s-skipped, .s-unclear { background: var(--skipped); color: var(--muted); }
+
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+  font: 12px/1.6 ui-monospace, monospace; padding: 1px 8px;
+  background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius);
+}
+
+.card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 14px 16px; min-width: 0;
+}
+
+/* A list of things you can open. */
+.rows { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.rows > * + * { border-top: 1px solid var(--line); }
+
+table { border-collapse: collapse; width: 100%; }
+th, td { text-align: left; padding: 6px 12px 6px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-size: 12px; font-weight: 500; }
+tr:last-child td { border-bottom: 0; }
+td code { font-size: 12px; }
+.scroll { overflow-x: auto; }
+
+button, .button {
+  font: inherit; font-size: 13px; color: var(--text); background: var(--panel);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 4px 12px; cursor: pointer;
+}
+button:hover { border-color: var(--muted); }
+button:disabled { opacity: .55; cursor: default; }
+button.primary { background: var(--running); border-color: var(--running); color: #fff; font-weight: 500; }
+button.quiet { border-color: transparent; color: var(--muted); padding: 2px 8px; }
+
+input, select, textarea {
+  font: inherit; color: inherit; background: var(--bg);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 6px 9px; min-width: 0;
+}
+textarea { width: 100%; resize: vertical; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-bg); border-color: var(--running); }
+
+/* A block that explains itself: a verdict, or why something stopped. */
+.note { border-left: 2px solid var(--line); padding: 2px 0 2px 12px; }
+.note.yes { border-color: var(--done); }
+.note.no { border-color: var(--amber); }
+.note.error { border-color: var(--failed); white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 12px; }

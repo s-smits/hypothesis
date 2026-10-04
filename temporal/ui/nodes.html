@@ -3,68 +3,47 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>node-dag nodes</title>
+<title>Nodes · node-dag</title>
+<link rel="stylesheet" href="/ui.css">
 <style>
-  :root {
-    --bg: #f6f7f9; --panel: #fff; --text: #1d2330; --muted: #6b7280; --line: #e3e6eb;
-    --running: #2563eb; --done: #16a34a; --amber: #d97706; --accent-bg: #eef2ff;
+  .bar { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .bar input { flex: 1 1 240px; background: var(--panel); }
+  .node > summary {
+    display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 2px 10px;
+    align-items: baseline; padding: 12px 16px; cursor: pointer; list-style: none;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #11141a; --panel: #1a1e26; --text: #e5e7eb; --muted: #9ca3af; --line: #2b313c;
-      --running: #60a5fa; --done: #4ade80; --amber: #fbbf24; --accent-bg: #1f2740;
-    }
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; font: 14px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--text); }
-  header { padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--panel); display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
-  header h1 { font-size: 16px; margin: 0; }
-  header nav { display: flex; gap: 12px; font-size: 13px; }
-  header nav a { color: var(--muted); text-decoration: none; }
-  header nav a.here { color: var(--text); font-weight: 600; }
-  header #updated { color: var(--muted); font-size: 12px; margin-left: auto; }
-  main { max-width: 980px; margin: 0 auto; padding: 20px 16px; display: flex; flex-direction: column; gap: 14px; }
-  .bar { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; color: var(--muted); font-size: 12px; }
-  .bar input { flex: 1 1 240px; font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; min-width: 0; }
-  #list { display: flex; flex-direction: column; gap: 14px; }
-  .empty { color: var(--muted); padding: 20px 0; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-  .top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-  .name { font-weight: 600; font-size: 15px; }
-  .desc { white-space: pre-wrap; }
-  .id { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); word-break: break-all; }
-  .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
-  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 20px; }
-  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
-  .chip { font: 12px ui-monospace, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 1px 8px; word-break: break-all; }
+  .node > summary::-webkit-details-marker { display: none; }
+  .node > summary:hover { background: var(--accent-bg); }
+  .node > summary::before { content: "›"; color: var(--muted); font-size: 15px; line-height: 1; transition: transform .15s; }
+  .node[open] > summary::before { transform: rotate(90deg); }
+  .node .name { font-weight: 600; }
+  .node > summary .desc { grid-column: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .node > .body { padding: 6px 16px 16px 40px; display: flex; flex-direction: column; gap: 12px; }
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px 20px; }
   .cat { font-size: 11px; font-weight: 600; color: #fff; background: var(--running); border-radius: 10px; padding: 1px 8px; }
   .cat.scoring { background: var(--done); }
   .cat.filter { background: var(--amber); }
-  table { border-collapse: collapse; width: 100%; }
-  th, td { text-align: left; padding: 5px 10px 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { color: var(--muted); font-weight: 500; font-size: 12px; }
-  td code { font-size: 12px; word-break: break-all; }
-  details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
-  pre { margin: 6px 0 0; padding: 8px 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; font-size: 12px; }
+  pre { margin: 0; padding: 8px 10px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); overflow-x: auto; font-size: 12px; }
 </style>
 </head>
 <body>
 <header>
   <h1>node-dag</h1>
-  <nav><a href="/">Runs</a><a href="/hypotheses">Hypotheses</a><a href="/observations">Observations</a><a href="/new">New</a><a href="/nodes" class="here">Nodes</a></nav>
+  <nav><a href="/">Runs</a><a href="/hypotheses">Hypotheses</a><a href="/new">New</a><a href="/nodes" class="here">Nodes</a></nav>
   <span id="updated"></span>
 </header>
 <main>
   <div class="bar">
-    <span id="count"></span>
+    <span class="meta" id="count"></span>
     <input id="search" type="search" placeholder="Filter by name, description, score column…" autocomplete="off">
   </div>
   <div id="list"><div class="empty">Loading…</div></div>
 </main>
 <script>
 const POLL_MS = 3000;
-let nodes = null;   // The last /api/nodes response.
-let last = "";      // What was last drawn, to redraw only on change.
+let nodes = null;        // The last /api/nodes response.
+let last = "";           // What was last drawn, to redraw only on change.
+const open = new Set();  // Which nodes the user has opened.
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -73,31 +52,31 @@ const chip = (s) => `<span class="chip">${esc(s)}</span>`;
 // Everything a search should match on one node.
 const haystack = (n) => [n.node, n.description, n.filters_on, ...Object.values(n.score_columns ?? {})].join(" ").toLowerCase();
 
+// Name and description on the line; ports, score columns and config behind it.
 function card(n) {
   const cols = Object.entries(n.score_columns ?? {});
   return `
-    <div class="card">
-      <div class="top">
+    <details class="node" data-key="${esc(n.node)}"${open.has(n.node) ? " open" : ""}>
+      <summary>
         <span class="name">${esc(n.config.name)}</span>
-        ${chip(n.config.config_hash)}
-        ${n.categories.map((c) => `<span class="cat ${esc(c)}">${esc(c)}</span>`).join("")}
+        <span class="chips">${n.categories.map((c) => `<span class="cat ${esc(c)}">${esc(c)}</span>`).join("")}</span>
+        <span class="desc meta">${esc(n.description)}</span>
+      </summary>
+      <div class="body">
+        <div class="meta mono">${esc(n.node)}</div>
+        <div class="cols">
+          <div><div class="label">Input</div><div class="chips">${Object.entries(n.input).map(([port, kind]) => chip(`${port}: ${kind}`)).join("")}</div></div>
+          <div><div class="label">Outputs</div><div class="chips">${Object.entries(n.outputs).map(([src, kind]) => chip(`${src}: ${kind}`)).join("")}</div></div>
+          ${n.filters_on ? `<div><div class="label">Filters on</div><div class="chips">${chip(n.filters_on)}</div></div>` : ""}
+        </div>
+        ${cols.length ? `
+          <div>
+            <div class="label">Score columns</div>
+            <table><tbody>${cols.map(([name, col]) => `<tr><td>${esc(name)}</td><td><code>${esc(col)}</code></td></tr>`).join("")}</tbody></table>
+          </div>` : ""}
+        <div><div class="label" style="margin-bottom:4px">Config</div><pre>${esc(JSON.stringify(n.config, null, 2))}</pre></div>
       </div>
-      <div class="desc">${esc(n.description)}</div>
-      <div class="id">${esc(n.node)}</div>
-      <div class="cols">
-        <div><div class="label">Input</div><div class="chips">${Object.entries(n.input).map(([port, kind]) => chip(`${port}: ${kind}`)).join("")}</div></div>
-        <div><div class="label">Outputs</div><div class="chips">${Object.entries(n.outputs).map(([src, kind]) => chip(`${src}: ${kind}`)).join("")}</div></div>
-        ${n.filters_on ? `<div><div class="label">Filters on</div><div class="chips">${chip(n.filters_on)}</div></div>` : ""}
-      </div>
-      ${cols.length ? `
-        <div>
-          <div class="label">Score columns</div>
-          <table><thead><tr><th>Score</th><th>Column</th></tr></thead>
-            <tbody>${cols.map(([name, col]) => `<tr><td>${esc(name)}</td><td><code>${esc(col)}</code></td></tr>`).join("")}</tbody>
-          </table>
-        </div>` : ""}
-      <details><summary>Config</summary><pre>${esc(JSON.stringify(n.config, null, 2))}</pre></details>
-    </div>`;
+    </details>`;
 }
 
 function draw() {
@@ -107,16 +86,18 @@ function draw() {
   $("#count").innerHTML = `<b>${shown.length}</b> of ${nodes.length} registered ${nodes.length === 1 ? "node" : "nodes"}`;
   const html = !nodes.length
     ? `<div class="empty">No nodes yet. A builder agent registers each node it makes while it works on a hypothesis.</div>`
-    : shown.length ? shown.map(card).join("") : `<div class="empty">Nothing matches “${esc(q)}”.</div>`;
+    : shown.length ? `<div class="rows">${shown.map(card).join("")}</div>` : `<div class="empty">Nothing matches “${esc(q)}”.</div>`;
   if (html === last) return;
-  // Redrawing closes any open Config, so keep the ones that were open.
-  const open = new Set([...document.querySelectorAll("#list .card")].filter((c) => c.querySelector("details").open).map((c) => c.querySelector(".id").textContent));
   last = html;
   $("#list").innerHTML = html;
-  for (const c of document.querySelectorAll("#list .card")) {
-    if (open.has(c.querySelector(".id").textContent)) c.querySelector("details").open = true;
-  }
 }
+
+// Remember what is open, so the poll's redraw does not close it.
+$("#list").addEventListener("toggle", (e) => {
+  const el = e.target;
+  if (!el.dataset.key) return;
+  el.open ? open.add(el.dataset.key) : open.delete(el.dataset.key);
+}, true);
 
 async function load() {
   try {
