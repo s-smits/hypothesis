@@ -41,6 +41,8 @@ from temporal.ui.app import (
 
 UI = Path(__file__).parent.parent / "temporal" / "ui"
 NEW, HYPOTHESES = UI / "new.html", UI / "hypotheses.html"
+CSS = UI / "ui.css"
+PAGES = (UI / "index.html", HYPOTHESES, NEW, UI / "nodes.html")
 
 
 class _Handle:
@@ -224,6 +226,62 @@ async def test_nodes_page_is_served_and_linked_from_every_page():
     assert "/api/nodes" in (ui / "nodes.html").read_text()
     for name in ("index", "hypotheses", "new", "nodes"):
         assert (ui / f"{name}.html").read_text().count('<a href="/nodes"') == 1
+
+
+async def test_every_page_draws_from_one_stylesheet():
+    """One look, in one file: a page's own <style> adds to it, not a copy of it."""
+    served = await _endpoint("/ui.css")()
+    assert isinstance(served, FileResponse)
+    assert Path(served.path) == CSS
+    tokens = CSS.read_text()
+    for name in ("--bg:", "--running:", ".badge", "details.sec"):
+        assert name in tokens
+    for page in PAGES:
+        text = page.read_text()
+        assert text.count('<link rel="stylesheet" href="/ui.css">') == 1
+        # The palette is defined once, so the pages cannot drift apart.
+        assert "--bg:" not in text
+
+
+def test_the_hypotheses_page_opens_a_goal_and_a_hypothesis_in_place():
+    """One page: goals, their hypotheses and statuses, and detail behind a toggle."""
+    page = HYPOTHESES.read_text()
+    assert '<details class="goal"' in page
+    assert '<details class="hyp"' in page
+    for label in ("Success criteria", "Rounds", "Observations", "DAG", "Outcome"):
+        assert f'"{label}"' in page
+    # Opening something must survive the poll's redraw.
+    assert "open.add" in page and "open.has" in page
+    # No drill-down: nothing navigates away to a goal or hypothesis of its own.
+    assert "crumbs" not in page
+    assert "pushState" not in page
+
+
+def test_a_blocked_run_still_offers_resume_and_abandon_on_the_one_page():
+    """The loop's own controls survive the move to sections; they are not folded away."""
+    page = HYPOTHESES.read_text()
+    assert "blockedView" in page and "requestView" in page
+    for s in ('button("tool_added", "Resume")', 'button("abandon", "Abandon")'):
+        assert s in page
+    assert 'data-signal="${signal}"' in page  # What those two buttons carry.
+    assert "/${b.dataset.signal}" in page  # Posted back to signal the workflow.
+    # blockedView is called directly, not through sec(), so a blocked run reads at a glance.
+    assert "${blockedView(h)}" in page
+    assert "sec(`${key}:blocked" not in page
+
+
+def test_the_hypothesis_view_drops_the_inputs_and_the_observations_page():
+    """The agent's inputs are plumbing; the record stays, reachable where it is cited."""
+    page = HYPOTHESES.read_text()
+    assert "inputChips" not in page
+    assert "input_sources" not in page
+    for other in PAGES:
+        assert 'href="/observations' not in other.read_text()
+    with pytest.raises(StopIteration):
+        _endpoint("/observations")
+    # The record itself is still read, in the hypothesis that cites it.
+    assert "/api/observations/" in page
+    assert "loadRecord" in page
 
 
 async def test_starting_without_max_rounds_is_accepted_and_blank_criteria_are_dropped():

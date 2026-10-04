@@ -85,7 +85,6 @@ string must be checked against the chosen provider. `temporal/run_hypothesis.py`
 | Area | Files to read first | Related tests |
 | --- | --- | --- |
 | Entities, DNA and tables | `src/node_dag/types.py`, `dna.py` | `tests/test_dna.py` |
-| Sequence lookup for inputs | `src/node_dag/entrez.py` | `tests/test_entrez.py` |
 | Node contracts and registration | `nodes/base.py`, `factory.py`, `registry.py` under `src/node_dag/` | `tests/test_dag.py`, `test_registry.py` |
 | DAG validation | `src/node_dag/dag.py` | `tests/test_dag.py`, `test_beats_reference.py` |
 | Execution, cache and progress | `temporal/dag/activities.py`, `workflow.py`, `src/node_dag/storage.py` | `tests/test_cache.py`, `test_dag.py` |
@@ -96,8 +95,8 @@ string must be checked against the chosen provider. `temporal/run_hypothesis.py`
 | Benchmark harness | `src/node_dag/benchmark.py`, `temporal/run_benchmark.py` | `tests/test_benchmark.py` |
 | UI and API | `temporal/ui/app.py`, adjacent HTML, `temporal/run_ui.py` | `tests/test_ui.py`, UI cases in `test_agent.py` |
 | Translation initiation prediction | `nodes/tools/ostir_expression/` under `src/node_dag/` | `tests/test_ostir.py` |
-| Sequence lookup for inputs | `src/node_dag/entrez.py` | `tests/test_entrez.py` |
 | Literature search and observations | `src/node_dag/amass.py` | `tests/test_amass.py` |
+| Benchmark gene set | `src/node_dag/genes.py`, `data/ecoli_k12_cds.json` | `tests/test_genes.py` |
 
 One round is `Hypothesis → build_agent → validated Dag → DagWorkflow → DagOutput →
 verify_agent`. The builder's `create_node` registers a **configuration of existing
@@ -108,8 +107,10 @@ research memory.
 The `/new` page takes a goal and its success criteria, each a row with a kind
 (quantitative or qualitative) and a claim: the user writes them, or `criteria_agent`
 drafts them through `POST /api/criteria` and the user edits the draft. It does not ask
-for inputs: the loop fetches them from NCBI before round 1, and `POST /api/hypotheses`
-still takes `inputs` from a caller who has them. The hypotheses page marks each
+for inputs: the loop takes them from the goal before round 1, and `POST /api/hypotheses`
+still takes `inputs` from a caller who has them. Nothing fetches an input: `add_input`
+accepts any entity kind in `TYPES` as an object, and an entity the model wrote out rather
+than was given is unverified. The hypotheses page marks each
 criterion met, not met or unclear from the assertions the plan set against it
 (`Attempt.held`), never from a model's call.
 `Hypothesis.observations` holds the literature the run is built on. The `/new` page
@@ -243,7 +244,7 @@ To read it: `jq -r '[.ended[:16], .hypothesis, .state, .rounds, .tokens, .summar
   `storage.write_atomic`. `$NODE_DAG_RESULTS` defaults to `results/`, containing
   `nodes/`, `workflows/`, `registry/`, `hypotheses/`, `requests/` and `trajectories/`,
   plus `ledger.jsonl`, `pulse.json`, `ledger/` (the benchmark's attempts, one file
-  each), `links/` (what nodes report) and the `entrez/` and `amass/` reply caches. It is
+  each), `links/` (what nodes report) and the `amass/` reply cache. It is
   local disk, so workers on different machines do not automatically share a cache.
 - A file that cannot be written must not change how a run ended. `save_workflow` gets
   three attempts, then the workflow logs the failure and the run still ends as it would
@@ -279,8 +280,9 @@ Automatic discovery must never import quarantine or unvalidated generated code.
 
 Apply these when implementing an experiment. A first deterministic harness exists
 (`src/node_dag/benchmark.py`, run by `temporal/run_benchmark.py`): genes picked
-deterministically from an NCBI record (`NC_000913.3` by default, fetched through `entrez`
-and cached), random, best-of-N, greedy and exact baselines, a development/held-out split
+deterministically from a committed gene set (`src/node_dag/data/ecoli_k12_cds.json`: 400
+real E. coli K-12 CDS from NC_000913.3, with their selection and a digest in the file's
+`provenance`), random, best-of-N, greedy and exact baselines, a development/held-out split
 and an append-only attempt ledger. It uses no model and runs no DAG, so a search built on
 it still has to meet these:
 

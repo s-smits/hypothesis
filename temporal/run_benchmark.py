@@ -2,8 +2,8 @@
 
 It sits with the other entry points for discoverability but runs nothing on Temporal:
 the comparison is deterministic and local, so there is no workflow, worker or server
-involved. It does reach NCBI through ``node_dag.entrez``, which caches under
-``$NODE_DAG_RESULTS/entrez``, so only the first run needs the network.
+involved, and it reaches no network: the genes come from a committed set, so the same
+command gives the same comparison. ``--genes`` runs it on another set.
 
 Development instances are scored by default. The held-out instances are reached only
 with ``--release-holdout``, which requires a reason and what was frozen beforehand, and
@@ -17,7 +17,7 @@ from pathlib import Path
 
 import click
 
-from node_dag import entrez
+from node_dag import genes
 from node_dag.agent import Hypothesis
 from node_dag.benchmark import (
     Instance,
@@ -171,9 +171,11 @@ def loop_line(rows: Sequence[Result]) -> str:
 
 @click.command()
 @click.option(
-    "--accession",
-    default="NC_000913.3",
-    help="NCBI record to take coding sequences from.",
+    "--genes",
+    "genes_path",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="Gene set JSON to compare on. Default: the committed E. coli K-12 set.",
 )
 @click.option(
     "--instances", "n_instances", default=10, help="How many genes to compare on."
@@ -213,7 +215,7 @@ def loop_line(rows: Sequence[Result]) -> str:
     help="Where to append the attempt. Default $NODE_DAG_RESULTS/ledger.",
 )
 def main(
-    accession: str,
+    genes_path: Path | None,
     n_instances: int,
     seed: int,
     draws: int,
@@ -225,19 +227,20 @@ def main(
     loop_results: Path | None,
     ledger_root: Path | None,
 ) -> None:
-    """Compare random, best-of-N, greedy and exact recoding on genes from ACCESSION."""
+    """Compare random, best-of-N, greedy and exact recoding on a committed gene set."""
     release, frozen_raw = release_holdout, frozen
 
     try:
-        records = [r for r in entrez.fetch_cds(accession) if r.get("usable")]
-    except entrez.EntrezError as e:
+        gene_set = genes.load(genes_path)
+    except genes.GeneSetError as e:
         raise click.ClickException(
-            f"Could not fetch {accession} from NCBI: {e}. The comparison needs a "
-            "reference set; nothing was recorded."
+            f"{e}. The comparison needs a reference set; nothing was recorded."
         ) from e
+    records = gene_set.cds
+    where = gene_set.provenance.get("accession", str(gene_set.path))
     if len(records) <= n_instances:
         raise click.ClickException(
-            f"{accession} has {len(records)} usable CDS, too few to both compare on "
+            f"{where} has {len(records)} CDS, too few to both compare on "
             f"{n_instances} and derive weights from the rest."
         )
 
@@ -245,7 +248,7 @@ def main(
     picked_ids = {r["id"] for r in picked}
     reference = [r["sequence"] for r in records if r["id"] not in picked_ids]
     click.echo(
-        f"{len(records)} usable CDS from {accession}: {len(picked)} for the comparison, "
+        f"{len(records)} CDS from {where}: {len(picked)} for the comparison, "
         f"{len(reference)} for the weight tables"
     )
 
@@ -339,9 +342,10 @@ def main(
                 weights,
                 seed=seed,
                 notes=(
-                    f"weights from {accession}, {len(reference)} reference genes, "
-                    f"comparison genes excluded; pair floor ln(0.1); "
-                    f"scored the {which} side"
+                    f"weights from {where} ({gene_set.path.name}, sequences sha256 "
+                    f"{gene_set.provenance.get('sha256', 'unrecorded')[:16]}), "
+                    f"{len(reference)} reference genes, comparison genes excluded; "
+                    f"pair floor ln(0.1); scored the {which} side"
                 ),
                 split=split,
             ),
