@@ -155,6 +155,24 @@ def test_domesticate_leaves_what_no_synonym_can_remove():
     assert node.run(sequence=[seq]) == [seq]  # Stuck, not stuck forever.
 
 
+@pytest.mark.parametrize("stop", ["TAA", "TAG", "TGA"])
+def test_domesticate_leaves_the_stop_codon_when_only_it_could_clear_a_site(stop):
+    # M has no synonym, so the stop is the one codon that could clear G + stop. The
+    # three stops translate alike, but swapping one moves where the gene ends.
+    seq = Dna(sequence="ATG" + stop)
+    node = Domesticate(DomesticateConfig(motifs=("G" + stop,)))
+    assert node.run(sequence=[seq]) == [seq]
+
+
+@pytest.mark.parametrize("seed", range(20))
+def test_domesticate_clears_a_site_by_the_sense_codon_not_the_stop(seed):
+    seq = Dna(sequence="ATGAAATAA")  # AATAA spans the last K and the stop.
+    config = DomesticateConfig(motifs=("AATAA",), strategy="random", seed=seed)
+    (out,) = Domesticate(config).run(sequence=[seq])
+    assert motif_hits(out.sequence, {"AATAA"}) == []
+    assert out.sequence.endswith("TAA") and _protein(out) == _protein(seq)
+
+
 def test_domesticate_random_is_deterministic_per_seed():
     seq = Dna(sequence="ATGGAATTCTAAGAATTCTAA")
     config = DomesticateConfig(motifs=("GAATTC",), strategy="random", seed=4)

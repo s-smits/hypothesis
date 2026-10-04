@@ -13,11 +13,12 @@ class DomesticateConfig(BaseToolConfig):
     The sites to remove are usually restriction-enzyme recognition sequences or
     other motifs a synthesis provider rejects. With ``both_strands`` each
     motif's reverse complement is removed too, so the site is gone from both
-    strands. Every substitution is synonymous, so the protein is unchanged.
+    strands. Every substitution is synonymous, so the protein is unchanged, and a
+    stop codon is never swapped.
 
     Removal is best-effort, not guaranteed. A motif whose only overlapping
-    codons have no synonym, like one inside an ATG ATG run, cannot be removed
-    synonymously and stays in place. Count what remains with ``motif_count``;
+    codons have no synonym or are a stop, like one inside an ATG ATG run, cannot be
+    removed synonymously and stays in place. Count what remains with ``motif_count``;
     do not infer removal from this node having run.
 
     Args:
@@ -30,6 +31,7 @@ class DomesticateConfig(BaseToolConfig):
     """
 
     name: Literal["domesticate"] = "domesticate"
+    version: ClassVar[int] = 2  # 2: a stop codon is no longer swapped.
     motifs: tuple[str, ...]
     both_strands: bool = True
     strategy: Literal["first", "random"] = "first"
