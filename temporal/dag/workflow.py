@@ -3,7 +3,11 @@ from datetime import timedelta
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
-from temporalio.exceptions import ActivityError, is_cancelled_exception
+from temporalio.exceptions import (
+    ActivityError,
+    ApplicationError,
+    is_cancelled_exception,
+)
 
 with workflow.unsafe.imports_passed_through():
     from node_dag.dag import DagInput, DagOutput, DagProgress, StepStatus
@@ -95,6 +99,18 @@ class DagWorkflow:
                     node_inp = node_inp.model_copy(
                         update={"values": by_col[cols[0]] if len(cols) == 1 else by_col}
                     )
+                    if ref := config.reads_reference():
+                        source, ref_id = ref
+                        score = values[source].scores.get(config.column, {}).get(ref_id)
+                        if score is None:
+                            raise ApplicationError(
+                                f"Step {key!r} compares with {ref_id!r}, but {source!r} "
+                                f"has no score for it in {config.column!r}. Score the "
+                                "reference with the same node as the entities it is "
+                                "compared with, in a step that runs first.",
+                                non_retryable=True,
+                            )
+                        node_inp = node_inp.model_copy(update={"reference": score})
                     keep = await workflow.execute_activity(
                         run_filter,
                         node_inp,

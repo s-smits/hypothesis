@@ -7,6 +7,8 @@ from node_dag.nodes.filters.at_least.config import AtLeastConfig
 from node_dag.nodes.filters.at_least.function import AtLeast
 from node_dag.nodes.filters.at_most.config import AtMostConfig
 from node_dag.nodes.filters.at_most.function import AtMost
+from node_dag.nodes.filters.beats_reference.config import BeatsReferenceConfig
+from node_dag.nodes.filters.beats_reference.function import BeatsReference
 from node_dag.nodes.filters.pareto_front.config import ParetoFrontConfig
 from node_dag.nodes.filters.pareto_front.function import ParetoFront
 from node_dag.nodes.filters.top_k.config import TopKConfig
@@ -63,6 +65,7 @@ from node_dag.nodes.tools.rna_back_transcribe.function import RnaBackTranscribe
 NodeConfig = Annotated[
     AtLeastConfig
     | AtMostConfig
+    | BeatsReferenceConfig
     | ChainContactsConfig
     | CodonCountConfig
     | CodonAdaptationConfig
@@ -94,6 +97,7 @@ NodeConfig = Annotated[
 MAPPING: dict[type[BaseNodeConfig], type[BaseNode]] = {
     AtLeastConfig: AtLeast,
     AtMostConfig: AtMost,
+    BeatsReferenceConfig: BeatsReference,
     ChainContactsConfig: ChainContacts,
     CodonCountConfig: CodonCount,
     CodonAdaptationConfig: CodonAdaptation,

@@ -189,6 +189,15 @@ class BaseFilterConfig(BaseNodeConfig):
         """Every score column this filter reads. ``column`` first."""
         return (self.column,)
 
+    def reads_reference(self) -> tuple[str, str] | None:
+        """``(source, entity id)`` of a reference entity this filter compares with, or None.
+
+        The source is a step or DAG input that runs first, and its table holds that
+        entity's score in ``column``. The runner reads the score there and hands it to
+        ``run`` as ``reference``.
+        """
+        return None
+
     @classmethod
     def outputs(cls) -> dict[str, type[Entity]]:
         """A filter step passes its entities on, split into ``.yes`` and ``.no``."""

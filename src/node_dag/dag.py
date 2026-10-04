@@ -23,7 +23,12 @@ class Step(BaseModel):
 
     def deps(self) -> set[str]:
         """The DAG inputs and step keys this step reads from."""
-        return {src.split(".")[0] for src in self.inputs.values()}
+        deps = {src.split(".")[0] for src in self.inputs.values()}
+        if isinstance(self.config, BaseFilterConfig) and (
+            ref := self.config.reads_reference()
+        ):
+            deps.add(ref[0].split(".")[0])
+        return deps
 
 
 class Dag(BaseModel):
@@ -100,6 +105,13 @@ class Dag(BaseModel):
                     raise ValueError(
                         f"Step {key!r} filters on {missing[0]!r}, but {src!r} has "
                         f"score columns {sorted(columns[src])}"
+                    )
+                ref = config.reads_reference()
+                if ref and config.column not in (held := columns.get(ref[0], set())):
+                    raise ValueError(
+                        f"Step {key!r} compares with a reference scored in "
+                        f"{ref[0]!r}, which has score columns {sorted(held)} but not "
+                        f"{config.column!r}"
                     )
                 for branch in ("yes", "no"):
                     types[f"{key}.{branch}"] = types[src]

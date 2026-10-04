@@ -250,10 +250,13 @@ def test_config_declares_what_run_takes(config):
     """The DAG is checked against config.inputs, so it must match run's signature."""
     params = inspect.signature(MAPPING[config].run).parameters
     got = {k: p.annotation for k, p in params.items() if k != "self"}
-    want = {port: list[t] for port, t in config.inputs.items()}
+    want: dict[str, object] = {port: list[t] for port, t in config.inputs.items()}
     if issubclass(config, BaseFilterConfig):
         # One column arrives as a list, several as a dict keyed by column.
         want["values"] = config.values_type
+        # A filter that compares with a reference entity's score is also given it.
+        if "reference" in got:
+            want["reference"] = float
     assert got == want
     assert config.inputs
     assert config.categories

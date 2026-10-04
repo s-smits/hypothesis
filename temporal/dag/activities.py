@@ -49,12 +49,16 @@ class RunNodeInput(BaseModel):
         step: Which step of the run this is, for the links a node reports. It says
             nothing about what the node computes, so it is left out of the cache key:
             the same work in another step, or another run, is still a cache hit.
+        reference: For a filter that compares with a reference entity, that entity's
+            score. Left out of the cache key when it is None, so other filters' keys
+            are unchanged.
     """
 
     config: NodeConfig
     inputs: dict[str, list[Value]]
     values: list[float] | dict[str, list[float]] | None = None
     step: str = ""
+    reference: float | None = None
 
     def cache_path(self) -> Path:
         """``$NODE_DAG_RESULTS/nodes/<node name>/<hash>.json``. The root defaults to ``results``.
@@ -62,7 +66,10 @@ class RunNodeInput(BaseModel):
         The hash covers the config, the inputs and the config's ``version``.
         """
         key = {
-            **self.model_dump(mode="json", exclude={"step"}),
+            **self.model_dump(
+                mode="json",
+                exclude={"step"} | ({"reference"} if self.reference is None else set()),
+            ),
             "version": self.config.version,
         }
         digest = hashlib.sha256(json.dumps(key, sort_keys=True).encode()).hexdigest()
@@ -174,7 +181,8 @@ def run_filter(inp: RunNodeInput) -> list[bool]:
 
     Returns whether to keep each entity, in order.
     """
-    return _cached(inp, _KEEP, lambda: _run_aligned(inp, values=inp.values))
+    extra = {} if inp.reference is None else {"reference": inp.reference}
+    return _cached(inp, _KEEP, lambda: _run_aligned(inp, values=inp.values, **extra))
 
 
 class SavedRun(DagProgress):
