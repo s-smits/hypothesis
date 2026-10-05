@@ -92,7 +92,7 @@ string must be checked against the chosen provider. `temporal/run_hypothesis.py`
 | Hypothesis loop, plan checks, node scaffolding | `temporal/hypothesis/`, `src/node_dag/plan.py`, `check_plan` in `src/node_dag/agent.py`, `temporal/scaffold_node.py` | `tests/test_loop.py`, `test_plan.py`, `test_guards.py`, `test_scaffold.py` |
 | Watching runs | `temporal/pulse.py` | `tests/test_pulse.py` |
 | Run ledger | `temporal/ledger.py` | `tests/test_ledger.py`, `test_loop.py` |
-| Benchmark harness | `src/node_dag/benchmark.py`, `temporal/run_benchmark.py` | `tests/test_benchmark.py` |
+| Benchmark harness and goal export | `src/node_dag/benchmark.py`, `temporal/run_benchmark.py` | `tests/test_benchmark.py`, `test_benchmark_goals.py` |
 | UI and API | `temporal/ui/app.py`, adjacent HTML, `temporal/run_ui.py` | `tests/test_ui.py`, UI cases in `test_agent.py` |
 | Translation initiation prediction | `nodes/tools/ostir_expression/` under `src/node_dag/` | `tests/test_ostir.py` |
 | Structure folding and comparison | `nodes/tools/esmfold2_fold/`, `tmalign/` under `src/node_dag/` | `tests/test_esmfold2.py`, `test_tmalign.py` |
@@ -307,6 +307,11 @@ it still has to meet these:
   is not a guarantee that all target codons disappear. Check unchanged translated
   protein, unchanged CDS length and zero targeted codons in-frame for every
   candidate. Log hard-constraint violations separately from soft scores.
+- Benchmark goals exported with `--emit-goals` include `Instance.fixed()`. Use
+  `constraint_check` version 2 with those indices in `immutable`, and filter its
+  `immutable_unchanged` column at 1.0. Empty `immutable` checks no positions and
+  reports 1.0 anyway, so read `immutable_checked` with it.
+  Held-out exports require the same recorded release as scoring.
 - Keep a fixed denominator and per-instance outcomes. Empty outputs, missing
   genes, invalid sequences, non-finite scores and execution failures cannot become
   apparent improvements by being omitted from an average. Preserve original and
